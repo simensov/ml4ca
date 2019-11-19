@@ -1,7 +1,5 @@
 # Generate data for supervised learning
-
 # TRY WITH BOTH FIXED AZIMUTHS AND ROTATING TO TEST PERFORMANCE!
-
 # Attempt 1: fixed bow thruster and same angles for stern thrusters. Remember to add a shortest path test for
 
 import numpy as np
@@ -27,13 +25,13 @@ import time
 
 class SupervisedTau():
 
-    def __init__( self, a = np.array([[0,0,0]]).T, u = np.array([[0,0,0]]).T ):
+    def __init__( self, a = np.array([[0,0,0]]).T, u = np.array([[0,0,0]]).T,data=[]):
         self.a = a
         self.u = u
         self.ly = [-0.15, 0.15, 0]
         self.lx = [-1.12, -1.12, 1.08]
-        self.data = []
-        self.filename = 'taudata_{}'.format(time.strftime("%Y%m%d_%H%M%S")) # alternatively strftime("%d-%m-%Y_%I-%M-%S_%p")
+        self.data = data
+        self.filename = 'dataset_train.npy' #.format(time.strftime("%Y%m%d_%H%M%S")) # alternatively strftime("%d-%m-%Y_%I-%M-%S_%p")
 
     def B(self,a):
         '''
@@ -98,11 +96,12 @@ class SupervisedTau():
         # Each column of the data will contain one datapoint: [tau_x, tau_y, tau_psi, u1, u2, u3, a1, a2, a3].T
 
         ##### TESTVALS
-        a0s = np.linspace(-np.pi,np.pi,3) # including zero with odd number of spacings # Using same angles for stern thrusters
+        randnum = 21
+        a0s = np.linspace(-np.pi,np.pi,randnum) # including zero with odd number of spacings # Using same angles for stern thrusters
         a2s = [np.pi/2]
-        u0s = np.linspace(-100,100,3)
-        u1s = np.linspace(-100,100,3)
-        u2s = np.linspace(-100,100,3)
+        u0s = np.linspace(-100,100,randnum)
+        u1s = np.linspace(-100,100,randnum)
+        u2s = np.linspace(-100,100,randnum)
         ### TESTVALS
 
         # IDEA: store some of the instances as test data
@@ -149,8 +148,8 @@ class SupervisedTau():
 
 ### END CLASS
         
-if __name__ == "__main__":
+# if __name__ == "__main__":
 
-    obj = SupervisedTau()
-    obj.generateData()
-    obj.displayData()
+#     obj = SupervisedTau()
+#     obj.generateData()
+#     obj.displayData()

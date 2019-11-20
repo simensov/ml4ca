@@ -25,12 +25,13 @@ import time
 
 class SupervisedTau():
 
-    def __init__( self, a = np.array([[0,0,0]]).T, u = np.array([[0,0,0]]).T,data=[]):
+    def __init__( self, a = np.array([[0,0,0]]).T, u = np.array([[0,0,0]]).T,data=[], df = 0):
         self.a = a
         self.u = u
         self.ly = [-0.15, 0.15, 0]
         self.lx = [-1.12, -1.12, 1.08]
         self.data = data
+        self.df = 0
         self.filename = 'dataset_train.npy' #.format(time.strftime("%Y%m%d_%H%M%S")) # alternatively strftime("%d-%m-%Y_%I-%M-%S_%p")
 
     def B(self,a):
@@ -76,7 +77,7 @@ class SupervisedTau():
         return np.dot(self.B(a), self.F(u))	
 
 
-    def generateData(self):
+    def generateData(self,azimuth_discretization=37,thrust_discretization = 21):
         '''
         Generates dataset for the supervised learning task of 
         '''
@@ -84,28 +85,20 @@ class SupervisedTau():
         # Use radians. Alfheim and Muggerud somehow allows both -180 and 180 deg by their implementation
         # I am trying the same, intending to use (-180,180] later
 
-        a0s = np.linspace(-np.pi,np.pi,361) # including zero with odd number of spacings. Using same angles for stern thrusters for now TODO
-        a2s = [np.pi/2]
-        # a3 = np.linspace(deg2rad(-270),deg2rad(270),) # including zero with odd number of spacings TODO what is the problem with +- 270??
-
-        # IDEA: use same values for u0 and u1 to always move them in the same direction?
-        u0s = np.linspace(-100,100,401)
-        u1s = np.linspace(-100,100,401)
-        u2s = np.linspace(-100,100,401)
-
         # Each column of the data will contain one datapoint: [tau_x, tau_y, tau_psi, u1, u2, u3, a1, a2, a3].T
-
-        ##### TESTVALS
-        randnum = 21
-        a0s = np.linspace(-np.pi,np.pi,randnum) # including zero with odd number of spacings # Using same angles for stern thrusters
-        a2s = [np.pi/2]
-        u0s = np.linspace(-100,100,randnum)
-        u1s = np.linspace(-100,100,randnum)
-        u2s = np.linspace(-100,100,randnum)
-        ### TESTVALS
+     
+        a0s = np.linspace(-np.pi,np.pi,azimuth_discretization) # including zero with odd number of spacings # Using same angles for stern thrusters
+        # a1s = np.linspace(-np.pi,np.pi,azimuth_discretization) # not do this
+        # a0s = [3*np.pi/4]
+        # a1s = [-3*np.pi/4]
+        a2s = [np.pi/2] # TODO what is the problem with +- 270??
+        u0s = np.linspace(-100,100,thrust_discretization)
+        u1s = np.linspace(-100,100,thrust_discretization)
+        u2s = np.linspace(-100,100,thrust_discretization)
 
         # IDEA: store some of the instances as test data
 
+        # Use the same angles for thrusters 1 and 2.
         for a0 in a0s:
             for a2 in a2s:
                 for u0 in u0s:
@@ -116,11 +109,12 @@ class SupervisedTau():
                             tau = self.tau(a,u)
                             ua = np.vstack((u,a))
                             datapoint = np.vstack((tau,ua)).reshape(9,)
-                            self.data.append(datapoint) # Each row is one datapoint
+                            self.data.append(datapoint) 
 
-        self.data = np.array(self.data)
+        # Convert list of np.arrays to big np.array
+        self.data = np.array(self.data) # Each row is one datapoint. First three columns are input vals, six next are labels
 
-    def displayData(self):
+    def generateDataFrame(self):
         '''
         Use Pandas to visualize the dataset
         '''
@@ -135,16 +129,41 @@ class SupervisedTau():
                             index=[i for i in range(self.data.shape[0])],
                             columns=cols) 
                                 
-        print(df)
+        self.df = df
 
-    def saveData(self):
+    def saveData(self,filename='dataset_train.npy'):
         '''
         Store data for later
         '''
+        self.filename = filename
         np.save(self.filename,self.data)
     
     def loadData(self,filename):
         self.data = np.load(filename)
+        self.generateDataFrame()
+
+    def maxMSE(self):
+        '''
+        Calculate the maximum squared error of the training data
+        '''
+        X = self.data[:,0:3]
+        largest_squares = [ (np.max(X[:,col])-np.min(X[:,col]))**2 for col in range(X.shape[1])]
+        return sum(largest_squares)
+
+    def getNormalizedData(self):
+
+        normalized = []
+        
+        for col in range(self.data.shape[1]):
+            arr = self.data[:,col]
+            normalized.append( (arr - np.mean(arr)) / (np.max(arr) - np.min(arr)))
+
+        return np.array(normalized).T
+
+    def getStandardizedData(self):
+
+        return
+
 
 ### END CLASS
         

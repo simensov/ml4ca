@@ -86,7 +86,8 @@ class SupervisedTau():
         # I am trying the same, intending to use (-180,180] later
 
         # Each column of the data will contain one datapoint: [tau_x, tau_y, tau_psi, u1, u2, u3, a1, a2, a3].T
-     
+        
+        # TODO Two alternatives: Use 0 to 2pi due to cosine uniqueness. -pi,pi due to sine uniqueness. Has to be mapped afterwards!
         a0s = np.linspace(-np.pi,np.pi,azimuth_discretization) # including zero with odd number of spacings # Using same angles for stern thrusters
         # a1s = np.linspace(-np.pi,np.pi,azimuth_discretization) # not do this
         # a0s = [3*np.pi/4]
@@ -107,6 +108,13 @@ class SupervisedTau():
                             u = np.array([[u0,u1,u2]]).T
                             a = np.array([[a0,a0,a2]]).T
                             tau = self.tau(a,u)
+
+                            # Scale dataset labels to -1,1
+                            u = u / 100.0
+                            a = np.sin(a/2)
+
+                            # TODO scale tau here as well?
+
                             ua = np.vstack((u,a))
                             datapoint = np.vstack((tau,ua)).reshape(9,)
                             self.data.append(datapoint) 

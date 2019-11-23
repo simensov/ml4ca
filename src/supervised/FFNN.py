@@ -23,6 +23,10 @@ from ann_visualizer.visualize import ann_viz # Draws a regular neural network to
 
 import matplotlib.pyplot as plt
 
+import tensorflow as tf
+
+lrelu = lambda x: tf.keras.activations.relu(x, alpha=0.1)
+
 class FFNeuralNetwork():
     '''
     Implementation of a Feedforward Neural Network for regression tasks, using:
@@ -42,6 +46,7 @@ class FFNeuralNetwork():
                       restrict_norms = False, 
                       norm_max = 5.0,
                       loss = 'mean_squared_error',
+                      activation = 'sigmoid',
                       metrics = []):
 
         self.input_dim      = input_dim
@@ -54,6 +59,7 @@ class FFNeuralNetwork():
         self.norm_max       = norm_max
 
         self.loss = loss
+        self.activation = activation
         self.metrics = metrics
         self.model = self.nn_model()
         self.history = {}
@@ -71,31 +77,34 @@ class FFNeuralNetwork():
         model = Sequential()
 
         # Initialize first layer with correct input layer
-        # model.add(Dropout(self.do_rate, input_shape=(self.input_dim,))) if self.use_dropout else None
+        model.add(Dropout(self.do_rate, input_shape=(self.input_dim,))) if self.use_dropout else None
 
         model.add(Dense(
                         units              = self.hidden_nodes,
                         input_dim          = self.input_dim,
-                        kernel_initializer = 'normal',
-                        activation         = 'relu',
+                        kernel_initializer = 'glorot_uniform',
+                        bias_initializer   = 'normal',
+                        activation         = self.activation, #lrelu,
                         kernel_constraint  = (max_norm(self.norm_max) if self.restrict_norms else None),
                         bias_constraint    = (max_norm(self.norm_max) if self.restrict_norms else None)))
 
         # Hidden layers
-        for _ in range(1,self.num_hidden):
-            # model.add(Dropout(self.do_rate)) if self.use_dropout else None
+        for _ in range(1,self.num_hidden): 
+            model.add(Dropout(self.do_rate)) if self.use_dropout else None
             model.add(Dense(
                              units              = self.hidden_nodes,
-                             kernel_initializer = 'he_normal',
-                             activation         = 'relu',
+                             kernel_initializer = 'glorot_uniform',
+                             bias_initializer   = 'normal',
+                             activation         = self.activation, # lrelu,
                              kernel_constraint  = (max_norm(self.norm_max) if self.restrict_norms else None),
                              bias_constraint    = (max_norm(self.norm_max) if self.restrict_norms else None)))
 
         # Output layer
-        # model.add(Dropout(self.do_rate)) if self.use_dropout else None
+        model.add(Dropout(self.do_rate)) if self.use_dropout else None
         model.add(Dense(
                         units              = self.output_dim,
-                        kernel_initializer = 'he_normal', # he_normal, normal, glorot_uniform
+                        kernel_initializer = 'glorot_uniform',# he_normal, normal, glorot_uniform
+                        activation         = 'linear',
                         kernel_constraint  = (max_norm(self.norm_max) if self.restrict_norms else None),
                         bias_constraint    = (max_norm(self.norm_max) if self.restrict_norms else None)))
 

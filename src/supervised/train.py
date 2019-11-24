@@ -57,7 +57,7 @@ label_size = 6
 X = dataset[:,0:input_size]
 Y = dataset[:,input_size:]
 
-print(np.max(X[:,6]),np.min(X[:,6]),np.max(X[:,7]),np.min(X[:,7]),np.max(X[:,8]),np.min(X[:,8]) )
+# print(np.max(X[:,6]),np.min(X[:,6]),np.max(X[:,7]),np.min(X[:,7]),np.max(X[:,8]),np.min(X[:,8]) )
 
 xtrain, xvaltmp, ytrain, yvaltmp = train_test_split(X,Y,test_size=0.2,shuffle=True)
 # TODO create a testset, using train_test_split on the validation set.
@@ -97,23 +97,24 @@ def lookAtPredictions(xtest,ytest,nn):
         print('###########################################\n')
 
 
-scenario = 1
+scenario = 2
 
 if scenario == 1:
     '''
     Implementation testing
     '''
-    hidden_layers = 5
-    num_neurons = 30
+    # xval gave 5, 30 as a good number
+    hidden_layers = 2
+    num_neurons = 20
     nn = FFNeuralNetwork(input_size,hidden_layers,num_neurons,label_size,activation='relu', use_dropout=False,dropout_rate=0.3,restrict_norms=False,norm_max=10.0)
     print('Training nn with {} hidden layers, {} neurons on dataset with {} samples'.format(hidden_layers,num_neurons,xtrain.shape[0]))
-       
+    nn.model.summary()
     
     nn.history = nn.model.fit(xtrain,
                               ytrain,
                               validation_data = (xval,yval),
-                              epochs          = 100,
-                              batch_size      = 128,
+                              epochs          = 20,
+                              batch_size      = 64,
                               verbose         = 0,
                               shuffle         = True) # validation_split = 0.2 is overwritten by validation data
     
@@ -124,6 +125,15 @@ if scenario == 1:
     results = nn.model.evaluate(xtest,ytest)
     print('Test set RMSE: ',np.sqrt(results))
 
+    print('Testing loading and saving + predictions of model')
+    nn.saveModel()
+    nn.loadModel()
+
+    nn.model.summary()
+
+    results = nn.model.evaluate(xtest,ytest)
+    print('Test set RMSE: ',np.sqrt(results))
+    
 
 elif scenario == 2:
     '''
@@ -134,7 +144,7 @@ elif scenario == 2:
     best_params  = []
     best_history = {}
     total_time   = 0
-    for hidden_layers in range(6,15,2):
+    for hidden_layers in range(1,5,2):
         for num_neurons in range(10,21,5):
             print('Training with {} hidden layer(s) having {} units each'.format(hidden_layers,num_neurons))
 
@@ -142,15 +152,16 @@ elif scenario == 2:
             
             stime = time.time() # start time
             
-            nn.history = nn.model.fit(xtrain,ytrain,validation_data = (xval,yval), epochs = 100, batch_size = 32, verbose = 0, shuffle = True) # validation_split = 0.2 is overwritten by validation data
+            nn.history = nn.model.fit(xtrain,ytrain,validation_data = (xval,yval), epochs = 20, batch_size = 32, verbose = 0, shuffle = True) # validation_split = 0.2 is overwritten by validation data
             
             endtime     = time.time() - stime # training time
             total_time += endtime # total time
 
             print('Resulting training loss: {} and validation loss: {}, trained in {:.2f} sec'.format(nn.history.history['loss'][-1],nn.history.history['val_loss'][-1], endtime))
             
-            if best_loss > nn.history.history['val_loss'][-1]:
-                best_loss   = nn.history.history['val_loss'][-1]
+            results = nn.model.evaluate(xtest,ytest)
+            if results < best_loss:
+                best_loss   = results
                 best_params = [hidden_layers,num_neurons,nn]
     
     lookAtPredictions(xtest,ytest,best_params[2])

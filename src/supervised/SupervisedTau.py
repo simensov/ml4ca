@@ -151,7 +151,7 @@ class SupervisedTau():
         # a1s = np.linspace(-np.pi,np.pi,azimuth_discretization) # not do this
         # a0s = [3*np.pi/4]
         a2s = [np.pi/2] # TODO what is the problem with +- 270??
-        us = np.linspace(-100,100,thrust_discretization)
+        us = np.linspace(-100,100,thrust_discretization) # TODO bow thruster does not generate rotations on low thruster inputs (see thruster_allocation). But Alfeim et al hasn't restricted it lol 
 
         us = us[np.abs(us) > 20]
         # us = 100*(us/100)**2 * np.sign(us) # bias larger thruster inputs

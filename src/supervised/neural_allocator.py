@@ -23,7 +23,7 @@ from geometry_msgs.msg import Wrench
 import numpy as np 
 import sys # for sys.exit()
 import time
-from keras.models import model_from_json
+from keras.models import load_model
 
 class NNTA(object):
     '''
@@ -36,14 +36,26 @@ class NNTA(object):
         '''
 
         # Init ROS Node
-        rospy.init_node('thrusterAllocationNode', anonymous = True)
+        rospy.init_node('neuralAllocator', anonymous = True)
 
         # Init Neural Network
         try:
-            # TODO maybe used the implementation of FFNN here?
-            self.model = self.loadModel()
+            # This compiles 
+            self.model = load_model('model.h5')
         except:
+            rospy.logerr("Loading of neural network model was not successful. Shutting down")
             sys.exit()
+
+        # Scaling factor for the forces and moments used when training the neural network
+        self.tau_scale = np.array([[54,69.2,76.9]]).T
+
+        self.u_scale = np.array([[100,100,100,np.pi,np.pi,np.pi]]).T
+
+        self.max_forces_forward = np.array([[25,25,14]]).T # In Newton
+        self.max_forces_backward = np.array([[25,25,6.1]]).T # In Newton - bow thruster is asymmetrical, thus lower force backwards
+
+        self.forwards_K  = np.array([[0.0027, 0.0027, 0.001518]]).T
+        self.backwards_K = np.array([[0.0027, 0.0027, 0.0006172]]).T
 
         # Init variable for storing the previous state each time, so that it is possible to send the thrusters the right way using shortest path calculations
         self.previous_thruster_state = [0,0,0,0,0,0]
@@ -55,9 +67,9 @@ class NNTA(object):
         self.l = np.array([temp]).T
 
         # Init Publishers
-        self.pub_stern_angles             = rospy.Publisher('thrusterAllocation/pod_angle_input', podAngle, queue_size=1)
-        self.pub_stern_thruster_setpoints = rospy.Publisher("thrusterAllocation/stern_thruster_setpoints", SternThrusterSetpoints, queue_size=1)
-        self.pub_bow_control              = rospy.Publisher("bow_control", bowControl, queue_size=1)
+        self.pub_stern_angles             = rospy.Publisher('neuralAllocator/pod_angle_input', podAngle, queue_size=1)
+        self.pub_stern_thruster_setpoints = rospy.Publisher("neuralAllocator/stern_thruster_setpoints", SternThrusterSetpoints, queue_size=1)
+        self.pub_bow_control              = rospy.Publisher("neuralAllocator/bow_control", bowControl, queue_size=1)
 
         # Init Subscribers
         # Subscriber for control forces from either DP controller or RC remote (manual T.A.)
@@ -69,22 +81,6 @@ class NNTA(object):
         #rospy.Subscriber("headingController/output", Float64, self.heading_control_effort_callback)
         # Subscriber for control effort from speed controller
         #rospy.Subscriber("speedController/output", Float64, self.speed_controller_effort_callback)
-
-    def loadModel(self):
-        '''
-        Loads previously compiled (and trained) model. Needed for implementation in ROS.
-        From: https://machinelearningmastery.com/save-load-keras-deep-learning-models/
-        Needs h5py: http://docs.h5py.org/en/stable/build.html
-        '''
-        json_file = open('model.json', 'r')
-        loaded_model_json = json_file.read()
-        json_file.close()
-        loaded_model = model_from_json(loaded_model_json)
-        # load weights into new model
-        loaded_model.load_weights("model.h5")
-
-        print("Loaded model from disk")
-        return loaded_model
 
     def shortestPath(self,a_prev,a):
         '''
@@ -102,6 +98,7 @@ class NNTA(object):
     def format_tau(self,tau_d):
         '''
         Formats the incoming desired tau to an input that the neural network has been trained on in order for it to be able to make a prediction of the thruster states.
+        The model was trained on tau-values scaled with the calculated maximum thrust, so it has to be scaled when precicting 
 
         :params:
             tau_d   - A Wrench message
@@ -116,7 +113,24 @@ class NNTA(object):
 
         # Return a 9x1 column vector of [lx1 ly1 lx2 ly2 lx3 ly3 taux tauy taup]
         return np.vstack((self.l,tau))
-        
+
+    def predictThrusterStates(self,data):
+        '''
+        Returns the thruster inputs and angles from 
+        Since the values were scaled during training, they have to be rescaled after predicting.
+
+        :params:
+            data    - a (9x1) numpy array of [lx1 ly1 lx2 ly2 lx3 ly3 taux tauy taup]
+
+        :returns:
+            A (6x1) numpy array of [u1 u2 u3 a1 a2 a3] in percentages and radians.
+
+        '''
+        u = self.model.predict(data)
+
+        # ELEMENTWISE multiplication to scale the thruster inputs and angles
+        return np.multiply(u, self.u_scale)
+
 
     def mapAngle(self, val_input, val_min, val_max, out_min, out_max):
         '''
@@ -179,20 +193,33 @@ class NNTA(object):
         data_to_NN = self.format_tau(tau_d) 
 
         # Create a prediction of the data, giving a (6,1) shaped numpy array with [u1 u2 u3 a1 a2 a3]
-        u = self.model.predict(data_to_NN)
+        u = self.predictThrusterStates(data_to_NN)
 
-        # log desired force for each propeller in newton and angles
-        rospy.loginfo('u.F1: {}, u.F2: {},  u.F3: {}, u.a1: {}, u.a2: {},  u.a3: {}'.format(u[0], u[1], u[2], u[3], u[4], u[5]))
+        thruster_percentages = u[:,0:2]
+        thruster_angles = u[:,3:] 
 
         # Constant K values F = K*n*n (see Alheim and Muggerud, 2016, for this empirical formula). The bow thruster is unsymmetrical, and this has lower coefficient for negative directioned thrust.
         if u[2] >= 0:
-            K = np.array([0.0027, 0.0027, 0.001518])
+            K = self.forwards_K
+            forces_produced = np.multiply(self.max_forces_forward, thruster_percentages / 100) # [N] elementwise multiplication
+
         else:
             K = np.array([0.0027, 0.0027, 0.0006172])
+            forces_produced = np.multiply(self.max_forces_backward, thruster_percentages / 100) # [N] elementwise multiplication
 
+        # TODO does the original allocation calculate the thrust outputs as forces????
+        # TODO make the check above to a function - it is messy
+        # TODO do I have to do this? I have already used the thruster input percentages as training data - the predictions are according to the physics anyway
+        # TODO that might be right, but I do not have the maximum rpms available anywhere (at least not underwater)
+        # TODO therefore, the recalculation might has to be done unless a transformation of u(%) -> n(RPM) is found. BUT maybe the rpm signals are just given as percentages??
+        # TODO FIRST TEST: use the percentages from the neural network directly!
+        
         # Calculate n [rpm] : f = K*n*abs(n) from thrust input given as percentages
-        thruster_percentages = np.array([u[0], u[1], u[2]])
-        n = np.sign(thruster_percentages / K) * np.sqrt(np.abs(thruster_percentages / K))
+
+        # Translate the thruster forces into thruster RPMS
+        Tf = forces_produced
+        n = np.sign(Tf / K) * np.sqrt(np.abs(Tf / K)) # a (3,1) array of the thruster RPMS
+
         rospy.loginfo('n.Port: %s , n.Star: %s, n.Bow: %s  ', n[0], n[1], n[2])
 
         # Initialize messages for publishing
@@ -225,6 +252,8 @@ class NNTA(object):
         bow_control.throttle_bow = bow_spd
         bow_control.position_bow = servo_out
         bow_control.lin_act_bow = act_out
+
+        self.previous_thruster_state = np.array([[]]).T
 
         # Publish the stern pod angles and thruster rpms, as well as the bow message
         self.pub_stern_angles.publish(pod_angle)

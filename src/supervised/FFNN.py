@@ -18,7 +18,7 @@ from keras.layers import Dense
 from keras.layers import Dropout
 from keras.constraints import max_norm
 from keras.utils import plot_model
-from keras.models import model_from_json
+from keras.models import model_from_json, load_model
 
 from numpy import sqrt
 from ann_visualizer.visualize import ann_viz # Draws a regular neural network to plt. Not working with droput-layers etc.
@@ -47,6 +47,7 @@ class FFNeuralNetwork():
                       norm_max = 5.0,
                       loss = 'mean_squared_error',
                       activation = 'sigmoid',
+                      optimizer = 'adam',
                       metrics = []):
 
         self.input_dim      = input_dim
@@ -60,6 +61,7 @@ class FFNeuralNetwork():
 
         self.loss = loss
         self.activation = activation
+        self.optimizer = optimizer
         self.metrics = metrics
         self.model = self.nn_model()
         self.history = {}
@@ -84,34 +86,37 @@ class FFNeuralNetwork():
                         input_dim          = self.input_dim,
                         kernel_initializer = 'glorot_uniform',
                         bias_initializer   = 'normal',
-                        activation         = self.activation, #lrelu,
+                        activation         = self.activation,
                         kernel_constraint  = (max_norm(self.norm_max) if self.restrict_norms else None),
-                        bias_constraint    = (max_norm(self.norm_max) if self.restrict_norms else None)))
+                        bias_constraint    = (max_norm(self.norm_max) if self.restrict_norms else None),
+                        name               = 'input_layer'))
 
         # Hidden layers
-        for _ in range(1,self.num_hidden): 
+        for hidden_layer in range(self.num_hidden): 
             model.add(Dropout(self.do_rate)) if self.use_dropout else None
             model.add(Dense(
                              units              = self.hidden_nodes,
                              kernel_initializer = 'glorot_uniform',
                              bias_initializer   = 'normal',
-                             activation         = self.activation, # lrelu,
+                             activation         = self.activation,
                              kernel_constraint  = (max_norm(self.norm_max) if self.restrict_norms else None),
-                             bias_constraint    = (max_norm(self.norm_max) if self.restrict_norms else None)))
+                             bias_constraint    = (max_norm(self.norm_max) if self.restrict_norms else None),
+                             name               = 'hidden_layer_{}'.format(hidden_layer+1)))
 
         # Output layer
         model.add(Dropout(self.do_rate)) if self.use_dropout else None
         model.add(Dense(
                         units              = self.output_dim,
-                        kernel_initializer = 'glorot_uniform',# he_normal, normal, glorot_uniform
+                        kernel_initializer = 'glorot_uniform', # he_normal, normal, glorot_uniform
                         activation         = 'linear',
                         kernel_constraint  = (max_norm(self.norm_max) if self.restrict_norms else None),
-                        bias_constraint    = (max_norm(self.norm_max) if self.restrict_norms else None)))
+                        bias_constraint    = (max_norm(self.norm_max) if self.restrict_norms else None),
+                        name               = 'output_layer'))
 
         # Compile model
         model.compile(
                       loss      = self.loss, # root_mean_squared_error, # 'mean_squared_error'
-                      optimizer = 'adam', # adadelta, adam etc.
+                      optimizer = self.optimizer, # adadelta, adam etc.
                       metrics   = self.metrics) # 'acc' does not give any meaning for regression problems.
 
         return model
@@ -150,15 +155,17 @@ class FFNeuralNetwork():
     def saveModel(self):
         '''
         Saves keras for later use. Needed for implementation in ROS.
-        From: https://machinelearningmastery.com/save-load-keras-deep-learning-models/
+        Saves model as a HDF5 file with:
+            the architecture of the model, allowing to re-create the model
+            the weights of the model
+            the training configuration (loss, optimizer)
+            the state of the optimizer, allowing to resume training exactly where you left off. 
+
+        From: https://keras.io/getting-started/faq/#how-can-i-save-a-keras-model
         Needs h5py: http://docs.h5py.org/en/stable/build.html
         '''
-        model_json = self.model.to_json()
-        with open("model.json", "w") as json_file:
-            json_file.write(model_json)
-        # serialize weights to HDF5
-        self.model.save_weights("model.h5")
-        print("Saved model to disk")
+        self.model.save('model.h5')
+        print('Saved model')
 
     def loadModel(self):
         '''
@@ -166,13 +173,7 @@ class FFNeuralNetwork():
         From: https://machinelearningmastery.com/save-load-keras-deep-learning-models/
         Needs h5py: http://docs.h5py.org/en/stable/build.html
         '''
-        json_file = open('model.json', 'r')
-        loaded_model_json = json_file.read()
-        json_file.close()
-        loaded_model = model_from_json(loaded_model_json)
-        # load weights into new model
-        loaded_model.load_weights("model.h5")
-        print("Loaded model from disk")
+        self.model = load_model('model.h5')
 
 
 # TODO move such utilities into another directory

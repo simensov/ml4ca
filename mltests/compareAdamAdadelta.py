@@ -17,6 +17,9 @@ dataset = dataframe.values
 X = dataset[:,0:13]
 Y = dataset[:,13]
 
+print(X)
+print(Y)
+
 # define wider model
 def wider_model():
 	# create model

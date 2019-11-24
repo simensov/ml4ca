@@ -112,6 +112,9 @@ plt.xlabel('Moment in yaw, normalize')
 
 # TODO augment the data such that the lesser repeated values appear more often
 
-plt.show()
 
+
+# TODO visualize the distribution of angles and gains
+
+plt.show()
 

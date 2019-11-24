@@ -5,7 +5,7 @@
 # Attempt 1: fixed bow thruster and same angles for stern thrusters. Remember to add a shortest path test for
 
 import numpy as np
-from math import sin, cos
+from math import sin, cos, floor
 from math import radians as deg2rad
 import pandas as pd 
 import time
@@ -90,44 +90,129 @@ class SupervisedTau():
         # TODO Two alternatives: Use 0 to 2pi due to cosine uniqueness. -pi,pi due to sine uniqueness. Has to be mapped afterwards!
         a0s = np.linspace(-np.pi,np.pi,azimuth_discretization) # including zero with odd number of spacings # Using same angles for stern thrusters
         # a1s = np.linspace(-np.pi,np.pi,azimuth_discretization) # not do this
-        # a0s = [3*np.pi/4]
-        a2s = [np.pi/2] # TODO what is the problem with +- 270??
-        u0s = np.linspace(-100,100,thrust_discretization)
-        u1s = np.linspace(-100,100,thrust_discretization)
-        u2s = np.linspace(-100,100,thrust_discretization)
-
-        # IDEA: store some of the instances as test data
+        a0s = [3*np.pi/4]
+        a2s = [np.pi/2] # TODO kept constant during training due to the weird definition of +- 270??
+        us = np.linspace(-100,100,thrust_discretization)
 
         # Use the same angles for thrusters 1 and 2.
+
+        # Make the vector of distances from CG
+        l = []
+        for lxi, lyi in zip(self.lx,self.ly):
+            l.append(lxi); l.append(lyi)
+
+        l = np.array([l]).T
+
         for a0 in a0s:
             for a2 in a2s:
-                for u0 in u0s:
-                    for u1 in u1s:
-                        for u2 in u2s:
+                for u0 in us:
+                    for u1 in us:
+                        for u2 in us:
                             u = np.array([[u0,u1,u2]]).T
-                            a = np.array([[a0,a0,a2]]).T # TODO note that there is a minus for the port side thruster, used when they are set fixed
+                            a = np.array([[-a0,a0,a2]]).T # TODO note that there might be a minus for the port side thruster, used when they are set fixed
                             tau = self.tau(a,u)
 
+                            # Do not add very small elements
+                            if True:
+                                if np.any(np.abs(tau) < 1):
+                                    continue
+                            
                             # Scale dataset labels to -1,1
                             u = u / 100.0
                             a = a / np.pi
 
-                            # TODO scale tau here as well?
-                            # TODO add the positioning of the thrusters to the dataset in order to help the neural network understanding more.
-                            # It makes sense since the neural network is basically trying to determine the pseudo inverse. Not giving it the parameters needed seems stupid
+                            if True:
+                                tauscale = np.array([[1/54,1/69.2,1/76.9]]).T # calculated maximum taux, tauy, taup
+                                tau = np.multiply(tau,tauscale) # elementwise multiplication , NOT dot product!
 
-                            l = []
-                            for lxi, lyi in zip(self.lx,self.ly):
-                                l.append(lxi); l.append(lyi)
-
-                            l = np.array([l]).T
+                            # Add the positions of the thrusters to the dataset to help the NN understanding relationships of force and moment.
 
                             datapoint = np.vstack((l,tau,u,a)).reshape(15,)
 
-                            self.data.append(datapoint) 
+                            self.data.append(datapoint)
+
+        # Convert list of np.arrays to big np.array
+        self.data = np.array(self.data) # Each row is one datapoint. First nine columns are input vals, six next are labels
+
+
+    def generateDataRandom(self,azimuth_discretization=37,thrust_discretization = 21):
+        '''
+        Generates dataset for the supervised learning task in the same way that Skulstad did: considering each thruster on its own
+        '''
+        a0s = np.linspace(-np.pi,np.pi,azimuth_discretization) # including zero with odd number of spacings # Using same angles for stern thrusters
+        # a1s = np.linspace(-np.pi,np.pi,azimuth_discretization) # not do this
+        # a0s = [3*np.pi/4]
+        a2s = [np.pi/2] # TODO what is the problem with +- 270??
+        us = np.linspace(-100,100,thrust_discretization)
+
+        us = us[np.abs(us) > 20]
+        # us = 100*(us/100)**2 * np.sign(us) # bias larger thruster inputs
+        
+        a0s = np.pi * (a0s/np.pi)**2 * np.sign(a0s)
+
+
+        # Use the same angles for thrusters 1 and 2.
+        tauxs = set()
+        tauys = set()
+        taups = set()
+        # u0set = set()
+        # u1set = set()
+        # u2set = set()
+        # a0set = set()
+
+        for _ in range(20000):
+            u0 = np.random.choice(us)
+            u1 = np.random.choice(us)
+            u2 = np.random.choice(us)
+            a0 = np.random.choice(a0s)
+
+            # if u0 in u0set and u1 in u1set and u2 in u2set and a0 in a0set:
+            #     continue
+            # else:
+            #     u0set.add(u0); u1set.add(u1); u2set.add(u2); a0set.add(a0)
+
+            
+            a2 = a2s[0]
+
+            u = np.array([[u0,u1,u2]]).T
+            a = np.array([[a0,a0,a2]]).T # TODO note that there might be a minus for the port side thruster, used when they are set fixed
+            
+            tau = self.tau(a,u)
+
+            # Do not add very small elements
+            if np.any(np.abs(tau) < 1):
+                continue
+            
+            tx, ty, tp = tau[:,0]
+
+            if float(tx) in tauxs or float(ty) in tauys or float(tp) in taups:
+                continue
+            else:
+                tauxs.add(float(tx)); tauys.add(float(ty)); taups.add(float(tp))
+
+            # Scale dataset labels to -1,1
+            u = u / 100.0
+            a = a / np.pi
+            
+            # TODO scale tau here as well?
+            #tauscale = np.array([[1/54,1/69.2,1/76.9]]).T # calculated maximum taux, tauy, taup
+            #tau = np.multiply(tau,tauscale) # elementwise multiplication , NOT dot product!
+
+            # Add the positions of the thrusters to the dataset to help the NN understanding relationships of force and moment.
+
+            l = []
+            for lxi, lyi in zip(self.lx,self.ly):
+                l.append(lxi); l.append(lyi)
+
+            l = np.array([l]).T
+
+            datapoint = np.vstack((l,tau,u,a)).reshape(15,)
+            
+            self.data.append(datapoint) 
 
         # Convert list of np.arrays to big np.array
         self.data = np.array(self.data) # Each row is one datapoint. First three columns are input vals, six next are labels
+
 
     def generateDataFrame(self):
         '''

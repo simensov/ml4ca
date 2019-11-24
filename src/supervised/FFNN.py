@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 '''
 This file contains the implementation of a simple feed forward neural network class.
 It is implemented as a separate class to get easy access to different plotting, storage and loading functions to my own liking.
@@ -122,29 +124,29 @@ class FFNeuralNetwork():
     def visualize(self,title=''):
         ann_viz(self.model, title=title)
 
-    def plotHistory(self):
+    def plotHistory(self,plot_validation=True):
         if self.history == 0:
             print('No history kears objects has been assigned')
         else:
             plt.figure()            
             # Plot training & validation loss values
-            plt.subplot(211)
+            plt.subplot(111) # 211
             plt.plot(self.history.history['loss'])
-            plt.plot(self.history.history['val_loss'])
+            plt.plot(self.history.history['val_loss']) if plot_validation else None
             plt.title('Mean Squared Error')
             plt.ylabel('Loss')
             plt.xlabel('Epoch')
             plt.legend(['Train', 'Validation'], loc='upper left')
             plt.grid(True)
 
-            plt.subplot(212)
-            plt.plot(sqrt(self.history.history['loss']))
-            plt.plot(sqrt(self.history.history['val_loss']))
-            plt.title('Root Mean Squared Error')
-            plt.ylabel('Loss')
-            plt.xlabel('Epoch')
-            plt.legend(['Train', 'Validation'], loc='upper left')
-            plt.grid(True)
+            # plt.subplot(212)
+            # plt.plot(sqrt(self.history.history['loss']))
+            # plt.plot(sqrt(self.history.history['val_loss'])) if plot_validation else None
+            # plt.title('Root Mean Squared Error')
+            # plt.ylabel('Loss')
+            # plt.xlabel('Epoch')
+            # plt.legend(['Train', 'Validation'], loc='upper left')
+            # plt.grid(True)
             # plt.show()
 
     def saveModel(self):

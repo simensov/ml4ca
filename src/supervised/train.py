@@ -36,14 +36,7 @@ from FFNN import FFNeuralNetwork
 Create, shuffle and scale the dataset
 '''
 st = SupervisedTau()
-#st.loadData('dataset_train.npy')
-#st.loadData('dataset_train_fixedazi.npy')
-#st.loadData('dataset_train_55.npy')
-#st.loadData('dataset_train_1111.npy')
-#st.loadData('dataset_train_2121.npy')
-st.loadData('dataset_train_2525.npy')
-#st.loadData('dataset_train_3131.npy')
-
+st.loadData('dataset_train_5151.npy')
 dataset = st.data
 
 if False:
@@ -56,13 +49,15 @@ if False:
     Y = dataset_scaled[:,3:]
 
 np.random.seed()
-for _ in range(7):
+for _ in range(np.random.choice([3,5,7,9])):
     np.random.shuffle(dataset) # Shuffle dataset as it has been generated manually, and contains a lot of patterns
 
 input_size = 9
 label_size = 6
 X = dataset[:,0:input_size]
 Y = dataset[:,input_size:]
+
+print(np.max(X[:,6]),np.min(X[:,6]),np.max(X[:,7]),np.min(X[:,7]),np.max(X[:,8]),np.min(X[:,8]) )
 
 xtrain, xvaltmp, ytrain, yvaltmp = train_test_split(X,Y,test_size=0.2,shuffle=True)
 # TODO create a testset, using train_test_split on the validation set.
@@ -93,24 +88,31 @@ def lookAtPredictions(xtest,ytest,nn):
         print( np.hstack((realua,predua)) )
 
         print('¤¤¤¤¤ Difference in Tau vs. Predicted tau')
-        print(xtest[idx:idx+1,-3:].T-sl.tau(a,u) )
+        tauscaled = xtest[idx:idx+1,-3:].T
+        datascale = np.array([[54,69.2,76.9]]).T # calculated maximum taux, tauy, taup
+        taureal = np.multiply(tauscaled,datascale) # elementwise multiplication
 
-        print('¤¤¤¤¤ Predicted thruster placements')
+        print(taureal - sl.tau(a,u) )
+
         print('###########################################\n')
 
 
-if True:
+scenario = 1
+
+if scenario == 1:
     '''
     Implementation testing
     '''
     hidden_layers = 5
     num_neurons = 30
-    nn = FFNeuralNetwork(input_size,hidden_layers,num_neurons,label_size,activation='sigmoid', use_dropout=False,dropout_rate=0.3,restrict_norms=False,norm_max=10.0)
+    nn = FFNeuralNetwork(input_size,hidden_layers,num_neurons,label_size,activation='relu', use_dropout=False,dropout_rate=0.3,restrict_norms=False,norm_max=10.0)
     print('Training nn with {} hidden layers, {} neurons on dataset with {} samples'.format(hidden_layers,num_neurons,xtrain.shape[0]))
+       
+    
     nn.history = nn.model.fit(xtrain,
                               ytrain,
                               validation_data = (xval,yval),
-                              epochs          = 60,
+                              epochs          = 100,
                               batch_size      = 128,
                               verbose         = 0,
                               shuffle         = True) # validation_split = 0.2 is overwritten by validation data
@@ -122,10 +124,8 @@ if True:
     results = nn.model.evaluate(xtest,ytest)
     print('Test set RMSE: ',np.sqrt(results))
 
-    
 
-
-else:
+elif scenario == 2:
     '''
     Hyperparameter selection
     '''
@@ -158,6 +158,10 @@ else:
     print('Lowest final validation loss was found with {} hidden layer(s) and {} neurons each. Total time: {:.2f}'.format(best_params[0],best_params[1],total_time))
     
     best_params[2].plotHistory()
+
+
+else:
+    print('Do nothing')
 
     
 

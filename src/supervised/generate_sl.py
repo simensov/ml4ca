@@ -1,6 +1,8 @@
+#!/usr/bin/env python3
+
 from SupervisedTau import SupervisedTau
 
-for d in [5,11,21,25,31]:
+for d in [11]: #,25,31]:
     obj = SupervisedTau()
     ad = d
     ud = d

@@ -12,6 +12,7 @@ nn = FFNeuralNetwork(10,2,20,3)
 
 @author Simen Sem Oevereng, simensem@gmail.com, November 2019.
 '''
+import tensorflow as tf
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.layers import Dropout
@@ -20,13 +21,10 @@ from keras.utils import plot_model
 from keras.models import model_from_json
 
 from numpy import sqrt
-
 from ann_visualizer.visualize import ann_viz # Draws a regular neural network to plt. Not working with droput-layers etc.
-
 import matplotlib.pyplot as plt
 
-import tensorflow as tf
-
+# TODO not used. Creates a leaky relu activation function
 lrelu = lambda x: tf.keras.activations.relu(x, alpha=0.1)
 
 class FFNeuralNetwork():

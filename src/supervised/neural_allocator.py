@@ -226,7 +226,6 @@ class NNTA(object):
         bow_control.position_bow = servo_out
         bow_control.lin_act_bow = act_out
 
-
         # Publish the stern pod angles and thruster rpms, as well as the bow message
         self.pub_stern_angles.publish(pod_angle)
         self.pub_stern_thruster_setpoints.publish(stern_thruster_setpoints)

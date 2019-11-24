@@ -32,6 +32,7 @@ class SupervisedTau():
         self.u = u
         self.ly = [-0.15, 0.15, 0]
         self.lx = [-1.12, -1.12, 1.08]
+        self.tau_max = np.array([[69,30,80]]).T # Saturation according to dp_controller/DP_PID.py
         self.data = data
         self.df = 0
         self.filename = 'dataset_train.npy' #.format(time.strftime("%Y%m%d_%H%M%S")) # alternatively strftime("%d-%m-%Y_%I-%M-%S_%p")
@@ -112,9 +113,15 @@ class SupervisedTau():
                             a = np.array([[-a0,a0,a2]]).T # TODO note that there might be a minus for the port side thruster, used when they are set fixed
                             tau = self.tau(a,u)
 
+
                             # Do not add very small elements
                             if True:
                                 if np.any(np.abs(tau) < 1):
+                                    continue
+
+                            if True:
+                                # Do not add elements that are larger than the PID saturation, set in the previous implementations Revolt Source Code. This is however not quite realistic when the bow thruster has a fixed angle.
+                                if np.any( np.abs(tau) > self.tau_max):
                                     continue
                             
                             # Scale dataset labels to -1,1
@@ -124,6 +131,7 @@ class SupervisedTau():
                             if True:
                                 tauscale = np.array([[1/54,1/69.2,1/76.9]]).T # calculated maximum taux, tauy, taup
                                 tau = np.multiply(tau,tauscale) # elementwise multiplication , NOT dot product!
+                            
 
                             # Add the positions of the thrusters to the dataset to help the NN understanding relationships of force and moment.
 

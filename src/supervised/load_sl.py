@@ -16,7 +16,7 @@ Load data and inspect
 '''
 
 st = SupervisedTau()
-st.loadData('dataset_train_1111.npy')
+st.loadData('dataset_train_2525.npy')
 dataset = st.data
 
 input_size = 9

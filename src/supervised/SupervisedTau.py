@@ -134,9 +134,7 @@ class SupervisedTau():
                             
 
                             # Add the positions of the thrusters to the dataset to help the NN understanding relationships of force and moment.
-
                             datapoint = np.vstack((l,tau,u,a)).reshape(15,)
-
                             self.data.append(datapoint)
 
         # Convert list of np.arrays to big np.array

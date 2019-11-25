@@ -97,15 +97,15 @@ def lookAtPredictions(xtest,ytest,nn):
         print('###########################################\n')
 
 
-scenario = 2
+scenario = 1
 
 if scenario == 1:
     '''
     Implementation testing
     '''
-    # xval gave 5, 30 as a good number
-    hidden_layers = 2
-    num_neurons = 20
+    # xval gave 5, 30 as a good number. 1, 20 gives good results as well
+    hidden_layers = 5
+    num_neurons = 30
     nn = FFNeuralNetwork(input_size,hidden_layers,num_neurons,label_size,activation='relu', use_dropout=False,dropout_rate=0.3,restrict_norms=False,norm_max=10.0)
     print('Training nn with {} hidden layers, {} neurons on dataset with {} samples'.format(hidden_layers,num_neurons,xtrain.shape[0]))
     nn.model.summary()

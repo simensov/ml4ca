@@ -29,12 +29,15 @@ class QPTA(object):
         '''
 
         # Init ROS Node
-        rospy.init_node('neuralAllocator', anonymous = True)
+        rospy.init_node('QPAllocator', anonymous = True)
         self.rate = rospy.Rate(5) # time step of 0.2 s^1 = 5 Hz
 
         # Scaling factor for the forces and moments used when training the neural network
         self.max_forces_forward = np.array([[25.0,25.0,14.0]]).T # In Newton
         self.max_forces_backward = np.array([[25.0,25.0,6.1]]).T # In Newton - bow thruster is asymmetrical, thus lower force backwards
+        self.max_force_rate = [10, 10, 4] # 5, 5, 2 was nice
+        self.max_rotational_rate = [np.pi/6, np.pi/6, np.pi/6] # pi/12 on all was nice
+
         self.forwards_K  = np.array([[0.0027, 0.0027, 0.001518]]).T
         self.backwards_K = np.array([[0.0027, 0.0027, 0.0006172]]).T
 
@@ -52,10 +55,10 @@ class QPTA(object):
         self.l = np.array([temp]).T
 
         # Init Publishers TODO use neuralAllocator
-        self.pub_stern_angles             = rospy.Publisher('QPAllocation/pod_angle_input', podAngle, queue_size=1)
-        self.pub_stern_thruster_setpoints = rospy.Publisher("QPAllocation/stern_thruster_setpoints", SternThrusterSetpoints, queue_size=1)
-        self.pub_bow_control              = rospy.Publisher("QPAllocation/bow_control", bowControl, queue_size=1)
-        self.pub_resulting_tau            = rospy.Publisher("QPAllocation/resulting_tau", Wrench, queue_size=1)
+        self.pub_stern_angles             = rospy.Publisher('QPthrusterAllocation/pod_angle_input', podAngle, queue_size=1)
+        self.pub_stern_thruster_setpoints = rospy.Publisher("QPthrusterAllocation/stern_thruster_setpoints", SternThrusterSetpoints, queue_size=1)
+        self.pub_bow_control              = rospy.Publisher("QPbow_control", bowControl, queue_size=1)
+        self.pub_resulting_tau            = rospy.Publisher("QPresulting_tau", Wrench, queue_size=1)
 
         # Init subscriber for control forces from either DP controller or RC remote (manual T.A.)
         rospy.Subscriber("tau_controller", Wrench, self.tau_controller_callback)
@@ -81,7 +84,7 @@ class QPTA(object):
         Maps the elements in a vector to [-pi,pi)
 
         :params:
-            angles  - A numpy column vector of size (m,1)
+            angles  - A numpy column vector of size (m,1), m > 0
         '''
 
         return np.mod( angles + np.pi, 2 * np.pi) - np.pi
@@ -113,18 +116,18 @@ class QPTA(object):
         # Rate constraint on force increase/decrease: 
         # dfMin < dF < dFMax  becomes ||| dFMax - dF >= 0||| AND ||| -dFMin + dF >= 0 ||| where -dFmin is -(-dFMax) 
         # Note that e-3 added makes it possible for the rate to be zero! It just overlaps the other constraint, so it is all good - a good ol' optimization trick
-        def c4(x): return 10.0 - (x[0] - s_t[0])
-        def c5(x): return 10.0 + (x[0] - s_t[0])
-        def c6(x): return 10.0 - (x[1] - s_t[1])
-        def c7(x): return 10.0 + (x[1] - s_t[1])
-        def c8(x): return 4.00 - (x[2] - s_t[2])
-        def c9(x): return 4.00 + (x[2] - s_t[2])
+        def c4(x): return self.max_force_rate[0] - (x[0] - s_t[0])
+        def c5(x): return self.max_force_rate[0] + (x[0] - s_t[0])
+        def c6(x): return self.max_force_rate[1] - (x[1] - s_t[1])
+        def c7(x): return self.max_force_rate[1] + (x[1] - s_t[1])
+        def c8(x): return self.max_force_rate[2] - (x[2] - s_t[2])
+        def c9(x): return self.max_force_rate[2] + (x[2] - s_t[2])
         
         ### ANGULAR RATE CONSTRAINTS
-        def c10(x): return np.pi/6 + (x[3] - s_t[3])
-        def c11(x): return np.pi/6 - (x[3] - s_t[3])
-        def c12(x): return np.pi/6 + (x[4] - s_t[4])
-        def c13(x): return np.pi/6 - (x[4] - s_t[4])
+        def c10(x): return self.max_rotational_rate[0] + (x[3] - s_t[3])
+        def c11(x): return self.max_rotational_rate[0] - (x[3] - s_t[3])
+        def c12(x): return self.max_rotational_rate[1] + (x[4] - s_t[4])
+        def c13(x): return self.max_rotational_rate[1] - (x[4] - s_t[4])
 
         # Gather all constrains
         con1  = {'type': 'eq', 'fun': c1}
@@ -152,19 +155,24 @@ class QPTA(object):
                 (-s_bnd,s_bnd),(-s_bnd,s_bnd),(-s_bnd,s_bnd)) 
 
         # Set initial condition according to previous state, and set slack variables to zero
+        # TODO maybe this is not the proper way to go?
+
         x0 = np.array([s_t[0], s_t[1], s_t[2], s_t[3], s_t[4], 0.0, 0.0, 0.0]) # Initial value - changes with each time instance
 
         # SOLVE!
         solution = minimize(objective, x0, method='SLSQP', bounds = bnds, constraints = cons) # Using Sequential Least Squares Quadratic Programming
+
+        # solution has attributes such as x, success, message
         x = solution.x
+        print(solution.message)
 
         # Clean solution for very small values to avoid flickering TODO see if this causes flickering, evt. put boundary higher
         x[np.where(np.abs(x) < 0.01)] = 0.0
 
         # Ensure that the node isn't run faster than 5 times per second when QP has been called since the rotational rates has been calculated with 0.2s as time step
-        self.rate.sleep()
+        #self.rate.sleep() # TODO
         
-        return x # (8,)-shaped numpy array
+        return x, solution.success # (8,)-shaped numpy array
 
     def tau_controller_callback(self, tau_d):
         '''
@@ -184,8 +192,12 @@ class QPTA(object):
         '''
 
         tau_desired     = np.array([[float(tau_d.force.x), float(tau_d.force.y), float(tau_d.torque.z)]]).T
-        solution        = self.solve_QP(tau_desired) # returns a vector of [F1,F2,F3,alpha1,alpha2,slack1,slack3,slack3]
-        
+        solution, succsess = self.solve_QP(tau_desired) # returns a vector of [F1,F2,F3,alpha1,alpha2,slack1,slack3,slack3]
+
+        if not succsess:
+            rospy.logerr('QP found no solution - setting thruster states == previous states')
+            solution = self.previous_thruster_state
+
         # Extract thruster forces F and angles alpha
         F = np.array([[ solution[0], solution[1], solution[2] ]]).T # Has been constrained between max and min force in QP solver
         alpha = np.array([[solution[3],solution[4], self.bow_angle_fixed]]).T
@@ -204,6 +216,9 @@ class QPTA(object):
         fk = np.divide(F,K) # F/ K
         n = np.multiply(np.sign(fk), np.sqrt(np.abs(fk))) # sgn(F/K) * sqrt(|F/K|) a (3,1) array of the propeller rotation percentages
 
+        print('Thruster inputs')
+
+        print(n)
         # Initialize messages for publishing
         pod_angle = podAngle()
         stern_thruster_setpoints = SternThrusterSetpoints()
@@ -215,7 +230,7 @@ class QPTA(object):
 
         stern_thruster_setpoints.port_effort = float(n[0,0])
         stern_thruster_setpoints.star_effort = float(n[1,0])
-        bow_spd = float(n[2,0]) # TODO Bow throttle doesn't work at low inputs (DC Motor) 
+        bow_spd                              = float(n[2,0]) # TODO Bow throttle doesn't work at low inputs (DC Motor) 
 
         # Map the bow thruster angle into -100 and 100 percent TODO this makes no sense so far. They have assumed that the range was between -270, 270, but nothing has explicitly stated that yet
 

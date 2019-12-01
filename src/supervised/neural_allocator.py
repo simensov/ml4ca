@@ -3,7 +3,7 @@
 from __future__ import division
 import rospy
 from std_msgs.msg import Float64
-from custom_msgs.msg import NorthEastHeading, podAngle, SternThrusterSetpoints, bowControl, diffThrottleStern
+from custom_msgs.msg import podAngle, SternThrusterSetpoints, bowControl
 from geometry_msgs.msg import Wrench
 import numpy as np 
 import sys # for sys.exit()
@@ -39,10 +39,11 @@ class NNTA(object):
 
         # Init Neural Network
         
-        # self.model.summary()
         try:
             # This compiles 
             self.model = load_model('/home/revolt/revolt_ws/src/neural_allocator/src/model.h5')
+            rospy.logerr("Loading of neural network model for thrust allocation successful.")
+            # self.model.summary()
         except:
             rospy.logerr("Loading of neural network model was not successful. Shutting down")
             sys.exit()
@@ -50,7 +51,6 @@ class NNTA(object):
 
         # Scaling factor for the forces and moments used when training the neural network
         self.tau_scale = np.array([[1/54,1/69.2,1/76.9]]).T
-
         self.u_scale = np.array([[100,100,100,np.pi,np.pi,np.pi]]).T
 
         self.max_forces_forward = np.array([[25,25,14]]).T # In Newton
@@ -61,25 +61,26 @@ class NNTA(object):
 
         # Init variable for storing the previous state each time, so that it is possible to send the thrusters the right way using shortest path calculations
         self.previous_thruster_state = [0,0,0,0,0,0]
+        self.prev_time_step = rospy.get_time()
 
-        # Init variable that contains the positions of the thrusters: [lx1 ly1 lx2 ly2 lx3 ly3]
-        # TODO this don't need a for loop
+      # Init variable that contains the positions of the thrusters: [lx1 ly1 lx2 ly2 lx3 ly3]
+        self.lx = [-1.12, -1.12, 1.08]
+        self.ly = [-0.15, 0.15, 0.0]
         temp = []
-        for lxi, lyi in zip([-1.12, -1.12, 1.08],[-0.15, 0.15, 0]):
+        for lxi, lyi in zip(self.lx,self.ly):
             temp.append(lxi); temp.append(lyi)
         self.l = np.array([temp]).T
 
         # Init Publishers TODO use neuralAllocator
-        self.pub_stern_angles             = rospy.Publisher('thrusterAllocation/pod_angle_input', podAngle, queue_size=1)
-        self.pub_stern_thruster_setpoints = rospy.Publisher("thrusterAllocation/stern_thruster_setpoints", SternThrusterSetpoints, queue_size=1)
-        self.pub_bow_control              = rospy.Publisher("bow_control", bowControl, queue_size=1)
+        self.pub_stern_angles             = rospy.Publisher('NN/thrusterAllocation/pod_angle_input', podAngle, queue_size=1)
+        self.pub_stern_thruster_setpoints = rospy.Publisher("NN/thrusterAllocation/stern_thruster_setpoints", SternThrusterSetpoints, queue_size=1)
+        self.pub_bow_control              = rospy.Publisher("NN/bow_control", bowControl, queue_size=1)
+        self.pub_tau_diff                 = rospy.Publisher("NN/tau_diff", Wrench, queue_size=1)
+        self.pub_thruster_forces          = rospy.Publisher("NN/F", Wrench, queue_size=1)
 
         # Init subscriber for control forces from either DP controller or RC remote (manual T.A.)
         rospy.Subscriber("tau_controller", Wrench, self.tau_controller_callback)
 
-        # tau_scaled = np.multiply( np.array([[30.,0.,0.]]).T,self.tau_scale ) # elementwise
-        # liksominput = np.vstack( (self.l,tau_scaled))
-        # self.predictThrusterStates(liksominput)
 
     def shortestPath(self,a_prev,a):
         '''
@@ -136,17 +137,17 @@ class NNTA(object):
         prediction_batch = np.array([data.reshape(data.shape[0],)])
         predictions = self.model.predict( prediction_batch )
 
-        largest_thrust = np.inf
+        # If more predictions than one are done; choose the one with the lowest norm
+        lowest_norm = np.inf
         u = predictions[0:1,:]
         for p in predictions:
-            if np.linalg.norm(p[0:3]) < largest_thrust:
+            if np.linalg.norm(p[0:3]) < lowest_norm:
                 u = p
+                lowest_norm = np.linalg.norm(p[0:3])
 
-        # ELEMENTWISE multiplication to scale the thruster inputs AND angles
+        # ELEMENTWISE multiplication to scale the thruster inputs AND angles according to how the model was trained!
         u = u.reshape(6,1)
         scaled_u = np.multiply(u, self.u_scale) 
-        #print('scaled')
-        #print(scaled_u)
 
         return scaled_u
 
@@ -207,77 +208,25 @@ class NNTA(object):
         # Create a prediction of the data, giving a (6,1) shaped numpy array with [u1 u2 u3 a1 a2 a3]
         u = self.predictThrusterStates(data_to_NN)
 
-        #print(u.shape,'from prediction')
-
         # Collect the thruster inputs (while saturating) and angles
         thruster_percentages = self.saturateThrustPercentage(u[0:3,:])
-        thruster_angles = u[3:,:] 
 
-        #print(thruster_percentages, 'after sat')
-        
-        #print(np.rad2deg(thruster_angles),'angles')
-
-        # Not currently used since checking if percentages work directly
-        if False:
-            # Constant K values F = K*n*n (see Alheim and Muggerud, 2016, for this empirical formula). The bow thruster is unsymmetrical, and this has lower coefficient for negative directioned thrust.
-            if u[2] >= 0:
-                K = self.forwards_K
-                forces_produced = np.multiply(self.max_forces_forward, thruster_percentages / 100) # [N] elementwise multiplication
-
-            else:
-                K = np.array([0.0027, 0.0027, 0.0006172])
-                forces_produced = np.multiply(self.max_forces_backward, thruster_percentages / 100) # [N] elementwise multiplication
-
-            # TODO does the original allocation calculate the thrust outputs as forces????
-            # TODO make the check above to a function - it is messy
-            # TODO do I have to do this? I have already used the thruster input percentages as training data - the predictions are according to the physics anyway
-            # TODO that might be right, but I do not have the maximum rpms available anywhere (at least not underwater)
-            # TODO therefore, the recalculation might has to be done unless a transformation of u(%) -> n(RPM) is found. BUT maybe the rpm signals are just given as percentages??
-            # TODO FIRST TEST: use the percentages from the neural network directly!
-
-            # Calculate n [rpm] : f = K*n*abs(n) from thrust input given as percentages
-
-            # Translate the thruster forces into thruster RPMS
-            Tf = forces_produced
-            n = np.sign(Tf / K) * np.sqrt(np.abs(Tf / K)) # a (3,1) array of the thruster RPMS
-
-            #rospy.loginfo('n.Port: %s , n.Star: %s, n.Bow: %s  ', n[0], n[1], n[2])
-
-        # Initialize messages for publishing
-        pod_angle = podAngle()
-        stern_thruster_setpoints = SternThrusterSetpoints()
-        bow_control = bowControl()
+        thruster_angles = u[3:,:] # TODO these are not entirely constant - setting them to the trained value
+        thruster_angles = np.array([[-3*np.pi/4, 3*np.pi/4, np.pi / 2]]).T
 
         # Set messages as angles in degrees, and thruster inputs in RPM TODO I believe this is in percentages
+        pod_angle = podAngle()        
         pod_angle.port = float(np.rad2deg(thruster_angles[0,0]))
         pod_angle.star = float(np.rad2deg(thruster_angles[1,0]))
 
+        stern_thruster_setpoints = SternThrusterSetpoints()
         stern_thruster_setpoints.port_effort = float(thruster_percentages[0,0])
         stern_thruster_setpoints.star_effort = float(thruster_percentages[1,0])
         
-        bow_spd = float(thruster_percentages[2,0])
-        # Bow throttle doesn't work at low inputs. (DC Motor) TODO this isn't doing anything
-        if bow_spd > 0:
-            bow_spd = float(bow_spd)
-        if bow_spd < 3 and bow_spd > -3:
-            bow_spd = float(bow_spd)
-        else:
-            bow_spd = float(bow_spd)
-
-        # Map the bow thruster angle into -100 and 100 percent
-        # TODO this makes no sense so far. They have assumed that the range was between -270, 270, but nothing has explicitly stated that yet
-
-        # servo_out = self.mapAngle(np.rad2deg(thruster_angles[2,0]), -270, 270, -100, 100)
-        servo_out = np.rad2deg(thruster_angles[2,0])
-
-        # Linear Actuator For Bow Pod. 2 == Go down
-        act_out = 2
-
-        # Fill bow control custom message
-        bow_control.throttle_bow = bow_spd
-        bow_control.position_bow = servo_out # note that this is 
-        bow_control.lin_act_bow = act_out
-
+        bow_control = bowControl()
+        bow_control.throttle_bow = float(thruster_percentages[2,0]) # Bow throttle doesn't work at low inputs. (DC Motor)
+        bow_control.position_bow = np.rad2deg(thruster_angles[2,0])
+        bow_control.lin_act_bow = 2
 
         # Publish the stern pod angles and thruster rpms, as well as the bow message
         self.pub_stern_angles.publish(pod_angle)
@@ -287,10 +236,39 @@ class NNTA(object):
         # TODO currently not used for anything. Just nice to have when implementing shorest angle blabla
         self.previous_thruster_state = np.vstack((thruster_percentages,thruster_angles))
 
+        # TESTINGTESTING TODO
+
+        # Constant K values F = K*|n|*n (see Alheim and Muggerud, 2016, for this empirical formula). The bow thruster is unsymmetrical, and this has lower coefficient for negative directioned thrust.
+        if u[2] >= 0:
+            K = self.forwards_K
+        else:
+            K = self.backwards_K
+
+        F = K * np.abs(thruster_percentages) * thruster_percentages # ELEMENTWISE multiplication
+
+        out_forces = Wrench() # Contains three forces from port, starboard and bow thruster
+        out_forces.force.x = float(F[0,0])
+        out_forces.force.y = float(F[1,0])
+        out_forces.force.z = float(F[2,0])
+        self.pub_thruster_forces.publish(out_forces)
+
+        tau_res = Wrench()
+        alpha = thruster_angles
+        tau_res.force.x  = float(np.cos(alpha[0,0]) * F[0,0] + np.cos(alpha[1,0]) * F[1,0] + np.cos(alpha[2,0]) * F[2,0])
+        tau_res.force.y  = float(np.sin(alpha[0,0]) * F[0,0] + np.sin(alpha[1,0]) * F[1,0] + np.sin(alpha[2,0]) * F[2,0])
+        tau_res.torque.z = float( (self.lx[0]*np.sin(alpha[0,0]) - self.ly[0]*np.cos(alpha[0,0])) * F[0,0] + (self.lx[1]*np.sin(alpha[1,0]) - self.ly[1]*np.cos(alpha[1,0])) * F[2,0] + (self.lx[2]*np.sin(alpha[2,0]) - self.ly[2]*np.cos(alpha[2,0])) * F[2,0])
+
+        tau_diff = Wrench()
+        tau_diff.force.x = tau_res.force.x - float(tau_d.force.x)
+        tau_diff.force.y = tau_res.force.y - float(tau_d.force.z)
+        tau_diff.torque.z = tau_res.torque.z - float(tau_d.torque.z)
+        self.pub_tau_diff.publish(tau_diff)
+
 if __name__ == '__main__':
     
     try:
-        NNTA()
+        nn = NNTA()
         rospy.spin()
     except rospy.ROSInterruptException:
+        # TODO implement
         pass

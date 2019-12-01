@@ -2,7 +2,7 @@
 
 # Generate data for supervised learning
 # TRY WITH BOTH FIXED AZIMUTHS AND ROTATING TO TEST PERFORMANCE!
-# Attempt 1: fixed bow thruster and same angles for stern thrusters. Remember to add a shortest path test for
+# Attempt 1: fixed bow thruster and same angles for stern thrusters. Remember to add a shortest path test for rotational thrusters.
 
 import numpy as np
 from math import sin, cos, floor
@@ -39,10 +39,10 @@ class SupervisedTau():
 
     def B(self,a):
         '''
-        Returns the effectiveness matrix, full shape numpy array (e.g. (3,3))
+        Returns the effectiveness matrix B in tau = B*u, full shape numpy array (e.g. (3,3))
 
         :params:
-            a - An (3,1) np.array of azimuth angles
+            a - A (3,1) np.array of azimuth angles in radians
         '''
         return np.array([[cos(a[0]), 									cos(a[1]), 										cos(a[2])],
                          [sin(a[0]), 									sin(a[1]), 										sin(a[2])],
@@ -55,13 +55,14 @@ class SupervisedTau():
         Calculate real force vector from applied control inputs. 
         The relation used was found from Alfheim and Muggerud, 2016, ch. 8.3.
         K1pm = K2pm = 2.7e-3 for stern thrusters, both ways
-        K3m = 1.518e−3 for positive u, or 6.172e−4 for negative u 
+        K3 = 1.518e−3 for positive u, or 6.172e−4 for negative u 
+            - pm means plus/minus
         u is given in percentages
 
         => Fi = Ki|ui|ui
 
         :params:
-            u - A 3x1 array of applied thruster forces, ranging from 0 - 100%
+            u - A (3,1) array of thruster rotational velocities, ranging from -100% - 100% of maximum thrust - NOT RPM or rad/s
         '''
         return np.array([[float(0.0027 * abs(u[0]) * u[0])],
                          [float(0.0027 * abs(u[1]) * u[1])],
@@ -82,20 +83,22 @@ class SupervisedTau():
 
     def generateData(self,azimuth_discretization=37,thrust_discretization = 21):
         '''
-        Generates dataset for the supervised learning task of 
+        Generates dataset for the supervised learning task of thrust allocation.
+        Each row of the data will contain one datapoint: [lx1,ly1,lx2,ly2,lx3,ly3,tau_x,tau_y,tau_psi, u1, u2, u3, a1, a2, a3].T
+        The data is added to the member variable self.data
+
+        :params:
+            azimuth_discretization  - An integer of number of discretization points for the azimuth angles
+            thrust_discretization   - An integer of number of discretization points for the thrusters' rotational velocities
+
         '''
-        # Create dataset. Constrain bow thruster to +-270 degrees. Use radians. Alfheim and Muggerud somehow allows both -180 and 180 deg by their implementation. I am trying the same, intending to use (-180,180] later
+        # TODO Alfheim and Muggerud somehow allows both -180 and 180 deg by their implementation. I am trying the same, intending to use (-180,180] later
 
-        # Each row of the data will contain one datapoint: [lx1,ly1,lx2,ly2,lx3,ly3,tau_x,tau_y,tau_psi, u1, u2, u3, a1, a2, a3].T
-        
-        # TODO Two alternatives: Use 0 to 2pi due to cosine uniqueness. -pi,pi due to sine uniqueness. Has to be mapped afterwards!
-        a0s = np.linspace(-np.pi,np.pi,azimuth_discretization) # including zero with odd number of spacings # Using same angles for stern thrusters
-        # a1s = np.linspace(-np.pi,np.pi,azimuth_discretization) # not do this
-        a0s = [3*np.pi/4]
-        a2s = [np.pi/2] # TODO kept constant during training due to the weird definition of +- 270??
-        us = np.linspace(-100,100,thrust_discretization)
+        stern_angles = np.linspace(-np.pi,np.pi,azimuth_discretization) # Including zero with odd number of spacings - Using same angles for stern thrusters
+        stern_angles = [3*np.pi/4]
+        bow_angles = [np.pi/2] # TODO kept constant during training due to the weird definition of +- 270??
+        throttle = np.linspace(-100,100,thrust_discretization)
 
-        # Use the same angles for thrusters 1 and 2.
 
         # Make the vector of distances from CG
         l = []
@@ -104,11 +107,11 @@ class SupervisedTau():
 
         l = np.array([l]).T
 
-        for a0 in a0s:
-            for a2 in a2s:
-                for u0 in us:
-                    for u1 in us:
-                        for u2 in us:
+        for a0 in stern_angles:
+            for a2 in bow_angles:
+                for u0 in throttle:
+                    for u1 in throttle:
+                        for u2 in throttle:
                             u = np.array([[u0,u1,u2]]).T
                             a = np.array([[-a0,a0,a2]]).T # TODO note that there might be a minus for the port side thruster, used when they are set fixed
                             tau = self.tau(a,u)
@@ -145,16 +148,16 @@ class SupervisedTau():
         '''
         Generates dataset for the supervised learning task in the same way that Skulstad did: considering each thruster on its own
         '''
-        a0s = np.linspace(-np.pi,np.pi,azimuth_discretization) # including zero with odd number of spacings # Using same angles for stern thrusters
+        stern_angles = np.linspace(-np.pi,np.pi,azimuth_discretization) # including zero with odd number of spacings # Using same angles for stern thrusters
         # a1s = np.linspace(-np.pi,np.pi,azimuth_discretization) # not do this
-        # a0s = [3*np.pi/4]
-        a2s = [np.pi/2] # TODO what is the problem with +- 270??
-        us = np.linspace(-100,100,thrust_discretization) # TODO bow thruster does not generate rotations on low thruster inputs (see thruster_allocation). But Alfeim et al hasn't restricted it lol 
+        # stern_angles = [3*np.pi/4]
+        bow_angles = [np.pi/2] # TODO what is the problem with +- 270??
+        throttle = np.linspace(-100,100,thrust_discretization) # TODO bow thruster does not generate rotations on low thruster inputs (see thruster_allocation). But Alfeim et al hasn't restricted it lol 
 
-        us = us[np.abs(us) > 20]
-        # us = 100*(us/100)**2 * np.sign(us) # bias larger thruster inputs
+        throttle = throttle[np.abs(throttle) > 20]
+        # throttle = 100*(throttle/100)**2 * np.sign(throttle) # bias larger thruster inputs
         
-        a0s = np.pi * (a0s/np.pi)**2 * np.sign(a0s)
+        stern_angles = np.pi * (stern_angles/np.pi)**2 * np.sign(stern_angles)
 
 
         # Use the same angles for thrusters 1 and 2.
@@ -164,21 +167,21 @@ class SupervisedTau():
         # u0set = set()
         # u1set = set()
         # u2set = set()
-        # a0set = set()
+        # stern_angleset = set()
 
         for _ in range(20000):
-            u0 = np.random.choice(us)
-            u1 = np.random.choice(us)
-            u2 = np.random.choice(us)
-            a0 = np.random.choice(a0s)
+            u0 = np.random.choice(throttle)
+            u1 = np.random.choice(throttle)
+            u2 = np.random.choice(throttle)
+            a0 = np.random.choice(stern_angles)
 
-            # if u0 in u0set and u1 in u1set and u2 in u2set and a0 in a0set:
+            # if u0 in u0set and u1 in u1set and u2 in u2set and a0 in stern_angleset:
             #     continue
             # else:
-            #     u0set.add(u0); u1set.add(u1); u2set.add(u2); a0set.add(a0)
+            #     u0set.add(u0); u1set.add(u1); u2set.add(u2); stern_angleset.add(a0)
 
             
-            a2 = a2s[0]
+            a2 = bow_angles[0]
 
             u = np.array([[u0,u1,u2]]).T
             a = np.array([[a0,a0,a2]]).T # TODO note that there might be a minus for the port side thruster, used when they are set fixed

@@ -56,4 +56,16 @@ plt.subplot(211)
 plt.hist(x,bins = int(ll / 100))
 plt.subplot(212)
 plt.hist(ranges,bins=len(ranges))
-plt.show()
+
+
+# Check how saturation can be done
+thrust = np.array([[101,100,0,-101,2,-3]]).T
+thrust[np.where(thrust > 100.0)] = 100.0
+thrust[np.where(thrust < -100.0)] = -100.0
+print(thrust)
+
+# Check how elements can be easily removed
+thrust = thrust[np.where(np.abs(thrust[:,:]) > 3)]
+thrust = thrust.reshape((thrust.shape[0],1))
+print(thrust)
+# plt.show()

@@ -95,10 +95,9 @@ class SupervisedTau():
         # TODO Alfheim and Muggerud somehow allows both -180 and 180 deg by their implementation. I am trying the same, intending to use (-180,180] later
 
         stern_angles = np.linspace(-np.pi,np.pi,azimuth_discretization) # Including zero with odd number of spacings - Using same angles for stern thrusters
-        stern_angles = [3*np.pi/4]
+        #stern_angles = [3*np.pi/4]
         bow_angles = [np.pi/2] # TODO kept constant during training due to the weird definition of +- 270??
         throttle = np.linspace(-100,100,thrust_discretization)
-
 
         # Make the vector of distances from CG
         l = []
@@ -107,20 +106,42 @@ class SupervisedTau():
 
         l = np.array([l]).T
 
+        # Sampling refining attempt
+        max_num_in_range = 500
+        tau_dict = {'x': 0,'y': 0,'p': 0}
+
         for a0 in stern_angles:
             for a2 in bow_angles:
                 for u0 in throttle:
                     for u1 in throttle:
                         for u2 in throttle:
                             u = np.array([[u0,u1,u2]]).T
-                            a = np.array([[-a0,a0,a2]]).T # TODO note that there might be a minus for the port side thruster, used when they are set fixed
+                            a = np.array([[a0,a0,a2]]).T # TODO note that there might be a minus for the port side thruster, used when they are set fixed
                             tau = self.tau(a,u)
 
 
                             # Do not add very small elements
                             if True:
-                                if np.any(np.abs(tau) < 1):
+                                if np.any(np.abs(tau) < 0.5):
                                     continue
+
+                            if True and np.random.uniform() < 0.8:
+                                tx, ty, tp = tau[:,0]
+                                if np.abs(float(tx)) < 20:
+                                    if tau_dict['x'] > max_num_in_range:
+                                        continue 
+                                    else:
+                                        tau_dict['x'] += 1
+                                elif np.abs(float(ty)) < 20:
+                                    if tau_dict['y'] > max_num_in_range:
+                                        continue
+                                    else:
+                                        tau_dict['y'] += 1
+                                elif np.abs(float(tp)) < 20:
+                                    if tau_dict['p'] > max_num_in_range:
+                                        continue 
+                                    else:
+                                        tau_dict['p'] += 1
 
                             if True:
                                 # Do not add elements that are larger than the PID saturation, set in the previous implementations Revolt Source Code. This is however not quite realistic when the bow thruster has a fixed angle.

@@ -2,7 +2,7 @@
 
 from SupervisedTau import SupervisedTau
 
-for d in [51]: #,25,31]:
+for d in [31]: #,25,31]:
     obj = SupervisedTau()
     ad = d
     ud = d

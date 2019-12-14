@@ -36,7 +36,7 @@ from FFNN import FFNeuralNetwork
 Create, shuffle and scale the dataset
 '''
 st = SupervisedTau()
-st.loadData('dataset_train_5151.npy')
+st.loadData('dataset_train_3131.npy')
 dataset = st.data
 
 if False:
@@ -103,9 +103,9 @@ if scenario == 1:
     '''
     Implementation testing
     '''
-    # xval gave 5, 30 as a good number. 1, 20 gives good results as well
-    hidden_layers = 5
-    num_neurons = 30
+    # xval gave 3-5, 20-30 as good numbers. 1, 20 gives good results as well for the simle case
+    hidden_layers = 3
+    num_neurons = 20
     nn = FFNeuralNetwork(input_size,hidden_layers,num_neurons,label_size,activation='relu', use_dropout=False,dropout_rate=0.3,restrict_norms=False,norm_max=10.0)
     print('Training nn with {} hidden layers, {} neurons on dataset with {} samples'.format(hidden_layers,num_neurons,xtrain.shape[0]))
     nn.model.summary()
@@ -113,7 +113,7 @@ if scenario == 1:
     nn.history = nn.model.fit(xtrain,
                               ytrain,
                               validation_data = (xval,yval),
-                              epochs          = 20,
+                              epochs          = 50,
                               batch_size      = 64,
                               verbose         = 0,
                               shuffle         = True) # validation_split = 0.2 is overwritten by validation data

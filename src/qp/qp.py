@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 '''
-Inspired by
+Tests with QP inspired by
 https://github.com/stephane-caron/qpsolvers/blob/master/qpsolvers/quadprog_.py
 https://scaron.info/blog/quadratic-programming-in-python.html
 '''

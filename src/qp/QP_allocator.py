@@ -1,14 +1,5 @@
 #!/usr/bin/python
 
-from __future__ import division
-import rospy
-from custom_msgs.msg import podAngle, SternThrusterSetpoints, bowControl
-from geometry_msgs.msg import Wrench
-import numpy as np 
-import sys # for sys.exit()
-import time
-from scipy.optimize import minimize
-
 '''
 ROS Node for using Quadratic Programming for solving the thrust allocation problem on the ReVolt model ship.
 The QP is formulated with nonlinear constraints due to the nature of how the forces and moments are calculated.
@@ -17,6 +8,15 @@ The forces are manually translated into percentage thrust using formulas found i
 
 @author: Simen Sem Oevereng, simensem@gmail.com. November 2019.
 '''
+
+from __future__ import division
+import rospy
+from custom_msgs.msg import podAngle, SternThrusterSetpoints, bowControl
+from geometry_msgs.msg import Wrench
+import numpy as np 
+import sys # for sys.exit()
+import time
+from scipy.optimize import minimize
 
 class QPTA(object):
     '''
@@ -35,8 +35,8 @@ class QPTA(object):
         # Scaling factor for the forces and moments used when training the neural network
         self.max_forces_forward = np.array([[25.0,25.0,14.0]]).T # In Newton
         self.max_forces_backward = np.array([[25.0,25.0,6.1]]).T # In Newton - bow thruster is asymmetrical, thus lower force backwards
-        self.max_force_rate = [10.0/2.0, 10.0/2.0, 4.0/2.0] # 5, 5, 2 was nice
-        self.max_rotational_rate = [np.pi/6.0 / 2.0, np.pi/6.0 / 2.0, np.pi/32.0 / 2.0] # pi/12 on all was nice
+        self.max_force_rate = [10.0/2.0, 10.0/2.0, 4.0/2.0] # 5, 5, 2 was also nice
+        self.max_rotational_rate = [np.pi/6.0 / 2.0, np.pi/6.0 / 2.0, np.pi/32.0 / 2.0] # pi/12 on all was also nice
 
         self.forwards_K  = np.array([[0.0027, 0.0027, 0.001518]]).T
         self.backwards_K = np.array([[0.0027, 0.0027, 0.0006172]]).T
@@ -96,7 +96,6 @@ class QPTA(object):
         '''
         Solves a quadratic program (optimization based) for the thruster FORCES [N] and stern azimuth ANGLES [rad]
         '''
-        # TODO optimize using numpy / math functions for their relevant usage
         
         s_t = self.previous_thruster_state # states at time t
         
@@ -104,8 +103,7 @@ class QPTA(object):
             # Objective to minimize (is quadratic) - does not constrain the angles, but it is possible to constraint the size depending on the previous angle in s_t
             # Decision variables for the optimization: x = [f1 f2 f3 a1 a2 s1 s2 s3]
             FandS = np.hstack( (x[0:3], x[5:]) )
-            return 0.5 * (FandS.T).dot(FandS)
-            #return (x.T).dot(x) # This will also minimize the angles themselves, but it is the ANGULAR RATES that should be minimized over time for wear and tear
+            return 0.5 * (FandS.T).dot(FandS) # 0.5 x^t Q x
 
         ### PHYSICAL CONSTRAINTS DEPENDENT ON THE THRUSTER SETUP: B(alpha)*F = tau_d
         # Since these are equality constrains, a slack variable is added and the goal is to minimize s^2 - added in the objective functions
@@ -151,15 +149,13 @@ class QPTA(object):
 
         # Bound decision variables for maximum force, angular range (allowed to -360,360 deg to allow rotation between -pi/+pi border TODO might allow too large range for angles; contrain to pi + pi/6 elns) 
         # np.inf is used to disable constrains, see https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.Bounds.html#scipy.optimize.Bounds
-        s_bnd = 1.0 # TODO these has to be reset since the desired forces may be too large compared to the previous thruster states
+        s_bnd = 1.0 # these has to be reset since the desired forces may be too large compared to the previous thruster states
         
         bnds = ((-25,25),(-25,25),(-6.1,14),\
                 (-2*np.pi,2*np.pi),(-2*np.pi,2*np.pi),\
                 (-s_bnd,s_bnd),(-s_bnd,s_bnd),(-s_bnd,s_bnd)) 
 
         # Set initial condition according to previous state, and set slack variables to zero
-        # TODO maybe this is not the proper way to go?
-
         x0 = np.array([s_t[0], s_t[1], s_t[2], s_t[3], s_t[4], 0.0, 0.0, 0.0]) # Initial value - changes with each time instance
 
         # SOLVE!
@@ -168,13 +164,10 @@ class QPTA(object):
         # solution has attributes such as x, success, message
         x = solution.x
 
-        # if(np.any(x == np.nan)):
-        #     x = x0
-
-        # Clean solution for very small values to avoid flickering TODO see if this causes flickering, evt. put boundary higher
+        # Clean solution for very small values to avoid flickering
         x[np.where(np.abs(x) < 0.01)] = 0.0
         
-        return x, solution.success # (8,)-shaped numpy array
+        return x, solution.success # (8,)-shaped numpy array, and a boolean
 
     def tau_controller_callback(self, tau_d):
         '''
@@ -192,8 +185,9 @@ class QPTA(object):
            |   X-  (a2)                        /
            |________________________________ /
         '''
-        # Ensure that the node isn't run faster than 5 times per second when QP has been called since the rotational rates has been calculated with 0.2s as time step
-        # self.rate.sleep() # TODO
+
+        # self.rate.sleep() # TODO thos could ensure that the node isn't run faster than 5 times per second when QP has been called since the rotational rates has been calculated with 0.2s as time step
+        
         tau_desired     = np.array([[float(tau_d.force.x), float(tau_d.force.y), float(tau_d.torque.z)]]).T
         solution, succsess = self.solve_QP(tau_desired) # returns a vector of [F1,F2,F3,alpha1,alpha2,slack1,slack3,slack3]
 
@@ -242,7 +236,9 @@ class QPTA(object):
                                         float(F[2,0]),float(alpha[0,0]),\
                                         float(alpha[1,0]),float(alpha[2,0])] # regular list of three forces and angles
 
-        # TODO TESTING PERFORMANCE
+        '''
+        Messages used only for plotting purposes after running tests
+        '''
         tau_res = Wrench()
         tau_res.force.x = float(np.cos(alpha[0,0]) * F[0,0] + np.cos(alpha[1,0]) * F[1,0] + np.cos(alpha[2,0]) * F[2,0]) 
         tau_res.force.y = float(np.sin(alpha[0,0]) * F[0,0] + np.sin(alpha[1,0]) * F[1,0] + np.sin(alpha[2,0]) * F[2,0])

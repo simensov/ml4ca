@@ -1,5 +1,19 @@
 #!/usr/bin/python
 
+'''
+ROS Node for using a neural network for solving the thrust allocation problem on the ReVolt model ship.
+The neural network was trained with supervised learning, where a dataset was generated with a selection of thruster inputs and azimuth angles, 
+with the corresponding forces and moments generated. The neural network therefore approximates the time varying pseudoinverse in a way.
+
+It was trained on a dataset (depending on stern thrusters rotating or not), where the thruster inputs were scaled to -1,1 by dividing the thruster input on 100.0, 
+as the inputs were given in percentages. The angles was scaled to -1,1 by dividing on pi. The corresponding forces as a function of angles and thruster input percentages was derived according to Alfheim and Muggerud, 2016.
+
+See SupervisedTau.py for more details on the dataset generation. There it is also understandable how the predictions of the network has to be rescaled.
+Also, the input forces needs to be rescaled due to the scaling of them as inputs during training. See train.py for more details on the dataset augmentation.
+
+@author: Simen Sem Oevereng, simensem@gmail.com. December 2019.
+'''
+
 from __future__ import division
 import rospy
 from std_msgs.msg import Float64
@@ -10,20 +24,6 @@ import sys # for sys.exit()
 import time
 from keras.models import load_model
 
-'''
-ROS Node for using a neural network for solving the thrust allocation problem on the ReVolt model ship.
-The neural network was trained with supervised learning, where a dataset was generated with all possible thruster inputs and azimuth angles, 
-with the corresponding forces and moments generated. The neural network therefore approximates the pseudoinverse.
-
-It was trained on the dataset where the azimuth angles were rotating from -pi to pi, but wrapped in sin(x/2) to keep the values within -1 and 1,
-while still having each values representing a unique angle. Thruster inputs were scaled to -1,1 by dividing the thruster input on 100.0, as the inputs were given in percentages.
-The corresponding forces as a function of angles and thruster input percentages was derived according to Alfheim and Muggerud, 2016.
-
-See SupervisedTau.py for more details on the dataset generation. There it is also understandable how the predictions of the network has to be rescaled.
-Also, the input forces needs to be rescaled due to the scaling of them as inputs during training. See train.py for more details on the dataset augmentation.
-
-@author: Simen Sem Oevereng, simensem@gmail.com. November 2019.
-'''
 class NNTA(object):
     '''
     Neural Network Thrust Allocation
@@ -38,11 +38,18 @@ class NNTA(object):
         rospy.init_node('neuralAllocator', anonymous = True)
 
         # Init Neural Network
+        self.rotating = False
         
         try:
-            # This compiles 
-            self.model = load_model('/home/revolt/revolt_ws/src/neural_allocator/src/model.h5')
-            rospy.logerr("Loading of neural network model for thrust allocation successful.")
+            # This loads and compiles the neural network
+            if self.rotating:
+                self.model = load_model('/home/revolt/revolt_ws/src/neural_allocator/src/model_rotate.h5')
+                self.scale_angles = np.pi
+            else:
+                self.model = load_model('/home/revolt/revolt_ws/src/neural_allocator/src/model.h5')
+                self.scale_angles = np.pi
+
+            rospy.loginfo("Loading of neural network model for thrust allocation successful.")
             # self.model.summary()
         except:
             rospy.logerr("Loading of neural network model was not successful. Shutting down")
@@ -51,7 +58,7 @@ class NNTA(object):
 
         # Scaling factor for the forces and moments used when training the neural network
         self.tau_scale = np.array([[1/54,1/69.2,1/76.9]]).T
-        self.u_scale = np.array([[100,100,100,np.pi,np.pi,np.pi]]).T
+        self.u_scale = np.array([[100,100,100,self.scale_angles,self.scale_angles,self.scale_angles]]).T
 
         self.max_forces_forward = np.array([[25,25,14]]).T # In Newton
         self.max_forces_backward = np.array([[25,25,6.1]]).T # In Newton - bow thruster is asymmetrical, thus lower force backwards
@@ -211,10 +218,13 @@ class NNTA(object):
         # Collect the thruster inputs (while saturating) and angles
         thruster_percentages = self.saturateThrustPercentage(u[0:3,:])
 
-        thruster_angles = u[3:,:] # TODO these are not entirely constant - setting them to the trained value
-        thruster_angles = np.array([[-3*np.pi/4, 3*np.pi/4, np.pi / 2]]).T
-
-        # Set messages as angles in degrees, and thruster inputs in RPM TODO I believe this is in percentages
+        thruster_angles = u[3:,:] # these are not entirely constant - setting them to the trained value
+        if self.rotating:
+            thruster_angles[2,0] = np.pi/2
+        else:
+            thruster_angles = np.array([[-3*np.pi/4, 3*np.pi/4, np.pi / 2]]).T
+        
+        # Set messages as angles in degrees, and thruster inputs in RPM percentages
         pod_angle = podAngle()        
         pod_angle.port = float(np.rad2deg(thruster_angles[0,0]))
         pod_angle.star = float(np.rad2deg(thruster_angles[1,0]))
@@ -233,10 +243,12 @@ class NNTA(object):
         self.pub_stern_thruster_setpoints.publish(stern_thruster_setpoints)
         self.pub_bow_control.publish(bow_control)
 
-        # TODO currently not used for anything. Just nice to have when implementing shorest angle blabla
+        # TODO currently not used for anything. Just nice to have if implementing shorest angle blabla
         self.previous_thruster_state = np.vstack((thruster_percentages,thruster_angles))
 
-        # TESTINGTESTING TODO
+        '''
+        Messages used only for plotting purposes
+        '''
 
         # Constant K values F = K*|n|*n (see Alheim and Muggerud, 2016, for this empirical formula). The bow thruster is unsymmetrical, and this has lower coefficient for negative directioned thrust.
         if u[2] >= 0:
@@ -245,7 +257,7 @@ class NNTA(object):
             K = self.backwards_K
 
         F = K * np.abs(thruster_percentages) * thruster_percentages # ELEMENTWISE multiplication
-
+        
         out_forces = Wrench() # Contains three forces from port, starboard and bow thruster
         out_forces.force.x = float(F[0,0])
         out_forces.force.y = float(F[1,0])

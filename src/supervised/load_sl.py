@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
 
+'''
+Loads a data set from .npy file and views it with various histograms to investigate distribution.
+
+@author: Simen Oevereng, simensem@gmail.com, December 2019
+'''
+
 from SupervisedTau import SupervisedTau
 import numpy as np
 np.set_printoptions(precision=3) # print floats as decimals with 3 zeros
@@ -27,7 +33,6 @@ Y = dataset[:,input_size:]
 num_datapoints = X.shape[0]
 num_datapoints = 400
 
-
 ### Plot the looks of tau
 plt.figure()
 plt.subplot(311)
@@ -47,46 +52,12 @@ plt.xlabel('Moment in yaw [Nm]')
 plt.ylabel('Occurences')
 
 if True:
+    # Save histogram to formatted pdf
     plt.tight_layout()
-    plt.savefig('force_dist_51_fixed.pdf')
-
-# if False:
+    plt.savefig('force_dist_rotNN_3131.pdf')
 
 
-#     # TODO this is unused
-
-#     # Increase occurences of few representations, and decrease occurences in many occurences
-#     # Allow maximum five representations of elements within each 100th sector
-#     for el in range(int(np.min(x)),int(np.max(x)),dx):
-
-# 	# Find where x has elements within current range
-# 	y = x[np.where((el < x) & (x < (el + dx)))]
-
-# 	# If there was no occurences, there is nothing to add to the set: move on
-# 	if y.shape[0] == 0:
-# 		continue
-
-# 	# If there are less than five occurences of datapoints in this range, add random datapoints from the set into the set
-# 	# Store old array in order to avoid increasing the probability of the first chosen element getting picked several times
-# 	ytemp = np.copy(y)
-# 	while y.shape[0] < 5:
-# 		y = np.hstack((y,np.random.choice(ytemp)))
-
-# 	# If there exists more than five elements in this range, remove random elements until there are five left
-# 	while y.shape[0] > 5:
-# 		y = np.delete(y,np.random.randint(0,len(y)),0)
-
-# 	# Extend the vector containing all datapoints
-# 	for j in y:
-# 		ranges.append(j)
-
-# plt.figure()
-# plt.subplot(211)
-# plt.hist(x,bins = int(ll / 100))
-# plt.subplot(212)
-# plt.hist(ranges,bins=len(ranges))
-
-
+# TODO this is old code, kept for legacy
 if False:
     plt.figure()
     plt.subplot(321)
@@ -102,7 +73,6 @@ if False:
     plt.hist(taup,bins = num_datapoints)
     plt.xlabel('Moment in yaw [Nm]')
 
-
     ####### TEST STANDARDIZING TO ZERO MEAN, STD == 1
     taus = [taux, tauy, taup]
     scaled_data = []
@@ -116,7 +86,6 @@ if False:
 
     for force in taus:
         scaled_data.append(standardize(force))
-
 
     plt.subplot(322)
     taux_std = scaled_data[0]
@@ -169,12 +138,6 @@ if False:
     taup_norm = norm_data[2]
     plt.hist(taup_norm,bins = 400)
     plt.xlabel('Moment in yaw, normalize')
-
-    # TODO augment the data such that the lesser repeated values appear more often
-
-
-
-    # TODO visualize the distribution of angles and gains
 
 plt.show()
 

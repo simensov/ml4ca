@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
-# Generate data for supervised learning
-# TRY WITH BOTH FIXED AZIMUTHS AND ROTATING TO TEST PERFORMANCE!
-# Attempt 1: fixed bow thruster and same angles for stern thrusters. Remember to add a shortest path test for rotational thrusters.
+'''
+Generates data for supervised learning as a solution to thrust allocation on ReVolt.
+
+@author: Simen Sem Oevereng, simensem@gmail.com. December 2019.
+'''
 
 import numpy as np
 from math import sin, cos, floor
@@ -95,9 +97,33 @@ class SupervisedTau():
         # TODO Alfheim and Muggerud somehow allows both -180 and 180 deg by their implementation. I am trying the same, intending to use (-180,180] later
 
         stern_angles = np.linspace(-np.pi,np.pi,azimuth_discretization) # Including zero with odd number of spacings - Using same angles for stern thrusters
+        scale_angles = np.pi
+
+        # Alternative discretizations
+        if True:
+            stern_angles = np.linspace(-np.pi * 0.4,np.pi * 0.4,azimuth_discretization) # +- 70 degrees
+        elif False:
+            stern_angles = np.linspace(-4*np.pi,4*np.pi,azimuth_discretization)
+            scale_angles = 4 * np.pi
+
         #stern_angles = [3*np.pi/4]
         bow_angles = [np.pi/2] # TODO kept constant during training due to the weird definition of +- 270??
         throttle = np.linspace(-100,100,thrust_discretization)
+        throttle_positive = np.linspace(0,100,thrust_discretization)
+
+        # Remove 20 percent of the lowest inputs, and replace with a random selection of inputs above 50%
+        if True:
+            thlessthan50 = (np.abs(throttle) < 50)
+            where = np.where(np.abs(throttle) < 50)
+            highrange = np.linspace(50,100,np.floor(thrust_discretization/2))
+            lowrange = np.linspace(-100,-50,np.floor(thrust_discretization/2))
+            ranges = np.hstack((lowrange,highrange))
+            for i in range(thlessthan50.sum()):
+                if np.random.uniform() < 0.2:
+                    idx = np.random.choice(where[0])
+                    throttle[idx] = np.random.choice(ranges)
+
+            print(throttle)
 
         # Make the vector of distances from CG
         l = []
@@ -107,142 +133,68 @@ class SupervisedTau():
         l = np.array([l]).T
 
         # Sampling refining attempt
-        max_num_in_range = 500
+        max_num_in_range = 2000
         tau_dict = {'x': 0,'y': 0,'p': 0}
 
+        forbidden_zones = False
+        if forbidden_zones:
+            # TODO needs to count for each separate stern thruster
+            stern_angles_port = stern_angles[np.where(np.deg2rad(-110) < stern_angles and stern_angles > np.deg2rad(-70) )]
+            stern_angles_stern = stern_angles[np.where(np.deg2rad(110) > stern_angles and stern_angles < np.deg2rad(70) )]
+
+
         for a0 in stern_angles:
-            for a2 in bow_angles:
-                for u0 in throttle:
-                    for u1 in throttle:
-                        for u2 in throttle:
-                            u = np.array([[u0,u1,u2]]).T
-                            a = np.array([[a0,a0,a2]]).T # TODO note that there might be a minus for the port side thruster, used when they are set fixed
-                            tau = self.tau(a,u)
+            for a1 in [1]:
+                for a2 in bow_angles:
+                    for u0 in throttle:
+                        for u1 in throttle:
+                            for u2 in throttle:
+                                u = np.array([[u0,u1,u2]]).T
+                                a = np.array([[a0,a0,a2]]).T # TODO note that there might be a minus for the port side thruster, used when they are set fixed
+                                tau = self.tau(a,u)
 
-
-                            # Do not add very small elements
-                            if True:
-                                if np.any(np.abs(tau) < 0.5):
-                                    continue
-
-                            if True and np.random.uniform() < 0.8:
-                                tx, ty, tp = tau[:,0]
-                                if np.abs(float(tx)) < 20:
-                                    if tau_dict['x'] > max_num_in_range:
-                                        continue 
-                                    else:
-                                        tau_dict['x'] += 1
-                                elif np.abs(float(ty)) < 20:
-                                    if tau_dict['y'] > max_num_in_range:
+                                # Do not add very small elements
+                                if True:
+                                    if np.any(np.abs(tau) < 0.01):
                                         continue
-                                    else:
-                                        tau_dict['y'] += 1
-                                elif np.abs(float(tp)) < 20:
-                                    if tau_dict['p'] > max_num_in_range:
-                                        continue 
-                                    else:
-                                        tau_dict['p'] += 1
 
-                            if True:
-                                # Do not add elements that are larger than the PID saturation, set in the previous implementations Revolt Source Code. This is however not quite realistic when the bow thruster has a fixed angle.
-                                if np.any( np.abs(tau) > self.tau_max):
-                                    continue
-                            
-                            # Scale dataset labels to -1,1
-                            u = u / 100.0
-                            a = a / np.pi
+                                if False:
+                                    tx, ty, tp = tau[:,0]
+                                    if np.abs(float(tx)) < 20:
+                                        if tau_dict['x'] > max_num_in_range:
+                                            continue 
+                                        else:
+                                            tau_dict['x'] += 1
+                                    elif np.abs(float(ty)) < 20:
+                                        if tau_dict['y'] > max_num_in_range:
+                                            continue
+                                        else:
+                                            tau_dict['y'] += 1
+                                    elif np.abs(float(tp)) < 20:
+                                        if tau_dict['p'] > max_num_in_range:
+                                            continue 
+                                        else:
+                                            tau_dict['p'] += 1
 
-                            if True:
-                                tauscale = np.array([[1/54,1/69.2,1/76.9]]).T # calculated maximum taux, tauy, taup
-                                tau = np.multiply(tau,tauscale) # elementwise multiplication , NOT dot product!
-                            
+                                if True:
+                                    # Do not add elements that are larger than the PID saturation, set in the previous implementations Revolt Source Code. This is however not quite realistic when the bow thruster has a fixed angle.
+                                    if np.any( np.abs(tau) > self.tau_max):
+                                        continue
+                                
+                                # Scale dataset labels to -1,1
+                                u = u / 100.0
+                                a = a / scale_angles
 
-                            # Add the positions of the thrusters to the dataset to help the NN understanding relationships of force and moment.
-                            datapoint = np.vstack((l,tau,u,a)).reshape(15,)
-                            self.data.append(datapoint)
+                                if True:
+                                    tauscale = np.array([[1/54,1/69.2,1/76.9]]).T # calculated maximum taux, tauy, taup
+                                    tau = np.multiply(tau,tauscale) # elementwise multiplication , NOT dot product!
+
+                                # Add the positions of the thrusters to the dataset to help the NN understanding relationships of force and moment.
+                                datapoint = np.vstack((l,tau,u,a)).reshape(15,)
+                                self.data.append(datapoint)
 
         # Convert list of np.arrays to big np.array
         self.data = np.array(self.data) # Each row is one datapoint. First nine columns are input vals, six next are labels
-
-
-    def generateDataRandom(self,azimuth_discretization=37,thrust_discretization = 21):
-        '''
-        Generates dataset for the supervised learning task in the same way that Skulstad did: considering each thruster on its own
-        '''
-        stern_angles = np.linspace(-np.pi,np.pi,azimuth_discretization) # including zero with odd number of spacings # Using same angles for stern thrusters
-        # a1s = np.linspace(-np.pi,np.pi,azimuth_discretization) # not do this
-        # stern_angles = [3*np.pi/4]
-        bow_angles = [np.pi/2] # TODO what is the problem with +- 270??
-        throttle = np.linspace(-100,100,thrust_discretization) # TODO bow thruster does not generate rotations on low thruster inputs (see thruster_allocation). But Alfeim et al hasn't restricted it lol 
-
-        throttle = throttle[np.abs(throttle) > 20]
-        # throttle = 100*(throttle/100)**2 * np.sign(throttle) # bias larger thruster inputs
-        
-        stern_angles = np.pi * (stern_angles/np.pi)**2 * np.sign(stern_angles)
-
-
-        # Use the same angles for thrusters 1 and 2.
-        tauxs = set()
-        tauys = set()
-        taups = set()
-        # u0set = set()
-        # u1set = set()
-        # u2set = set()
-        # stern_angleset = set()
-
-        for _ in range(20000):
-            u0 = np.random.choice(throttle)
-            u1 = np.random.choice(throttle)
-            u2 = np.random.choice(throttle)
-            a0 = np.random.choice(stern_angles)
-
-            # if u0 in u0set and u1 in u1set and u2 in u2set and a0 in stern_angleset:
-            #     continue
-            # else:
-            #     u0set.add(u0); u1set.add(u1); u2set.add(u2); stern_angleset.add(a0)
-
-            
-            a2 = bow_angles[0]
-
-            u = np.array([[u0,u1,u2]]).T
-            a = np.array([[a0,a0,a2]]).T # TODO note that there might be a minus for the port side thruster, used when they are set fixed
-            
-            tau = self.tau(a,u)
-
-            # Do not add very small elements
-            if np.any(np.abs(tau) < 1):
-                continue
-            
-            tx, ty, tp = tau[:,0]
-
-            if float(tx) in tauxs or float(ty) in tauys or float(tp) in taups:
-                continue
-            else:
-                tauxs.add(float(tx)); tauys.add(float(ty)); taups.add(float(tp))
-
-            # Scale dataset labels to -1,1
-            u = u / 100.0
-            a = a / np.pi
-            
-            # TODO scale tau here as well?
-            #tauscale = np.array([[1/54,1/69.2,1/76.9]]).T # calculated maximum taux, tauy, taup
-            #tau = np.multiply(tau,tauscale) # elementwise multiplication , NOT dot product!
-
-            # Add the positions of the thrusters to the dataset to help the NN understanding relationships of force and moment.
-
-            l = []
-            for lxi, lyi in zip(self.lx,self.ly):
-                l.append(lxi); l.append(lyi)
-
-            l = np.array([l]).T
-
-            datapoint = np.vstack((l,tau,u,a)).reshape(15,)
-            
-            self.data.append(datapoint) 
-
-        # Convert list of np.arrays to big np.array
-        self.data = np.array(self.data) # Each row is one datapoint. First three columns are input vals, six next are labels
-
 
     def generateDataFrame(self):
         '''
@@ -281,7 +233,9 @@ class SupervisedTau():
         return sum(largest_squares)
 
     def getNormalizedData(self):
-
+        '''
+        Returns normalized data set
+        '''
         normalized = []
         
         for col in range(self.data.shape[1]):
@@ -289,16 +243,3 @@ class SupervisedTau():
             normalized.append( (arr - np.mean(arr)) / (np.max(arr) - np.min(arr)))
 
         return np.array(normalized).T
-
-    def getStandardizedData(self):
-
-        return
-
-
-### END CLASS
-        
-# if __name__ == "__main__":
-
-#     obj = SupervisedTau()
-#     obj.generateData()
-#     obj.displayData()

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 '''
-This file contains the implementation of a simple feed forward neural network class.
+This file contains the implementation of a simple feed forward neural network class using Keras.
 It is implemented as a separate class to get easy access to different plotting, storage and loading functions to my own liking.
 Note that the network solves a regression problem. Therefore, the last layer is linear, and the loss function is mean squared error. 
 If using it for different purposes, such as binary classification, the last layer and loss function must be changed.
@@ -34,6 +34,7 @@ class FFNeuralNetwork():
         - Adam as optimizer.
         - Adjustable Dropout rates (use_dropout = False as standard for smaller networks due to underfitting problems).
         - Restrictable layer and bias weight magnitudes.
+        - The same width of all hidden layers (this could however be changed manually)
     '''
 
     def __init__(self, 
@@ -46,25 +47,24 @@ class FFNeuralNetwork():
                       restrict_norms = False, 
                       norm_max = 5.0,
                       loss = 'mean_squared_error',
-                      activation = 'sigmoid',
+                      activation = 'relu',
                       optimizer = 'adam',
                       metrics = []):
 
         self.input_dim      = input_dim
         self.num_hidden     = num_hidden
-        self.hidden_nodes   = hidden_nodes # list of length num hidden, representing number of nodes in each hidden layer
+        self.hidden_nodes   = hidden_nodes
         self.output_dim     = output_dim
         self.use_dropout    = use_dropout
         self.do_rate        = dropout_rate
         self.restrict_norms = restrict_norms
         self.norm_max       = norm_max
-
-        self.loss = loss
-        self.activation = activation
-        self.optimizer = optimizer
-        self.metrics = metrics
-        self.model = self.nn_model()
-        self.history = {}
+        self.loss           = loss
+        self.activation     = activation
+        self.optimizer      = optimizer
+        self.metrics        = metrics
+        self.model          = self.nn_model()
+        self.history        = {}
 
     def __repr__(self):
         return 'FFNN: {} inputs, {} hidden layers, {} neurons per layer, {} outputs'.format(self.input_dim, self.num_hidden, self.hidden_nodes, self.output_dim)
@@ -74,8 +74,8 @@ class FFNeuralNetwork():
         Creates the neural network architecture
         '''
 
-        # Notes: use droput and kernel maximization to avoid overfitting: http://www.cs.toronto.edu/~rsalakhu/papers/srivastava14a.pdf
-        # he_normalization since using relu activation: https://arxiv.org/abs/1502.01852
+        # Notes: use droput and kernel maximization could avoid overfitting: http://www.cs.toronto.edu/~rsalakhu/papers/srivastava14a.pdf
+        # he_normalization used with relu activation: https://arxiv.org/abs/1502.01852
         model = Sequential()
 
         # Initialize first layer with correct input layer
@@ -129,7 +129,7 @@ class FFNeuralNetwork():
 
     def plotHistory(self,plot_validation=True):
         if self.history == 0:
-            print('No history kears objects has been assigned')
+            print('No history keras objects has been assigned')
         else:
             plt.figure()            
             # Plot training & validation loss values
@@ -141,16 +141,6 @@ class FFNeuralNetwork():
             plt.xlabel('Epoch')
             plt.legend(['Train', 'Validation'], loc='upper left')
             plt.grid(True)
-
-            # plt.subplot(212)
-            # plt.plot(sqrt(self.history.history['loss']))
-            # plt.plot(sqrt(self.history.history['val_loss'])) if plot_validation else None
-            # plt.title('Root Mean Squared Error')
-            # plt.ylabel('Loss')
-            # plt.xlabel('Epoch')
-            # plt.legend(['Train', 'Validation'], loc='upper left')
-            # plt.grid(True)
-            # plt.show()
 
     def saveModel(self):
         '''

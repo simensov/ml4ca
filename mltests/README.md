@@ -1,1 +1,1 @@
-# Contains test scripts
+## This directory only contains test scripts

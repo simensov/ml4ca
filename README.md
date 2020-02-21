@@ -16,7 +16,7 @@ The supervised learning and reinforcement learning implementations uses differen
 All in all, a virtual environment avoids ruining the other projects on your machine that might depend on other versions of packages used in this project.
 
 - Installation: https://virtualenv.pypa.io/en/latest/installation.html
-- Create a virtual environment within you project folder: 'virtualenv --system-site-packages -p python3 ./venv'
-- To activate: 'source venv/bin/activate' -> (venv) should pop up to the left on the command line.
-- Use 'which python' to confirm that the shell uses the python inside venv/. Use 'pip freeze' to see the current package versions used in the virtual environment.
-- To deactivate: 'deactivate'
+- Create a virtual environment within you project folder: `virtualenv --system-site-packages -p python3 ./venv`
+- To activate: `source venv/bin/activate` -> (venv) should pop up to the left on the command line.
+- Use `which python` to confirm that the shell uses the python inside venv/. Use `pip freeze` to see the current package versions used in the virtual environment.
+- To deactivate: `deactivate`

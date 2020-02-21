@@ -142,7 +142,7 @@ class NNTA(object):
         # Therefore, the data must be added to a "batch"
 
         prediction_batch = np.array([data.reshape(data.shape[0],)])
-        predictions = self.model.predict( prediction_batch )
+        predictions = self.model.predict( prediction_batch ) # TODO test with model(prediction_batch) instead - .predict() is supposedly pretty slow!!
 
         # If more predictions than one are done; choose the one with the lowest norm
         lowest_norm = np.inf

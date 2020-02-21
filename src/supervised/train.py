@@ -71,7 +71,7 @@ def lookAtPredictions(xtest,ytest,nn):
     Used after training of a model in order to compare the predictions with the labels of the dataset for visualization of what's going on.
     It also calculates tau and tau_desired, and shows the magnitude of the error of those two vectors (elementwise).
     '''
-    predictions = nn.model.predict(xtest)
+    predictions = nn.model(xtest)
     for idx,(u1,u2,u3,a1,a2,a3) in enumerate(predictions):
         
         scale_thrusters = 100

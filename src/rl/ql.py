@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 
 '''
+THIS IS UNFINISHED CODE
+
+
 ROS Node for using the reinforcement learning scheme Tabular Q-Learning for solving thrust allocation on ReVolt
 
 It contains:
@@ -10,8 +13,7 @@ It contains:
 
 Dependencies:
 
-
-Author: Simen Sem Oevereng, December 2019, simensem@gmail.com
+@author: Simen Oevereng, simensem@gmail.com, September 2019
 '''
 
 # Ros 

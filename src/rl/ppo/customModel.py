@@ -9,13 +9,36 @@ import math
 import tensorflow as tf # using tf here instead of tf due to local crash with the tf-package in opt/bin/tf, coming from ROS
 import numpy as np
 
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense
+from tensorflow.keras.optimizers import Adam
+
 class CustomModel():
 
-    def __init__(self,keras_model,decay=0.9,gamma=0.95):
-        self.model = keras_model
-        self.e     = self.resetEligibilities()
+    def __init__(self,keras_model=None,input_size=16, layer_sizes = (20,1), decay=0.9,gamma=0.95, alpha=0.05):
         self.decay = decay
         self.gamma = gamma
+        self.alpha = alpha
+        self.model = keras_model if keras_model else self.createModel(input_size,layer_sizes)
+        self.e     = self.resetEligibilities()
+
+    def createModel(self,input_size,layer_sizes):
+        ''' Creates a keras model with input and hidden layers according to layer sizes'''
+
+        if not layer_sizes:
+            raise Exception('Tuple of layer sizes has not been properly defined')
+
+        model = Sequential(name='feed_forward_neural_network_eligibility_trace')
+        model.add(Dense(layer_sizes[0], input_shape = (input_size,),name='hidden_layer_0'))
+
+        for i, size in enumerate(layer_sizes):
+            if i > 0 and i < len(layer_sizes) - 1:
+                model.add(Dense(size, activation = 'relu', name='hidden_layer_{}'.format(i)))
+
+        model.add(Dense(1, activation = 'linear',name='output')) 
+        model.compile(loss='mean_squared_error', optimizer=Adam(lr=self.alpha), metrics = ['mae'])
+        return model
+
 
     def resetEligibilities(self):
         '''

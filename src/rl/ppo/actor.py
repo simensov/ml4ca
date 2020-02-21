@@ -42,3 +42,10 @@ class Actor():
 
     def resetEligibilities(self):
         self.e = dict()
+
+
+if __name__ == '__main__':
+    actor = Actor()
+    print(actor.PI)
+    actor.PI[1] = {a for a in [1,2,3,4,5,6]}
+    print(actor.PI)

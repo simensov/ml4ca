@@ -26,12 +26,15 @@ NUM_LAYERS    = 2
 ENTROPY_LOSS  = 5e-3
 LR            = 1e-4  # Lower lr stabilises training greatly
 
+DUMMY_VAL, DUMMY_ACT = np.zeros((1,1)), np.zeros((1,NUM_ACTIONS))
+
 def normal_dist(val,mean,var):
     ''' https://en.wikipedia.org/wiki/Normal_distribution '''
     return 1 / K.sqrt(2* np.pi * var) * K.exp( -0.5 * K.square( (val - mean) / var) )
 
 class PPO(object):
     # TODO use my own FFNN class for this
+    # TODO use Tensorboard as writer to store training info
 
     def __init__(self,
                  num_states  = 6,
@@ -90,4 +93,50 @@ class PPO(object):
         model.summary()
         return model
 
-    
+    def act(self,obs):
+        prob = self.actor([obs.reshape(1,self.num_states), DUMMY_VAL, DUMMY_ACT]) # forward pass
+        # TODO seems like a eps greedy thing here
+        if np.random.random() < 0.1:
+            act = act_matrix = prob[0] + np.random.normal(loc=0, scale=self.actor_noise, size=prob[0].shape)
+        else:
+            act = act_matrix = prob[0]
+
+        return act, act_matrix, prob
+
+    # TODO collection of batch happens outside, see get_batch() from https://github.com/LuEE-C/PPO-Keras/blob/master/Main.py 
+    def train(self, batch):
+        o, a, p, r = batch
+        o, a, p, r = o[:BATCH_SIZE], a[:BATCH_SIZE], p[:BATCH_SIZE], r[:BATCH_SIZE]
+        old_prediction = p
+        pred_values    = self.critic(o) # self.critic.predict(o) # forward pass
+        advantage      = r - pred_values
+        actor_loss     = self.actor.fit([o, advantage, old_prediction], [a], batch_size=BATCH_SIZE, shuffle=True, epochs=EPOCHS, verbose=False)
+        critic_loss    = self.critic.fit([o], [r], batch_size=BATCH_SIZE, shuffle=True, epochs=EPOCHS, verbose=False)
+
+
+# alternative loss, including entropy and value function loss!
+def ppo_loss(oldpolicy_probs, advantages, rewards, values):
+    def loss(y_true, y_pred):
+        newpolicy_probs = y_pred
+        ratio = K.exp(K.log(newpolicy_probs + 1e-10) - K.log(oldpolicy_probs + 1e-10))
+        p1 = ratio * advantages
+        p2 = K.clip(ratio, min_value=1 - clipping_val, max_value=1 + clipping_val) * advantages
+        actor_loss = -K.mean(K.minimum(p1, p2))
+        critic_loss = K.mean(K.square(rewards - values))
+        total_loss = critic_discount * critic_loss + actor_loss - entropy_beta * K.mean(
+            -(newpolicy_probs * K.log(newpolicy_probs + 1e-10)))
+        return total_loss
+
+    return loss
+
+# automate advantage calculations!
+def get_advantages(values, masks, rewards):
+    returns = []
+    gae = 0
+    for i in reversed(range(len(rewards))):
+        delta = rewards[i] + gamma * values[i + 1] * masks[i] - values[i]
+        gae = delta + gamma * lmbda * masks[i] * gae
+        returns.insert(0, gae + values[i])
+
+    adv = np.array(returns) - values[:-1]
+    return returns, (adv - np.mean(adv)) / (np.std(adv) + 1e-10)

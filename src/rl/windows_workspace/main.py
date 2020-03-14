@@ -17,6 +17,7 @@ from errorFrame import ErrorFrame
 from utils_sim import get_pose_3DOF, get_vel_3DOF
 from utils_debugging import print_pose
 from environment import RevoltSimulator
+from agent import PPO
 
 
 #defs
@@ -92,36 +93,6 @@ def simulate_episode(sim, **init):
         print_pose(p_body,'Err') if step % 500 == 0 else None
         print_pose(vel,'Vel') if step % 500 == 0 else None
 
-def episode(env,agent,episode_length : int = 5000):
-    BATCH_SIZE = 64
-    GAMMA = 0.9
-
-    s = env.reset()
-    states, actions, rewards = [], [], [] # todo could be stores as tuples
-    episodal_reward = 0
-    for t in range(episode_length):
-        # env.render() happens automatically?
-        a = agent.choose_action(s)
-        sn, r, done, info = env.step(a)
-        states.append(s)
-        actions.append(a)
-        rewards.append(r)
-
-        s = sn
-        episodal_reward += r
-
-        if (t+1) % BATCH_SIZE == 0 or t == episode_length-1: # update if batch size or if time steps has reached limit (important as DP operations dont have a terminal state)
-            v_sn = agent.V(sn)
-
-            discounted_rewards = []
-            for reward in rewards[::-1]: # reverse the list
-                v_sn = reward + GAMMA * v_sn
-                discounted_rewards.append(v_sn)
-
-            discounted_rewards.reverse()
-            states_batch, actions_batch, reward_batch = np.vstack(states), np.vstack(actions), np.array(discounted_rewards)[:, np.newaxis]
-            states, actions, rewards = [], [], []
-            ppo.update(states_batch, actions_batch, reward_batch) # Entranar el Cliente y el actor (Estado, acciones, discounted_r)
 
 
 def get_random_pose():
@@ -132,6 +103,10 @@ def get_random_pose():
 
 #MAIN...        
 if __name__ == "__main__":
+
+    env = RevoltSimulator()
+    agent = PPO()
+    # TODO clean all this into a single class
 
     #vars
     sims = []

@@ -68,6 +68,9 @@ class PPO(object):
         model.compile(optimizer = Adam(lr = self.lr_c), loss = 'mse')
         return model
 
+    def V(self,state):
+        return self.critic(state)
+
     def clip_loss(self,A,pred_t):
         ''' Returns a loss function used when compiling actor network. Compared to the paper, which maximizes the objective, we minimize the loss, hence the minus in the end'''
         # TODO there should be two more penalities here: exploration/entropy (probably not needed due to gaussian noise) and 
@@ -102,6 +105,7 @@ class PPO(object):
             act = act_matrix = prob[0]
 
         return act, act_matrix, prob
+
 
     # TODO collection of batch happens outside, see get_batch() from https://github.com/LuEE-C/PPO-Keras/blob/master/Main.py 
     def train(self, batch):

@@ -10,14 +10,15 @@ import threading
 from utils.log import log, forcelog
 import math as m
 import random as r
+import time
 
-# SIMENs CLASSES
 from errorFrame import ErrorFrame 
 # from utils.mathematics import *
-from utils.simtools import get_pose_3DOF, get_vel_3DOF
+from utils.simtools import get_pose_3DOF, get_vel_3DOF, get_random_pose
 from utils.debug import print_pose
 from environment import FixedThrusters
 from agents.ppo import PPO
+import numpy as np
 
 #defs
 SIM_CONFIG_PATH     = "C:\\Users\\simen\\Documents\\Utdanning\\GTK\\configuration"
@@ -68,46 +69,62 @@ def simulate_episode(sim, **init):
     NB: adding / removing arguments in thus function might make it hard for the threading 
     '''
     reset_sim(sim,**init)
-
     steps = 4000 # TODO upper limit for PPO
-
     err = ErrorFrame(pos=get_pose_3DOF(sim)) # TODO passing reference point to this function?
     p_body = err.get_pose()
 
     for step in range(steps):
-        # set inputs and parameters for next step
-        # create state vector from measurements
-
-        # TODO RL: Here, the initial action choice has to be done
-
-        # Step the simulation 1 step or X steps digitwin.step(x)
-        sim.step()
-
+        # TODO RL: Here, the action choice has to be done
+        sim.step() # Step the simulation 1 step or X steps digitwin.step(x)
         # Observe new state and reward. 
         pose = get_pose_3DOF(sim)
         p_body = err.get_pose(pose)
-
         vel = get_vel_3DOF(sim)
-        
         print_pose(p_body,'Err') if step % 500 == 0 else None
         print_pose(vel,'Vel') if step % 500 == 0 else None
 
+def episode_test(env,**init):
+    episode_length = 4000 # trainer
+    batch_size = 256 # trainer
+    gamma = 0.99 # trainer
 
+    agent = PPO(num_states=env.num_states,num_actions=env.num_actions)
+    s = env.reset(**init)
+    states, actions, pred_actions, rewards = [], [], [], [] 
+    episodal_reward = 0
 
-def get_random_pose():
-    N = (r.random()-0.5)*20.0
-    E = (r.random()-0.5)*20.0
-    Y = (r.random()-0.5)*2*(m.pi)
-    return N, E, Y
+    for t in range(episode_length):
+        a_pi, a_old_pi = agent.act(s)
+        a_pi = a_pi * 100.0 # scale agent's choice TODO this should be hidden somewhere
+        sn, r, done, info = env.step(a_pi) # TODO done needs to be used so that batches don't contain random states next to each other
+        states.append(s) # TODO standardize state
+        actions.append(a_pi)
+        pred_actions.append(a_old_pi)
+        rewards.append(r)
+        s = sn
+        episodal_reward += r
 
-#MAIN...        
+        if (t+1) % batch_size == 0 or t == episode_length-1: # update if batch size or if time steps has reached limit (important as DP operations dont have a terminal state)
+            
+            v_sn = agent.V(sn) # this is V(sT) from eq. 10 in the paper: the last state of the trajectory
+            discounted_rewards = []
+            for reward in rewards[::-1]: # reverse the list
+                v_sn = reward + gamma * v_sn
+                discounted_rewards.append(v_sn)
+
+            discounted_rewards.reverse() 
+            batch = np.vstack(states), np.vstack(actions), np.vstack(pred_actions), np.vstack(discounted_rewards)
+            states, actions, pred_actions, rewards = [], [], [], []
+            advantages, actor_loss, critic_loss = agent.update(batch)
+    return    
+        
+'''
+MAIN
+'''
+
 if __name__ == "__main__":
 
-    # env = RevoltSimulator()
-    agent = PPO()
-    # TODO clean all this into a single class
-
-    #vars
+    # Vars
     sims = []
     sim_semaphores = []
     
@@ -121,6 +138,8 @@ if __name__ == "__main__":
         sim_semaphores.append(threading.Semaphore())
         
     log("Connected to simulators and configuration loaded")
+
+    envs = [FixedThrusters(s) for s in sims]
 
     for ep_ix in range(NUM_EPISODES):
         for sim_ix in range(NUM_SIMULATORS):
@@ -136,6 +155,7 @@ if __name__ == "__main__":
                 t.start()
     
             else:
-                simulate_episode(sims[sim_ix],**init)
+                # simulate_episode(sims[sim_ix],**init)
+                episode_test(envs[sim_ix],**init)
 
 

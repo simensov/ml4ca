@@ -3,17 +3,23 @@ import random
 import math
 import numpy as np
 from utils.simtools import get_pose_3DOF, get_vel_3DOF
+from utils.mathematics import gaussian
 from errorFrame import ErrorFrame
 
 class Environment(ABC):
     ''' Abstract class for the different simulator setups '''
     
-    def __init__(self,sim,observation_bounds):
+    def __init__(self,sim,observation_bounds=[10,10,180]):
         super().__init__()
-        self._sim = sim
+        self.sim = sim
         self.report_reset = False
         self.bounds = observation_bounds
         self.err = ErrorFrame()
+        self.set_state_action_dims()
+
+    @abstractmethod
+    def set_state_action_dims(self):
+        return NotImplementedError
 
     def reset(self,**init):
         # TODO if the previous actions are to be put into the state-vector, reset() must set random actions
@@ -26,11 +32,17 @@ class Environment(ABC):
         self.sim.val('Hull', 'StateResetOn', 1, self.report_reset)
         self.sim.step(50) #min 50 steps should do it
         self.sim.val('Hull', 'StateResetOn', 0, self.report_reset)
-        self.sim.val('THR2', 'MtcOn', 1, self.report_reset)
-        self.sim.val('THR2', 'ThrustOrTorqueCmdMtc', 0, self.report_reset)
+
+        self.sim.val('THR1', 'MtcOn', 1, self.report_reset) # bow
+        self.sim.val('THR1', 'ThrustOrTorqueCmdMtc', 0, self.report_reset) 
+        self.sim.val('THR1', 'AzmCmdMtc', 0*math.pi, self.report_reset)
+
+        self.sim.val('THR2', 'MtcOn', 1, self.report_reset) # stern, portside
+        self.sim.val('THR2', 'ThrustOrTorqueCmdMtc', 0, self.report_reset) 
         self.sim.val('THR2', 'AzmCmdMtc', 0*math.pi, self.report_reset)
-        self.sim.val('THR3', 'MtcOn', 1, self.report_reset)
-        self.sim.val('THR3', 'ThrustOrTorqueCmdMtc', 0, self.report_reset)
+
+        self.sim.val('THR3', 'MtcOn', 1, self.report_reset) # stern, starboard
+        self.sim.val('THR3', 'ThrustOrTorqueCmdMtc', 0, self.report_reset) 
         self.sim.val('THR3', 'AzmCmdMtc', 0*math.pi, self.report_reset)
 
         state = self.create_state()
@@ -43,7 +55,7 @@ class Environment(ABC):
             self.sim.step() # perform that change
             s_ = self.create_state() # observe change
             r = self.calculate_reward() # calculate reward of change
-            done = self.check_if_terminal() # check if change was terminal
+            done = self.is_terminal() # check if change was terminal
             info = {'None': 0} # TODO add some information about the change
             return s_, r, done, info
 
@@ -67,7 +79,13 @@ class FixedThrusters(Environment):
 
     def __init__(self,sim):
         super().__init__(sim)
-        self.reward_coeffs = [1,1,2]
+        self.reward_type = 'gaussian' # 'mse' or 'gaussian'
+        self.reward_pose_error_coeffs = [1,1,2] 
+        return None
+
+    def set_state_action_dims(self):
+        self.num_states = 6
+        self.num_actions = 3
 
     def create_state(self):
         pose_ned = get_pose_3DOF(self.sim)
@@ -81,11 +99,12 @@ class FixedThrusters(Environment):
 
         azi_bow,azi_port, azi_star = 0.5*math.pi, -3*math.pi/4, 3*math.pi/4
         action = np.clip(action,-100.0,100.0).tolist() # TODO clip actions -  check type
-        n_port, n_star, n_bow = action
+        print(action)
+        n_bow, n_port, n_star = action
 
         # Bow
         self.sim.val('THR1', 'MtcOn', 1, self.report_reset)
-        self.sim.val('THR1', 'ThrustOrTorqueCmdMtc', n_bow, self.report_reset)
+        self.sim.val('THR1', 'ThrustOrTorqueCmdMtc', n_bow, self.report_reset) # TODO testing
         self.sim.val('THR1', 'AzmCmdMtc', azi_bow, self.report_reset)
 
         # Stern, port
@@ -98,10 +117,18 @@ class FixedThrusters(Environment):
         self.sim.val('THR3', 'ThrustOrTorqueCmdMtc', n_star, self.report_reset)
         self.sim.val('THR3', 'AzmCmdMtc', azi_star, self.report_reset)
 
-        return
+        return None
 
     def calculate_reward(self):
-        return sum( [e * c for e,c in zip(self.err.get_pose(), self.error_coefs)] )
+        ''' Return a scalar reward. TODO award staying inside a goal region '''
+        if self.reward_type.lower() == 'mse':
+            return -sum( [math.sqrt(e**2) * c for e,c in zip(self.err.get_pose(), self.reward_pose_error_coeffs)] ) # <= 0 
+        elif self.reward_type.lower() == 'gaussian':
+            all_gaussians = gaussian(self.err.get_pose()) # zero mean, var == 1 if default
+            # TODO normalize all elements by the boundary value
+            return sum(all_gaussians) # >= 0
+        else:
+            raise ValueError
         
     def is_terminal(self):
         ''' Using the boundaries of the error-frame to terminate episode if agent is outside of observation space'''
@@ -110,59 +137,61 @@ class FixedThrusters(Environment):
                 return True
         return False
 
-class RevoltSimulator(object):
-    ''' Initial state and full action space'''
 
-    def __init__(self,sim,simple=False,observation_space=[10,10,np.pi],action_space=[np.pi,np.pi,100,100,100],**init):
+# class RevoltSimulator(object):
+#     ''' Initial state and full action space'''
 
-        self.sim = sim
-        self.reset(**init)
-        self.err = observation_space
-        self.a_space = action_space   
+#     def __init__(self,sim,simple=False,observation_space=[10,10,np.pi],action_space=[np.pi,np.pi,100,100,100],**init):
 
-    def perform_action(self,action):
-        ''' Actions should be a vector of [a1,a2,f1,f2,f3]'''
+#         self.sim = sim
+#         self.reset(**init)
+#         self.err = observation_space
+#         self.a_space = action_space   
+#         return None
 
-        # TODO does MtcOn need to be set to 1 each time?
+#     def perform_action(self,action):
+#         ''' Actions should be a vector of [a1,a2,f1,f2,f3]'''
 
-        a1, a2, f1, f2, f3 = action # follows thesis convention
-        azi_port, azi_star, n_port, n_star, n_bow = action # more readable
+#         # TODO does MtcOn need to be set to 1 each time?
 
-        # TODO clip actions        
+#         a1, a2, f1, f2, f3 = action # follows thesis convention
+#         azi_port, azi_star, n_port, n_star, n_bow = action # more readable
 
-        '''
-        NOTE the enumeration of the thrusters in the simulator is different from the thesis
-        The naming from the simulator, with the corresponding enumeration in the thesis is:
-            - 'THR1' == 3: bow thruster
-            - 'THR2' == 1: stern, portside
-            - 'THR3' == 2: stern, starboard
-        '''
+#         # TODO clip actions        
 
-        # Bow
-        self.sim.val('THR1', 'MtcOn', 1, self.report_reset)
-        self.sim.val('THR1', 'ThrustOrTorqueCmdMtc', n_bow, self.report_reset)
-        self.sim.val('THR1', 'AzmCmdMtc', 0.5*math.pi, self.report_reset) # const
+#         '''
+#         NOTE the enumeration of the thrusters in the simulator is different from the thesis
+#         The naming from the simulator, with the corresponding enumeration in the thesis is:
+#             - 'THR1' == 3: bow thruster
+#             - 'THR2' == 1: stern, portside
+#             - 'THR3' == 2: stern, starboard
+#         '''
 
-        # Stern, port
-        self.sim.val('THR2', 'MtcOn', 1, self.report_reset)
-        self.sim.val('THR2', 'ThrustOrTorqueCmdMtc', n_port, self.report_reset)
-        self.sim.val('THR2', 'AzmCmdMtc', a1, self.report_reset)
+#         # Bow
+#         self.sim.val('THR1', 'MtcOn', 1, self.report_reset)
+#         self.sim.val('THR1', 'ThrustOrTorqueCmdMtc', n_bow, self.report_reset)
+#         self.sim.val('THR1', 'AzmCmdMtc', 0.5*math.pi, self.report_reset) # const
 
-        # Stern, starboard
-        self.sim.val('THR3', 'MtcOn', 1, self.report_reset)
-        self.sim.val('THR3', 'ThrustOrTorqueCmdMtc', n_star, self.report_reset)
-        self.sim.val('THR3', 'AzmCmdMtc', a2, self.report_reset)
+#         # Stern, port
+#         self.sim.val('THR2', 'MtcOn', 1, self.report_reset)
+#         self.sim.val('THR2', 'ThrustOrTorqueCmdMtc', n_port, self.report_reset)
+#         self.sim.val('THR2', 'AzmCmdMtc', a1, self.report_reset)
 
-    def create_state(self):
-        pose_ned = get_pose_3DOF(self.sim)
-        self.err.update(pose_ned)
-        error_pose_body = self.err.get_pose()
-        vel_body = get_vel_3DOF(self.sim)
-        return np.array(error_pose_body + vel_body) # np array of shape (6,)
+#         # Stern, starboard
+#         self.sim.val('THR3', 'MtcOn', 1, self.report_reset)
+#         self.sim.val('THR3', 'ThrustOrTorqueCmdMtc', n_star, self.report_reset)
+#         self.sim.val('THR3', 'AzmCmdMtc', a2, self.report_reset)
 
-    def calculate_reward(self):
-        return 0
+#     def create_state(self):
+#         pose_ned = get_pose_3DOF(self.sim)
+#         self.err.update(pose_ned)
+#         error_pose_body = self.err.get_pose()
+#         vel_body = get_vel_3DOF(self.sim)
+#         return np.array(error_pose_body + vel_body) # np array of shape (6,)
+
+#     def calculate_reward(self):
+#         return 0
     
-    def is_terminal(self):
-        ''' Using the boundaries of the error-frame to terminate episode if agent is outside of observation space'''
-        return True
+#     def is_terminal(self):
+#         ''' Using the boundaries of the error-frame to terminate episode if agent is outside of observation space'''
+#         return True

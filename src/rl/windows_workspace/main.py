@@ -7,18 +7,17 @@ Created on Fri Mar  6 11:54:44 2020
 
 from digitwin import DigiTwin
 import threading
-from log import log, forcelog
+from utils.log import log, forcelog
 import math as m
 import random as r
 
 # SIMENs CLASSES
 from errorFrame import ErrorFrame 
-# from utils_math import *
-from utils_sim import get_pose_3DOF, get_vel_3DOF
-from utils_debugging import print_pose
-from environment import RevoltSimulator
-from agent import PPO
-
+# from utils.mathematics import *
+from utils.simtools import get_pose_3DOF, get_vel_3DOF
+from utils.debug import print_pose
+from environment import FixedThrusters
+from agents.ppo import PPO
 
 #defs
 SIM_CONFIG_PATH     = "C:\\Users\\simen\\Documents\\Utdanning\\GTK\\configuration"
@@ -104,7 +103,7 @@ def get_random_pose():
 #MAIN...        
 if __name__ == "__main__":
 
-    env = RevoltSimulator()
+    # env = RevoltSimulator()
     agent = PPO()
     # TODO clean all this into a single class
 

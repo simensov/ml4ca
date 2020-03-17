@@ -9,7 +9,7 @@ from py4j.java_gateway import JavaGateway, Py4JNetworkError
 from py4j.java_gateway import GatewayParameters
 import subprocess
 import time
-from log import log, forcelog
+from utils.log import log, forcelog
 
 class DigiTwin:
     SCAL_INP = 'scalar_input'

@@ -16,6 +16,17 @@ def wrap_angle(angle,deg = True):
     ref = 180.0 if deg else np.pi
     return np.mod(angle + ref, 2*ref) - ref
 
+def gaussian(val,mean=None,var=None):
+    ''' Val, mean, var all needs to be vectors of same dim; e.g. (3,1) or (3,). Return shape is the same '''
+    if isinstance(val,list):
+        val = np.array(val)
+
+    mean = np.zeros(val.shape) if not mean or mean.shape != val.shape else mean
+    var = np.ones(val.shape) if not var or var.shape != val.shape else var
+    
+    return 1 / np.sqrt(2 * np.pi * var) * np.exp ( -0.5 * ((val - mean) / var)**2 )
+
+
 '''
 TF specific
 '''

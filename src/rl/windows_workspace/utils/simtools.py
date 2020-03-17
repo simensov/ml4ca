@@ -1,6 +1,8 @@
 '''
 Utilities used for extracting states from the revolt simulator
 '''
+import random
+import math
 
 def get_pose_3DOF(sim):
     yaw = float(sim.val('Hull','Yaw'))
@@ -21,3 +23,9 @@ def get_average_GPS_measurements(sim):
     
     gpsvals[0] /= 3; gpsvals[1] /= 3 # take average
     return gpsvals
+
+def get_random_pose():
+    N = (random.random()-0.5)*20.0
+    E = (random.random()-0.5)*20.0
+    Y = (random.random()-0.5)*2*(math.pi)
+    return N, E, Y

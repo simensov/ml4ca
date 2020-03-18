@@ -8,23 +8,12 @@ from keras.optimizers import Adam
 
 from utils.mathematics import normal_dist, clip_loss
 
-clip_epsilon = 0.2
-exploration_noise = 1.0
-gamma = 0.99
-buffer_size = 2048
-
-EPISODES      = 100000
-LOSS_CLIPPING = 0.2 # Only implemented clipping for the surrogate loss, paper said it was best
 EPOCHS        = 10
-NOISE         = 1.0 # Exploration noise
-GAMMA         = 0.99
 BUFFER_SIZE   = 2048
 BATCH_SIZE    = 256
-NUM_ACTIONS   = 3
-HIDDEN_SIZE   = 128
-NUM_LAYERS    = 2
 ENTROPY_LOSS  = 5e-3
 LR            = 1e-4  # Lower lr stabilises training greatly
+# Inspired by structure in https://github.com/LuEE-C/PPO-Keras/blob/master/Main.py
 
 class PPO(object):
     ''' A PPO agent with continous action space, using a neural net function approximator and tanh activations on output '''
@@ -40,17 +29,15 @@ class PPO(object):
                  actor_clip  = 0.15
                  ):
 
-        self.num_states = num_states
-        self.layer_dims = layers
-        self.lr_c = critic_lr
-        self.critic_params = [layers, critic_lr] # TODO might clean up init
-        self.critic = self.build_critic()
-        self.actor_params = [layers, actor_lr, actor_noise] # TODO might clean up init
-        self.actor_noise = actor_noise
-        self.actor_lr = actor_lr
+        self.num_states    = num_states
+        self.layer_dims    = layers
+        self.critic_lr     = critic_lr
+        self.critic        = self.build_critic()
+        self.actor_noise   = actor_noise
+        self.actor_lr      = actor_lr
         self.actor_epsilon = actor_clip
-        self.num_actions = num_actions
-        self.actor = self.build_actor()
+        self.num_actions   = num_actions
+        self.actor         = self.build_actor()
 
         self.dummy_val, self.dummy_act = np.zeros((1,1)), np.zeros((1,num_actions))
 
@@ -61,10 +48,10 @@ class PPO(object):
             if i == 0: continue
             x = Dense(hidden_nodes,activation='tanh')(x)
         x = Dense(1)(x)
-        model = Model(inputs = [inn], outputs=[x]) # TODO replace with sequential from FFNN?
-        model.compile(optimizer = Adam(lr = self.lr_c), loss = 'mse')
-        # model.summary()
-        return model
+        m = Model(inputs = [inn], outputs=[x])
+        m.compile(optimizer = Adam(lr = self.critic_lr), loss = 'mse')
+        # m.summary()
+        return m
 
     def V(self,state):
         return self.critic.predict([state.reshape(1,self.num_states)]) # TODO a normal forward pass could be beneficial here!
@@ -86,24 +73,24 @@ class PPO(object):
         return loss
 
     def build_actor(self):
-        inn = Input(shape = (self.num_states,),name='actor_input')
-        A = Input(shape = (1,),name='actor_adv') # advantage
-        old_pred = Input(shape=(self.num_actions,),name='actor_oldpred')
-        x = Dense(self.layer_dims[0], activation = 'tanh')(inn)
+        inn  = Input(shape = (self.num_states,), name = 'actor_input')
+        A    = Input(shape = (1,), name = 'actor_adv') # advantage
+        prev = Input(shape = (self.num_actions,), name = 'actor_oldpred') # old prediction
+        x    = Dense(self.layer_dims[0], activation = 'tanh')(inn)
         for i, hidden_nodes in enumerate(self.layer_dims):
             if i == 0: continue 
             x = Dense(hidden_nodes, kernel_initializer = 'glorot_uniform', bias_initializer = 'normal', activation = 'tanh')(x)
+        
         x = Dense(self.num_actions, kernel_initializer = 'glorot_uniform', bias_initializer = 'normal', activation = 'tanh')(x)
-        model = Model(inputs=[inn, A, old_pred], outputs = [x])
-        model.compile(optimizer=Adam(lr=self.actor_lr), loss = self.clip_loss_fn(A,old_pred))
+        m = Model(inputs=[inn, A, prev], outputs = [x]) # inputs like these in order to pass advantage and previous actions to loss function
+        m.compile(optimizer=Adam(lr=self.actor_lr), loss = self.clip_loss_fn(A,prev))
         # model.summary()
-        return model
+        return m
 
-    def act(self,obs):
+    def act(self,obs,epsilon=0.1):
         pred = self.actor.predict([obs.reshape(1,self.num_states), self.dummy_val, self.dummy_act]) # forward pass TODO predict used earlier        
         
-        # TODO seems like a eps greedy thing here
-        if np.random.random() < 0.1:
+        if np.random.random() < epsilon:
             act = pred + np.random.normal(loc=0, scale=self.actor_noise, size=pred[0].shape) # before it said pred[0]
         else:
             act = pred

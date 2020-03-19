@@ -19,6 +19,7 @@ from utils.debug import print_pose
 from environment import FixedThrusters
 from agents.ppo import PPO
 import numpy as np
+import matplotlib.pyplot as plt 
 
 #defs
 SIM_CONFIG_PATH     = "C:\\Users\\simen\\Documents\\Utdanning\\GTK\\configuration"
@@ -28,9 +29,9 @@ LOAD_SIM_CFG        = False
 NON_SIM_DEBUG       = False
 REPORT              = True #write out what is written to sim
 REPORTRESETS        = False
-NUM_SIMULATORS      = 1
-THREADING           = False # = True if threading out sim process
-NUM_EPISODES        = 15
+NUM_SIMULATORS      = 2
+THREADING           = True # = True if threading out sim process
+NUM_EPISODES        = 5
 
 
 def reset_sim(sim,**init):
@@ -45,8 +46,9 @@ def reset_sim(sim,**init):
     sim.val('Hull', 'StateResetOn', 0, REPORTRESETS)
 
     sim.val('THR1', 'MtcOn', 1, REPORTRESETS) # bow
-    sim.val('THR1', 'ThrustOrTorqueCmdMtc', 0, REPORTRESETS) 
     sim.val('THR1', 'AzmCmdMtc', 0.5*m.pi, REPORTRESETS)
+    sim.val('THR1', 'ThrustOrTorqueCmdMtc', 0.0, REPORTRESETS) 
+    sim.step(50) #min 50 steps should do it
     sim.val('THR2', 'MtcOn', 1, REPORTRESETS) # stern, portside
     sim.val('THR2', 'ThrustOrTorqueCmdMtc', -30, REPORTRESETS) 
     sim.val('THR2', 'AzmCmdMtc', 0*m.pi, REPORTRESETS)
@@ -81,12 +83,13 @@ def simulate_episode(sim, **init):
         p_body = err.get_pose(pose)
         vel = get_vel_3DOF(sim)
         print_pose(p_body,'Err') if step % 500 == 0 else None
-        print_pose(vel,'Vel') if step % 500 == 0 else None
 
 def episode_test(env,**init):
-    episode_length = 4000 # trainer
-    batch_size = 256 # trainer
+    ''' Function to move into the trainer class '''
+    episode_length = 2000 # trainer
+    batch_size = 256 # trainer - training during episodes: n-step TD instead of 1-step or Monte Carlo
     gamma = 0.99 # trainer
+    print("episode by ", env.sim.name)
 
     agent = PPO(num_states=env.num_states,num_actions=env.num_actions)
     s = env.reset(**init)
@@ -110,13 +113,20 @@ def episode_test(env,**init):
             discounted_rewards = []
             for reward in rewards[::-1]: # reverse the list
                 v_sn = reward + gamma * v_sn
-                discounted_rewards.append(v_sn)
+                discounted_rewards.append(v_sn) # advantages are calculated by the agent, using its V-predictions
 
             discounted_rewards.reverse() 
+            # TODO standardize returns: 
+            # https://medium.com/@thechrisyoon/deriving-policy-gradients-and-implementing-reinforce-f887949bd63
+            # -> https://arxiv.org/abs/1506.02438
+
+
             batch = np.vstack(states), np.vstack(actions), np.vstack(pred_actions), np.vstack(discounted_rewards)
             states, actions, pred_actions, rewards = [], [], [], []
             advantages, actor_loss, critic_loss = agent.update(batch)
-    return    
+    
+    print(episodal_reward)
+    return episodal_reward
         
 '''
 MAIN
@@ -140,6 +150,7 @@ if __name__ == "__main__":
     log("Connected to simulators and configuration loaded")
 
     envs = [FixedThrusters(s) for s in sims]
+    all_rewards = [[]*NUM_SIMULATORS]
 
     for ep_ix in range(NUM_EPISODES):
         for sim_ix in range(NUM_SIMULATORS):
@@ -150,12 +161,22 @@ if __name__ == "__main__":
             if THREADING:
                 sim_semaphores[sim_ix].acquire()
                 log("Locking sim" + str(sim_ix+1) + "/" + str(NUM_SIMULATORS))
-                t = threading.Thread(target=simulate_episode, args=[sims[sim_ix]], kwargs=init)
+                # t = threading.Thread(target=simulate_episode, args=[sims[sim_ix]], kwargs=init)
+                t = threading.Thread(target=episode_test, args=[envs[sim_ix]], kwargs=init)
                 t.daemon = True
                 t.start()
+
+                # TODO hvis alle threads kunne ha delt en felles buffer hadde det vært awsome
     
             else:
                 # simulate_episode(sims[sim_ix],**init)
-                episode_test(envs[sim_ix],**init)
+                print('Episode {}'.format(ep_ix+1))
+                episode_reward = episode_test(envs[sim_ix],**init)
+                all_rewards[sim_ix].append(episode_reward)
 
-
+    for rewards in all_rewards:
+        print(rewards)
+        plt.figure()
+        plt.plot([i for i in range(NUM_EPISODES)], rewards)
+    
+    plt.show()

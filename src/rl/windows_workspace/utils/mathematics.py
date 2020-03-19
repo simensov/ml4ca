@@ -24,7 +24,7 @@ def gaussian(val,mean=None,var=None):
     mean = np.zeros(val.shape) if not mean or mean.shape != val.shape else mean
     var = np.ones(val.shape) if not var or var.shape != val.shape else var
     
-    return 1 / np.sqrt(2 * np.pi * var) * np.exp ( -0.5 * ((val - mean) / var)**2 )
+    return 1 / np.sqrt(2 * np.pi * var) * np.exp ( -0.5 * ((val - mean) / np.sqrt(var))**2 )
 
 
 '''

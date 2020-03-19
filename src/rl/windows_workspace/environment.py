@@ -26,7 +26,7 @@ class Environment(ABC):
 
         for modfeat in init:
             module, feature = modfeat.split('.')
-            self.sim.val(module, feature, init[modfeat])
+            self.sim.val(module, feature, init[modfeat],report=False)
             
         #reset critical models to clear states from last episode
         self.sim.val('Hull', 'StateResetOn', 1, self.report_reset)
@@ -99,7 +99,6 @@ class FixedThrusters(Environment):
 
         azi_bow,azi_port, azi_star = 0.5*math.pi, -3*math.pi/4, 3*math.pi/4
         action = np.clip(action,-100.0,100.0).tolist() # TODO clip actions -  check type
-        print(action)
         n_bow, n_port, n_star = action
 
         # Bow
@@ -122,10 +121,10 @@ class FixedThrusters(Environment):
     def calculate_reward(self):
         ''' Return a scalar reward. TODO award staying inside a goal region '''
         if self.reward_type.lower() == 'mse':
-            return -sum( [math.sqrt(e**2) * c for e,c in zip(self.err.get_pose(), self.reward_pose_error_coeffs)] ) # <= 0 
+            return -math.sqrt(sum( [e**2 * c for e,c in zip(self.err.get_pose(), self.reward_pose_error_coeffs)] )) # <= 0 
         elif self.reward_type.lower() == 'gaussian':
             all_gaussians = gaussian(self.err.get_pose()) # zero mean, var == 1 if default
-            # TODO normalize all elements by the boundary value
+            # TODO divide all elements by a value á AUV control with RL?
             return sum(all_gaussians) # >= 0
         else:
             raise ValueError

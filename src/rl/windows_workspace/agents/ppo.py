@@ -104,8 +104,7 @@ class PPO(object):
         o, a, p, r = o[:BATCH_SIZE], a[:BATCH_SIZE], p[:BATCH_SIZE], r[:BATCH_SIZE]
         old_prediction = p
         pred_values    = self.critic.predict(o) # self.critic.predict(o) # forward pass
-        advantage      = r - pred_values
-        print(np.mean(advantage))
+        advantage      = r - pred_values # standardize? 
         actor_loss     = self.actor.fit([o, advantage, old_prediction], [a], batch_size=BATCH_SIZE, shuffle=True, epochs=EPOCHS, verbose=False)
         critic_loss    = self.critic.fit([o], [r], batch_size=BATCH_SIZE, shuffle=True, epochs=EPOCHS, verbose=False)
 

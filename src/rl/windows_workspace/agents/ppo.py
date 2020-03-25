@@ -12,7 +12,6 @@ EPOCHS        = 10
 BUFFER_SIZE   = 2048
 BATCH_SIZE    = 256
 ENTROPY_LOSS  = 5e-3
-LR            = 1e-4  # Lower lr stabilises training greatly
 # Inspired by structure in https://github.com/LuEE-C/PPO-Keras/blob/master/Main.py
 
 class PPO(object):
@@ -23,9 +22,9 @@ class PPO(object):
                  num_states  = 6,
                  num_actions = 5,
                  layers      = (64,64),
-                 critic_lr   = 1e-4,
+                 critic_lr   = 1e-3,
                  actor_noise = 1.0,
-                 actor_lr    = 1e-4,
+                 actor_lr    = 1e-3, # low lr could stabilize training
                  actor_clip  = 0.15
                  ):
 
@@ -115,6 +114,11 @@ class PPO(object):
 
     def save(self,filename='model.h5'):
         pass # TODO see src/sl/SupervisedTau.py
+
+    def __str__(self):
+        self.critic.summary()
+        self.actor.summary()
+        return ''
 
 
 if __name__ == '__main__':

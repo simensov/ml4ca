@@ -30,6 +30,8 @@ class Environment(ABC):
             
         #reset critical models to clear states from last episode
         self.sim.val('Hull', 'StateResetOn', 1, self.report_reset)
+        self.sim.val('THR1', 'LinActuator', int(2), self.report_reset) # TODO manual testing, ovverriding value before pressing play worked. How to do from python?
+        self.sim.simulator.setScalarInputSignal('THR1','LinActuator',2.0)
         self.sim.step(50) #min 50 steps should do it
         self.sim.val('Hull', 'StateResetOn', 0, self.report_reset)
 
@@ -49,15 +51,15 @@ class Environment(ABC):
         return state
 
     def step(self,action):
-            # TODO these actions might has to be extracted from "inverse standardization"?
-
-            self.perform_action(action) # tell simulator to make a change
-            self.sim.step() # perform that change
-            s_ = self.create_state() # observe change
-            r = self.calculate_reward() # calculate reward of change
-            done = self.is_terminal() # check if change was terminal
-            info = {'None': 0} # TODO add some information about the change
-            return s_, r, done, info
+        ''' Makes a step in the simulator after a received action has been performed. Should follow format of OpenAI's gym '''
+        self.sim.val('THR1', 'LinActuator', int(2), self.report_reset)
+        self.perform_action(action) # tell simulator to make a change
+        self.sim.step() # perform that change
+        s_   = self.create_state() # observe change
+        r    = self.calculate_reward() # calculate reward of change
+        done = self.is_terminal() # check if change was terminal
+        info = {'None': 0} # TODO add some information about the change, e.g. printable format of reward etc
+        return s_, r, done, info
 
     @abstractmethod
     def create_state(self):
@@ -92,7 +94,7 @@ class FixedThrusters(Environment):
         self.err.update(pose_ned)
         error_pose_body = self.err.get_pose()
         vel_body = get_vel_3DOF(self.sim)
-        return np.array(error_pose_body + vel_body) # np array of shape (6,) after concatination lists
+        return np.array(error_pose_body + vel_body) # np array of shape (6,) after concatinating lists
 
     def perform_action(self,action):
         ''' Actions should be a vector of [f1,f2,f3]'''

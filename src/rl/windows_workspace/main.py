@@ -29,9 +29,10 @@ LOAD_SIM_CFG        = False
 NON_SIM_DEBUG       = False
 REPORT              = True #write out what is written to sim
 REPORTRESETS        = False
-NUM_SIMULATORS      = 2
-THREADING           = True # = True if threading out sim process
-NUM_EPISODES        = 5
+NUM_SIMULATORS      = 1
+THREADING           = False # = True if threading out sim process
+NUM_EPISODES        = 30 # One sim, 300 episodes, 5000 steps ~ 12 hours
+OLD_CODE            = False
 
 
 def reset_sim(sim,**init):
@@ -42,6 +43,7 @@ def reset_sim(sim,**init):
         
     #reset critical models to clear states from last episode
     sim.val('Hull', 'StateResetOn', 1, REPORTRESETS)
+    sim.val('THR1', 'LinActuator', int(2), REPORTRESETS)
     sim.step(50) #min 50 steps should do it
     sim.val('Hull', 'StateResetOn', 0, REPORTRESETS)
 
@@ -86,7 +88,7 @@ def simulate_episode(sim, **init):
 
 def episode_test(env,**init):
     ''' Function to move into the trainer class '''
-    episode_length = 2000 # trainer
+    episode_length = 5000 # trainer
     batch_size = 256 # trainer - training during episodes: n-step TD instead of 1-step or Monte Carlo
     gamma = 0.99 # trainer
     print("episode by ", env.sim.name)
@@ -156,7 +158,7 @@ if __name__ == "__main__":
         for sim_ix in range(NUM_SIMULATORS):
             N, E, Y = get_random_pose()
             print('Random pos set to {}'.format([N,E,Y*180/m.pi]))
-            init = {'Hull.PosNED':[N,E],'Hull.PosAttitude':[0,0,Y]}
+            init = {'Hull.PosNED':[N,E],'Hull.PosAttitude':[0,0,Y],'THR1.LinActuator':2.0}
 
             if THREADING:
                 sim_semaphores[sim_ix].acquire()
@@ -166,17 +168,24 @@ if __name__ == "__main__":
                 t.daemon = True
                 t.start()
 
-                # TODO hvis alle threads kunne ha delt en felles buffer hadde det vært awsome
+                # TODO hvis alle threads kunne ha delt en felles trajectory buffer hadde det vært awsome
     
             else:
-                # simulate_episode(sims[sim_ix],**init)
-                print('Episode {}'.format(ep_ix+1))
-                episode_reward = episode_test(envs[sim_ix],**init)
-                all_rewards[sim_ix].append(episode_reward)
+                if OLD_CODE:
+                    simulate_episode(sims[sim_ix],**init)
+                else:
+                    print('Episode {}'.format(ep_ix+1))
+                    episode_reward = episode_test(envs[sim_ix],**init)
+                    all_rewards[sim_ix].append(episode_reward)
 
-    for rewards in all_rewards:
-        print(rewards)
-        plt.figure()
-        plt.plot([i for i in range(NUM_EPISODES)], rewards)
+    if not THREADING and not OLD_CODE:
+        for rewards in all_rewards:
+            print(rewards)
+            plt.figure()
+            plt.plot([i for i in range(NUM_EPISODES)], rewards)
+            plt.xlabel('Episodes')
+            plt.ylabel('Episodal rewards')
+        plt.show()
+
+    # TODO display performance from stored model
     
-    plt.show()

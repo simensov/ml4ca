@@ -25,7 +25,6 @@ class DigiTwin:
     def __init__(self, name, load_cfg, sim_path, cfg_path, python_port):
         self.name = name
 
-
         log('Opening simulator')
         self.load_cfg = self.connectToJVM(sim_path, python_port)
         if load_cfg:
@@ -34,29 +33,32 @@ class DigiTwin:
         self.mod_feat_func = self.get_mod_feat_funcs()
         self.cfg_path = cfg_path
 
-        # load config
         log("CS sim loading config.")    
-        loaded_cfg = self.load_config()
+        loaded_cfg = self.load_config() # load config
         log("CS sim loaded config.")    
-
-        # read config
-        self.config = self.get_config()
+        
+        self.config = self.get_config() # read config
         log("CS sim config read.")    
         
 #        if not loaded_cfg:
 #            self.set_all_reset(1)
 #            self.step(50)
-
-        # step sim as fast as possible
-        self.setRealTimeMode(False)
+        
+        self.setRealTimeMode(True) # step sim as fast as possible
     
-####
-#method to read or write values to module feature (feat) parameters in the digital twin (simulator)
-#no val indicates a read request
-#report flag indicates if written val should be printed to std out.
-#some features are vectors.  if val = list, len(val) indices of this vector will be written
-# if val = number, all indices of this vecor will be written the same value.
     def val(self, module, feat, val=None, report=True):
+        '''
+        Method for reading/writing values from/to parameters in the digital twin simulator.
+        Note that some features are ints, floats, and vectors:
+            When using val() for reading, extracting values are done through e.g. float(sim.val('mod','feat')) or list() etc.
+            When using val() for writing, be aware that if writing to a vector, and val is a number instead of a list, all values in the vector are set to the same number
+
+        :params:
+            - module (string):  module in the simulator, e.g. 'Hull' or 'THR1'
+            - feat (string):    feature of the module, e.g. 'AzmCmdMtc'
+            - val (double):     the value to be written. If val == None, the function returns the value of module.feat from the Java connection
+            - report (bool):    decision variable; if True, the method prints to std out whenever parameters are changed or read
+        '''
         single_vec_ix = False
         if "[" in feat:
             content = feat.split("[")
@@ -116,6 +118,12 @@ class DigiTwin:
         
 
     def connectToJVM(self, sim_path, python_port):
+        '''
+        Connects Python to the simulator through Java. 
+        :params:
+            - sim_path (string):    ABSOLUTE path to the simulator .exe file
+            - python_port (int):    Port number for this simulator (standard is 25338)
+        '''
         #Need to establish a connection to the JVM. That will happen only when the Cybersea Simulator is opened.
         #log('Waiting time for the application to open...')
         #time.sleep(15)
@@ -146,6 +154,7 @@ class DigiTwin:
                 return True
     
     def get_mod_feat_funcs(self):
+        ''' Method for extracting values of features based on their different types. These methods calls directly on the various Java functions '''
         funcs = {}
         for feat_type in self.MODULE_FEAT_TYPES:
             if feat_type == self.SCAL_INP:
@@ -199,6 +208,7 @@ class DigiTwin:
         forcelog(str(self.name)+' all scripts run')
         
     def step(self, steps=1):
+        ''' Step the digitwin simulator instance 'steps' time steps '''
         if steps > 1:
             self.simulator.step(steps)
         elif steps == 1:

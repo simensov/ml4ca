@@ -30,8 +30,7 @@ class Environment(ABC):
             
         #reset critical models to clear states from last episode
         self.sim.val('Hull', 'StateResetOn', 1, self.report_reset)
-        self.sim.val('THR1', 'LinActuator', int(2), self.report_reset) # TODO manual testing, ovverriding value before pressing play worked. How to do from python?
-        self.sim.simulator.setScalarInputSignal('THR1','LinActuator',2.0)
+        self.sim.val('THR1', 'LinActuator', 2.0, self.report_reset) # This allows the bow thruster to be down, as the standard is that the thruster is retracted into the hull
         self.sim.step(50) #min 50 steps should do it
         self.sim.val('Hull', 'StateResetOn', 0, self.report_reset)
 
@@ -47,22 +46,21 @@ class Environment(ABC):
         self.sim.val('THR3', 'ThrustOrTorqueCmdMtc', 0, self.report_reset) 
         self.sim.val('THR3', 'AzmCmdMtc', 0*math.pi, self.report_reset)
 
-        state = self.create_state()
+        state = self.state()
         return state
 
     def step(self,action):
         ''' Makes a step in the simulator after a received action has been performed. Should follow format of OpenAI's gym '''
-        self.sim.val('THR1', 'LinActuator', int(2), self.report_reset)
         self.perform_action(action) # tell simulator to make a change
-        self.sim.step() # perform that change
-        s_   = self.create_state() # observe change
+        self.sim.step(10) # perform change, stepsize = 0.01 * step. 100 Hz : step = 1,  10 Hz : step = 10, 1 Hz : step = 100 etc.
+        s_   = self.state() # observe change
         r    = self.calculate_reward() # calculate reward of change
         done = self.is_terminal() # check if change was terminal
         info = {'None': 0} # TODO add some information about the change, e.g. printable format of reward etc
         return s_, r, done, info
 
     @abstractmethod
-    def create_state(self):
+    def state(self):
         return NotImplementedError
 
     @abstractmethod
@@ -82,18 +80,21 @@ class FixedThrusters(Environment):
     def __init__(self,sim):
         super().__init__(sim)
         self.reward_type = 'gaussian' # 'mse' or 'gaussian'
-        self.reward_pose_error_coeffs = [1,1,2] 
+        self.reward_pose_error_coeffs = [1,1,5] 
         return None
 
     def set_state_action_dims(self):
         self.num_states = 6
         self.num_actions = 3
 
-    def create_state(self):
+    def state(self):
         pose_ned = get_pose_3DOF(self.sim)
         self.err.update(pose_ned)
         error_pose_body = self.err.get_pose()
         vel_body = get_vel_3DOF(self.sim)
+        '''
+        TODO increase state vector - ADD DISTANCE FROM CG FOR BETTER CONVERGENCE
+        '''
         return np.array(error_pose_body + vel_body) # np array of shape (6,) after concatinating lists
 
     def perform_action(self,action):
@@ -121,15 +122,28 @@ class FixedThrusters(Environment):
         return None
 
     def calculate_reward(self):
-        ''' Return a scalar reward. TODO award staying inside a goal region '''
-        if self.reward_type.lower() == 'mse':
-            return -math.sqrt(sum( [e**2 * c for e,c in zip(self.err.get_pose(), self.reward_pose_error_coeffs)] )) # <= 0 
-        elif self.reward_type.lower() == 'gaussian':
+        ''' Return a scalar reward. 
+            TODO award staying inside a goal region
+            TODO penalize high velocities (especially yaw rate)
+            TODO penalize rapid action changes
+            TODO penalize going out of bounds
+        '''
+        if False and self.reward_type.lower() == 'mse':
+            rew = -math.sqrt(sum( [e**2 * c for e,c in zip(self.err.get_pose(), self.reward_pose_error_coeffs)] )) # <= 0 
+        elif False and self.reward_type.lower() == 'gaussian':
             all_gaussians = gaussian(self.err.get_pose()) # zero mean, var == 1 if default
             # TODO divide all elements by a value á AUV control with RL?
-            return sum(all_gaussians) # >= 0
+            rew = sum(all_gaussians) # >= 0
         else:
-            raise ValueError
+            pass
+            # raise ValueError
+
+        # TODO JUST TESTING A MORE COMPREHENSIVE REWARD FUNCTION
+        vel_pen = -math.sqrt(sum( [e**2 * c for e,c in zip(get_vel_3DOF(self.sim), self.reward_pose_error_coeffs)] ))
+        gaus_rews = gaussian(self.err.get_pose())
+        gaus_rews[2] = 0 if abs(self.err.get_pose()[2]) > np.pi/2 else gaus_rews[2] # set reward of 
+        rew = vel_pen + sum(gaus_rews)
+        return rew 
         
     def is_terminal(self):
         ''' Using the boundaries of the error-frame to terminate episode if agent is outside of observation space'''
@@ -183,7 +197,7 @@ class FixedThrusters(Environment):
 #         self.sim.val('THR3', 'ThrustOrTorqueCmdMtc', n_star, self.report_reset)
 #         self.sim.val('THR3', 'AzmCmdMtc', a2, self.report_reset)
 
-#     def create_state(self):
+#     def state(self):
 #         pose_ned = get_pose_3DOF(self.sim)
 #         self.err.update(pose_ned)
 #         error_pose_body = self.err.get_pose()

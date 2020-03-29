@@ -14,12 +14,13 @@ import time
 
 from errorFrame import ErrorFrame 
 # from utils.mathematics import *
-from utils.simtools import get_pose_3DOF, get_vel_3DOF, get_random_pose
+from utils.simtools import get_pose_3DOF, get_vel_3DOF, get_random_pose, get_pose_on_radius
 from utils.debug import print_pose
 from environment import FixedThrusters
 from agents.ppo import PPO
 import numpy as np
 import matplotlib.pyplot as plt 
+import multiprocessing # TODO
 
 #defs
 SIM_CONFIG_PATH     = "C:\\Users\\simen\\Documents\\Utdanning\\GTK\\configuration"
@@ -30,8 +31,8 @@ NON_SIM_DEBUG       = False
 REPORT              = True #write out what is written to sim
 REPORTRESETS        = False
 NUM_SIMULATORS      = 1
-THREADING           = False # = True if threading out sim process
-NUM_EPISODES        = 30 # One sim, 300 episodes, 5000 steps ~ 12 hours
+THREADING           = False # = True if threading out sim process. TODO trouble during venv - not tried using sys
+NUM_EPISODES        = 60 # One sim, 300 episodes, 5000 steps ~ 12 hours with 100 Hz
 OLD_CODE            = False
 
 
@@ -88,10 +89,10 @@ def simulate_episode(sim, **init):
 
 def episode_test(env,**init):
     ''' Function to move into the trainer class '''
-    episode_length = 5000 # trainer
-    batch_size = 256 # trainer - training during episodes: n-step TD instead of 1-step or Monte Carlo
+    batch_size = 256 # factors of 256. trainer - training during episodes: n-step TD instead of 1-step or Monte Carlo
+    episode_length = batch_size * 4 # trainer
     gamma = 0.99 # trainer
-    print("episode by ", env.sim.name)
+    # print("episode by ", env.sim.name)
 
     agent = PPO(num_states=env.num_states,num_actions=env.num_actions)
     s = env.reset(**init)
@@ -127,7 +128,7 @@ def episode_test(env,**init):
             states, actions, pred_actions, rewards = [], [], [], []
             advantages, actor_loss, critic_loss = agent.update(batch)
     
-    print(episodal_reward)
+    # print(episodal_reward)
     return episodal_reward
         
 '''
@@ -156,9 +157,10 @@ if __name__ == "__main__":
 
     for ep_ix in range(NUM_EPISODES):
         for sim_ix in range(NUM_SIMULATORS):
-            N, E, Y = get_random_pose()
-            print('Random pos set to {}'.format([N,E,Y*180/m.pi]))
-            init = {'Hull.PosNED':[N,E],'Hull.PosAttitude':[0,0,Y],'THR1.LinActuator':2.0}
+            # N, E, Y = get_random_pose()
+            N, E, Y = get_pose_on_radius()
+            # print('Random pos set to {}'.format([N,E,Y*180/m.pi]))
+            init = {'Hull.PosNED':[N,E],'Hull.PosAttitude':[0,0,Y]}
 
             if THREADING:
                 sim_semaphores[sim_ix].acquire()

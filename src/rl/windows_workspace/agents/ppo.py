@@ -8,7 +8,8 @@ from keras.optimizers import Adam
 
 from utils.mathematics import normal_dist, clip_loss
 
-EPOCHS        = 10
+EPOCHS_ACTOR  = 1 
+EPOCHS_CRITIC = 10
 BUFFER_SIZE   = 2048
 BATCH_SIZE    = 256
 ENTROPY_LOSS  = 5e-3
@@ -104,8 +105,11 @@ class PPO(object):
         old_prediction = p
         pred_values    = self.critic.predict(o) # self.critic.predict(o) # forward pass
         advantage      = r - pred_values # standardize? 
-        actor_loss     = self.actor.fit([o, advantage, old_prediction], [a], batch_size=BATCH_SIZE, shuffle=True, epochs=EPOCHS, verbose=False)
-        critic_loss    = self.critic.fit([o], [r], batch_size=BATCH_SIZE, shuffle=True, epochs=EPOCHS, verbose=False)
+        actor_loss     = self.actor.fit([o, advantage, old_prediction], [a], batch_size=BATCH_SIZE, shuffle=False, epochs=EPOCHS_ACTOR, verbose=False)
+        critic_loss    = self.critic.fit([o], [r], batch_size=BATCH_SIZE, shuffle=True, epochs=EPOCHS_CRITIC, verbose=False)
+        # remember that the "loss" is just an negative of the performance measurement under the current policy.
+        # Once a single SGD step is taken, there is no connection to the performance of the current policy anymore
+        # However, the value function itself just tries to find the optimal estimate of the average future reward, so it can be updated more often
 
         return advantage, actor_loss, critic_loss
 

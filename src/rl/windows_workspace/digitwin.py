@@ -44,7 +44,7 @@ class DigiTwin:
 #            self.set_all_reset(1)
 #            self.step(50)
         
-        self.setRealTimeMode(True) # step sim as fast as possible
+        self.setRealTimeMode(False) # step sim as fast as possible with "False"
     
     def val(self, module, feat, val=None, report=True):
         '''

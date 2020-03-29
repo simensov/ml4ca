@@ -29,3 +29,12 @@ def get_random_pose():
     E = (random.random()-0.5)*20.0
     Y = (random.random()-0.5)*2*(math.pi)
     return N, E, Y
+
+def get_pose_on_radius(r=3):
+    # use polar coords to always get a position of radius r away from setpoint
+    r = r
+    theta = random.random()*2*math.pi # random angle between 
+    E = r * math.cos(theta)
+    N = r * math.sin(theta) # y-coord -> North
+    Y = 0
+    return N, E, Y

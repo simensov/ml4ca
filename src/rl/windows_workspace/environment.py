@@ -105,17 +105,14 @@ class FixedThrusters(Environment):
         n_bow, n_port, n_star = action
 
         # Bow
-        self.sim.val('THR1', 'MtcOn', 1, self.report_reset)
         self.sim.val('THR1', 'ThrustOrTorqueCmdMtc', n_bow, self.report_reset) # TODO testing
         self.sim.val('THR1', 'AzmCmdMtc', azi_bow, self.report_reset)
 
         # Stern, port
-        self.sim.val('THR2', 'MtcOn', 1, self.report_reset)
         self.sim.val('THR2', 'ThrustOrTorqueCmdMtc', n_port, self.report_reset)
         self.sim.val('THR2', 'AzmCmdMtc', azi_port, self.report_reset)
 
         # Stern, starboard
-        self.sim.val('THR3', 'MtcOn', 1, self.report_reset)
         self.sim.val('THR3', 'ThrustOrTorqueCmdMtc', n_star, self.report_reset)
         self.sim.val('THR3', 'AzmCmdMtc', azi_star, self.report_reset)
 

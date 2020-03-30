@@ -17,10 +17,12 @@ from errorFrame import ErrorFrame
 from utils.simtools import get_pose_3DOF, get_vel_3DOF, get_random_pose, get_pose_on_radius
 from utils.debug import print_pose
 from environment import FixedThrusters
+from customEnv import RevoltSimple, Revolt
 from agents.ppo import PPO
 import numpy as np
 import matplotlib.pyplot as plt 
 import multiprocessing # TODO
+from textwrap import dedent
 
 #defs
 SIM_CONFIG_PATH     = "C:\\Users\\simen\\Documents\\Utdanning\\GTK\\configuration"
@@ -101,7 +103,6 @@ def episode_test(env,**init):
 
     for t in range(episode_length):
         a_pi, a_old_pi = agent.act(s)
-        a_pi = a_pi * 100.0 # scale agent's choice TODO this should be hidden somewhere
         sn, r, done, info = env.step(a_pi) # TODO done needs to be used so that batches don't contain random states next to each other
         states.append(s) # TODO standardize state
         actions.append(a_pi)
@@ -152,14 +153,13 @@ if __name__ == "__main__":
         
     log("Connected to simulators and configuration loaded")
 
-    envs = [FixedThrusters(s) for s in sims]
+    # envs = [FixedThrusters(s) for s in sims]
+    envs = [Revolt(s) for s in sims]
     all_rewards = [[]*NUM_SIMULATORS]
 
     for ep_ix in range(NUM_EPISODES):
         for sim_ix in range(NUM_SIMULATORS):
-            # N, E, Y = get_random_pose()
-            N, E, Y = get_pose_on_radius()
-            # print('Random pos set to {}'.format([N,E,Y*180/m.pi]))
+            N, E, Y = get_pose_on_radius() # get_random_pose()
             init = {'Hull.PosNED':[N,E],'Hull.PosAttitude':[0,0,Y]}
 
             if THREADING:
@@ -176,7 +176,11 @@ if __name__ == "__main__":
                 if OLD_CODE:
                     simulate_episode(sims[sim_ix],**init)
                 else:
-                    print('Episode {}'.format(ep_ix+1))
+                    print(dedent('''\
+                        Ep: {}
+                        Sim: {}
+                    '''.format(ep_ix,sim_ix) ))
+                    
                     episode_reward = episode_test(envs[sim_ix],**init)
                     all_rewards[sim_ix].append(episode_reward)
 

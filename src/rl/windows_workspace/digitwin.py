@@ -18,35 +18,30 @@ class DigiTwin:
     VEC_INP = 'vector_input'
     VEC_OUT = 'vector_output'
     VEC_PARA = 'vector_para'
-    MODULE_FEAT_TYPES = [SCAL_INP, SCAL_OUT, \
+    MODULE_FEAT_TYPES = [SCAL_INP, SCAL_OUT,
                          VEC_INP, VEC_OUT, \
                          SCAL_PARA, VEC_PARA]
     
     def __init__(self, name, load_cfg, sim_path, cfg_path, python_port):
-        self.name = name
-
-        log('Opening simulator')
-        self.load_cfg = self.connectToJVM(sim_path, python_port)
-        if load_cfg:
-            self.load_cfg = True
-
+        '''
+        DigiTwin class connects to a cybersea simulator from Python via Java, and allows for reading and setting values in it.
+        :params:
+            - name (string):        custom name of the simulator
+            - load_cfg (bool):      decides if to load config from a configuration file (e.g. could be unwanted if a config already has been loaded in an open simulator)
+            - sim_path (string):    the ABSOLUTE path of the cybersea .exe, e.g "C:\\Users\\user\\Simulators\\revoltsim\\bin\\revoltsim64.exe"
+            - cfg_path (string):    the ABSOLUTE path of the config files, e.g. "C:\\Users\\user\\Simulators\\configuration"
+            - python_port (int):    the python port used by the main process
+        '''
+        self.name          = name
+        self.load_cfg      = self.connectToJVM(sim_path, python_port) # True if a new sim is startet,     False if already started
+        self.load_cfg      = True if load_cfg else self.load_cfg # If the argument states to load config, do it no matter if the sim has already started
         self.mod_feat_func = self.get_mod_feat_funcs()
-        self.cfg_path = cfg_path
-
-        log("CS sim loading config.")    
-        loaded_cfg = self.load_config() # load config
-        log("CS sim loaded config.")    
-        
-        self.config = self.get_config() # read config
-        log("CS sim config read.")    
-        
-#        if not loaded_cfg:
-#            self.set_all_reset(1)
-#            self.step(50)
-        
+        self.cfg_path      = cfg_path
+        self.loaded_config = self.load_config() # load config
+        self.config        = self.get_config() # read config
         self.setRealTimeMode(False) # step sim as fast as possible with "False"
     
-    def val(self, module, feat, val=None, report=True):
+    def val(self, module, feat, val=None, report=False):
         '''
         Method for reading/writing values from/to parameters in the digital twin simulator.
         Note that some features are ints, floats, and vectors:
@@ -100,8 +95,6 @@ class DigiTwin:
                     vec_ix = 0
                     for v in val:
                         self.mod_feat_func[ftype][2](module, feat, vec_ix, float(v))
-#                        if report:
-#                            forcelog(str(self.name)+' wrote '+str(v)+' to '+str(module)+'.'+str(feat)+'['+str(vec_ix)+']')
                         vec_ix+=1
                     if report:
                         forcelog(str(self.name)+' wrote '+str(val[0])+' to '+str(module)+'.'+str(feat)+'[0:'+str(vec_ix)+']')
@@ -114,9 +107,6 @@ class DigiTwin:
                 if report:
                     forcelog(str(self.name)+' wrote '+str(val)+' to '+str(module)+'.'+str(feat)+'['+str(vec_ix)+']')
                 
-            #forcelog(str(self.name)+' wrote '+str(val)+' to '+str(module)+'.'+str(feat))
-        
-
     def connectToJVM(self, sim_path, python_port):
         '''
         Connects Python to the simulator through Java. 
@@ -125,15 +115,14 @@ class DigiTwin:
             - python_port (int):    Port number for this simulator (standard is 25338)
         '''
         #Need to establish a connection to the JVM. That will happen only when the Cybersea Simulator is opened.
-        #log('Waiting time for the application to open...')
-        #time.sleep(15)
-        self.gateway = JavaGateway(gateway_parameters=GatewayParameters(port=python_port))        
-        self.simulator = self.gateway.entry_point
-        
+        #log('Waiting time for the application to open...'); time.sleep(15)
+        log('Opening simulator')
+        self.gateway            = JavaGateway(gateway_parameters=GatewayParameters(port=python_port))
+        self.simulator          = self.gateway.entry_point
         isPythonListenerStarted = None
-        num_retries_connect_current = 0
-        num_retries_connect_max = 100
-        while isPythonListenerStarted is None and num_retries_connect_current < num_retries_connect_max:
+        retries                 = {'current': 0, 'max': 100} # this was originally two separate variables with very long names
+
+        while isPythonListenerStarted is None and retries['current'] < retries['max']:
             try:
                 #check if the simulator already runs
                 isPythonListenerStarted = self.simulator.isPythonListenerStarted()
@@ -141,13 +130,13 @@ class DigiTwin:
                 return False
             except:
                 #start Cybersea if no reponse
-                if num_retries_connect_current < 1:
+                if retries['current'] < 1:
                     subprocess.Popen([sim_path, "--pythonPort="+str(python_port)])
                     forcelog('Waiting for the CS sim to open...')
                     time.sleep(12)
                 #wait 3 seconds before trying again
-                num_retries_connect_current += 1
-                forcelog("CS sim not started...attempt #" + str(num_retries_connect_current))
+                retries['current'] += 1
+                forcelog("CS sim not started...attempt #" + str(retries['current']))
                 time.sleep(3)
         
                 log("CS sim started. JVM accepted python connection.")
@@ -179,6 +168,7 @@ class DigiTwin:
             return True
         else:
             log('skipped config...')
+            # self.set_all_reset(1); self.step(50) old comment from J.A. in __init__
             return False
        
     def set_all_reset(self, val):
@@ -205,10 +195,8 @@ class DigiTwin:
         
     def runScripts(self):
         self.simulator.runAllScripts("AUTO")
-        forcelog(str(self.name)+' all scripts run')
         
     def step(self, steps=1):
-        ''' Step the digitwin simulator instance 'steps' time steps '''
         if steps > 1:
             self.simulator.step(steps)
         elif steps == 1:
@@ -249,8 +237,6 @@ class DigiTwin:
     def get_mod_feat_type(self, module, feat):
         if "__v__" in feat:
             feat = feat.split("__v__")[0]
-            #log("Handling with vectors: " + feat)
-        
         if module not in self.config:
             forcelog('Unknown module !! ' + module + ' -> ' + str(self.config.keys()))
             return None
@@ -276,7 +262,6 @@ class DigiTwin:
         return mod_feats
          
     def get_module_feats(self, module, feat_type):
-
         if feat_type == self.SCAL_INP:
             jvm_feats = self.simulator.getScalarInputSignals(module)
         elif feat_type == self.SCAL_OUT:
@@ -294,4 +279,3 @@ class DigiTwin:
         for feat in jvm_feats:
             feats.append(feat)
         return feats
-  

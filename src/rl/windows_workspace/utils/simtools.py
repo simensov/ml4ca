@@ -4,6 +4,8 @@ Utilities used for extracting states from the revolt simulator
 import random
 import math
 
+# NOTE: sim is used for a DigiTwin object
+
 def get_pose_3DOF(sim):
     yaw = float(sim.val('Hull','Yaw'))
     eta_6D = list(sim.val('Hull','Eta'))
@@ -12,6 +14,9 @@ def get_pose_3DOF(sim):
 def get_vel_3DOF(sim):
     nu = list(sim.val('Hull','Nu'))
     return [nu[0],nu[1],nu[5]]
+
+def get_3DOF_state(sim):
+    return get_pose_3DOF(sim) + get_vel_3DOF(sim)
 
 def get_average_GPS_measurements(sim):
     # accounting for three gps-modules

@@ -4,8 +4,10 @@ from keras.models import Model
 from keras.layers import Input, Dense
 from keras import backend as K 
 from keras.optimizers import Adam
-
 from utils.mathematics import normal_dist
+import tensorflow as tf
+
+tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 def clip_loss(self,A,pred_t):
     ''' Returns a loss function used when compiling actor network. Compared to the paper, which maximizes the objective, we minimize the loss, hence the minus in the end'''

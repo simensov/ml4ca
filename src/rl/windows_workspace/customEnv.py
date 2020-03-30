@@ -117,11 +117,7 @@ class Revolt(gym.Env):
 
 
 class RevoltSimple(Revolt):
-    '''
-
-    '''
     def __init__(self,dt):
         super().__init__(dt,3,6)
-
         # Overwrite default actions
         self.default_actions = {3:math.pi/2,4:-3*math.pi/4,5:3*math.pi/4,0:0,1:0,2:0}

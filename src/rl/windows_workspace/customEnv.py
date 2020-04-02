@@ -2,8 +2,8 @@ import gym
 from gym import spaces
 import numpy as np
 import math
-from utils.simtools import get_pose_3DOF, get_vel_3DOF
-from utils.mathematics import gaussian
+from misc.simtools import get_pose_3DOF, get_vel_3DOF
+from misc.mathematics import gaussian
 from errorFrame import ErrorFrame
 
 class Revolt(gym.Env):

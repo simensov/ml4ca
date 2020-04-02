@@ -2,15 +2,15 @@ import gym
 from gym import spaces
 import numpy as np
 import math
-from misc.simtools import get_pose_3DOF, get_vel_3DOF
-from misc.mathematics import gaussian
-from errorFrame import ErrorFrame
+from specific.misc.simtools import get_pose_3DOF, get_vel_3DOF, get_pose_on_radius
+from specific.misc.mathematics import gaussian
+from specific.errorFrame import ErrorFrame
 
 class Revolt(gym.Env):
     """Custom Environment that follows gym interface"""
     metadata = {'render.modes': ['human']}
 
-    def __init__(self,digitwin,num_actions=6,num_states=6):
+    def __init__(self,digitwin,num_actions=6,num_states=6,real_bounds=[20.0,20.0,np.inf,2.0,2.0,1.0]):
         ''' The states and actions must be standardized! '''
         super(Revolt, self).__init__()
         # Define action and observation space as gym.spaces objects
@@ -41,6 +41,10 @@ class Revolt(gym.Env):
         self.action_space      = spaces.Box(low=bnds['action']['low'], high=bnds['action']['high'], dtype=np.float64)
         self.observation_space = spaces.Box(low=bnds['spaces']['low'], high=bnds['spaces']['high'], dtype=np.float64)
 
+        self.real_bounds = real_bounds
+
+        # TODO add more states - store previous actions etc
+
 
     def step(self, action):
         ''' Step a fixed number of steps in the Cybersea simulator 
@@ -60,16 +64,17 @@ class Revolt(gym.Env):
                 self.dTwin.val(a['module'], a['feature'], action[a['idx']])
 
         self.dTwin.step(10) # ReVolt is operating at 10 Hz. Input to step() is number of steps at 100 Hz
-        s = self.state() # TODO these three lines could be put into return, but this order ensures err.update() after step()
+        s = self.state() # These three lines could be put into return, but this order ensures err.update() after step()
         r = self.reward()
-        d = self.is_terminal()
+        d = self.is_terminal(s)
 
         return s,r,d, {'None': 0}
 
     def scale_and_clip(self,action):
-        ''' Action from actor might be between -1 and 1 TODO but shouldnt be. scale thus is upper boundary'''
-        upper = np.array(self.act_bnd[0:self.num_actions])
-        action = np.multiply(action,upper)
+        ''' Action from actor might be out of bounds TODO but shouldnt be. scale thus is upper boundary'''
+        bnds = np.array(self.act_bnd[0:self.num_actions]) # select bounds according to environment specifications
+        action = np.multiply(action,bnds) # The action comes as choices between -1 and 1...
+        action = np.clip(action,-bnds,bnds) # ... but the std_dev in the stochastic policy means that we have to clip
         return action.tolist()
 
     def reset(self,**init):
@@ -78,6 +83,10 @@ class Revolt(gym.Env):
             observation (object): the initial observation.
         """
         # TODO if the previous actions are to be put into the state-vector, reset() must set random previous actions, or all previous actions must be set to zero
+
+        if not init:
+            N, E, Y = get_pose_on_radius() # get_random_pose()
+            init = {'Hull.PosNED':[N,E],'Hull.PosAttitude':[0,0,Y]}
 
         for modfeat in init:
             module, feature = modfeat.split('.')
@@ -102,14 +111,20 @@ class Revolt(gym.Env):
         return np.array( self.EF.get_pose() + get_vel_3DOF(self.dTwin) ) # (6,) numpy array
 
     def reward(self):
+        # TODO expand
         vel = -math.sqrt(sum( [e**2 * c for e,c in zip(get_vel_3DOF(self.dTwin), [1,1,5])] ))
         gaus_rews = gaussian(self.EF.get_pose())
         gaus_rews[2] = 0 if abs(self.EF.get_pose()[2]) > np.pi/2 else gaus_rews[2] # set reward of 
         return vel + sum(gaus_rews)
 
-    def is_terminal(self):
+    def is_terminal(self,state):
         ''' Returns true if the vessel has travelled too far from the set point.
         TODO: sync this with the bounds used to normalize the state space input '''
+
+        for s, bound in zip(state,self.real_bounds):
+            if np.abs(s) > bound:
+                return True
+
         return False
 
     def render(self):
@@ -118,6 +133,11 @@ class Revolt(gym.Env):
 
 class RevoltSimple(Revolt):
     def __init__(self,dt):
-        super().__init__(dt,3,6)
+        super().__init__(dt,num_actions=3,num_states=6)
         # Overwrite default actions
-        self.default_actions = {3:math.pi/2,4:-3*math.pi/4,5:3*math.pi/4,0:0,1:0,2:0}
+        self.default_actions = {0: 0,
+                                1: 0,
+                                2: 0,
+                                3: math.pi / 2,
+                                4: -3 * math.pi / 4,
+                                5: 3 * math.pi / 4}

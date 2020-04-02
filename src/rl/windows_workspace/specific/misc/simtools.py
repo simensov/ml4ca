@@ -4,21 +4,18 @@ Utilities used for extracting states from the revolt simulator
 import random
 import math
 import numpy as np
-from errorFrame import ErrorFrame 
+from specific.errorFrame import ErrorFrame 
 
 # NOTE: sim is used for a DigiTwin object
 
-def standardize_state(state):
-    ''' Based on normalizing a symmetric state distribution. State is (6,) numpy from ErrorFrame. Normalized according to visual inspection. 
-    TODO this must moved into environment, and be matched by a is_terminal() in the environment that returns done == true if bounds are reached! '''
-    x1,x2,x3,v1,v2,v3 = state
-    x1 /= 20.0
-    x2 /= 20.0
-    x3 /= math.pi
-    v1 /= 2.0
-    v2 /= 2.0
-    v3 /= 1.0
-    return np.array([x1,x2,x3,v1,v2,v3])
+def standardize_state(state, bounds=[1.0,1.0,1.0,1.0,1.0,1.0]):
+    ''' Based on normalizing a symmetric state distribution. State is (6,) numpy from ErrorFrame. Normalized according to visual inspection. '''
+    assert len(state) == len(bounds), 'The state and bounds are not of same length!'
+
+    for i,b in enumerate(bounds):
+        state[i] /= (1.0 * b) 
+
+    return state
 
 
 def reset_sim(sim,**init):

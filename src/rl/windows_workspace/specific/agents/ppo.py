@@ -5,7 +5,7 @@ from keras.layers import Input, Dense
 from keras import backend as K 
 from keras.optimizers import Adam
 
-from utils.mathematics import normal_dist, clip_loss
+from specific.misc.mathematics import normal_dist, clip_loss
 
 EPOCHS_ACTOR  = 10
 EPOCHS_CRITIC = 10

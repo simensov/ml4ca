@@ -1,36 +1,41 @@
 import numpy as np
-from digitwin import DigiTwin
+from specific.digitwin import DigiTwin
 import time
-from misc.simtools import get_pose_on_radius, standardize_state
-from customEnv import RevoltSimple
-from agents.ppo import PPO
+from specific.misc.simtools import get_pose_on_radius, standardize_state
+from specific.customEnv import RevoltSimple
+from specific.agents.ppo import PPO
 import matplotlib.pyplot as plt
 import datetime
 
 class Trainer(object):
+    # TODO Name this class something else like a DigiTwin handler or something. 
 
-    def __init__(self,
-                 n_sims):
+    def __init__(self, n_sims, start = False, args = None):
         
         assert isinstance(n_sims,int) and n_sims > 0, 'Number of simulators must be an integer'
         self._n_sims     = n_sims
         self._digitwins  = []*n_sims  # list of independent simulators
         self._gamma      = 0.99
         self._batch_size = 256
-        self._ep_len = 4 * self._batch_size 
+        self._ep_len = 4 * self._batch_size
+        if start and args is not None:
+            self.start_simulators(args.sim_path, args.python_port_initial, args.sim_cfg_path, args.load_cfg)
 
     def start_simulators(self,sim_path,python_port_initial,sim_cfg_path,load_cfg):
         #Start up all simulators
         for sim_ix in range(self._n_sims):
             python_port = python_port_initial + sim_ix
             print("Open CS sim " + str(sim_ix) + " Python_port=" + str(python_port))
-            self._digitwins.append(None)
+            self._digitwins.append(None) # Weird, by necessary order of commands
             self._digitwins[-1] = DigiTwin('Sim'+str(1+sim_ix), load_cfg, sim_path, sim_cfg_path, python_port)
         print("Connected to simulators and configuration loaded")
 
-    def get_simulators(self):
+    def get_digitwins(self):
         return self._digitwins      
 
+    '''
+    The functions below 
+    '''
     def run_episode(self,env,agent,**init):
 
         s = env.reset(**init)

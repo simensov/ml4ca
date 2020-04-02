@@ -1,5 +1,5 @@
 import numpy as np
-from misc.mathematics import rotation_matrix, wrap_angle
+from specific.misc.mathematics import rotation_matrix, wrap_angle
 
 class ErrorFrame(object):
     ''' Stores information about coordinates in an error frame of a 3 DOF surface vessel '''

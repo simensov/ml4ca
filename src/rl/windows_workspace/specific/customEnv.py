@@ -2,7 +2,7 @@ import gym
 from gym import spaces
 import numpy as np
 import math
-from specific.misc.simtools import get_pose_3DOF, get_vel_3DOF, get_pose_on_radius
+from specific.misc.simtools import get_pose_3DOF, get_vel_3DOF, get_pose_on_state_space
 from specific.misc.mathematics import gaussian
 from specific.errorFrame import ErrorFrame
 
@@ -85,7 +85,7 @@ class Revolt(gym.Env):
         # TODO if the previous actions are to be put into the state-vector, reset() must set random previous actions, or all previous actions must be set to zero
 
         if not init:
-            N, E, Y = get_pose_on_radius() # get_random_pose()
+            N, E, Y = get_pose_on_state_space(n=10,e=10,y=0) # get_random_pose()
             init = {'Hull.PosNED':[N,E],'Hull.PosAttitude':[0,0,Y]}
 
         for modfeat in init:

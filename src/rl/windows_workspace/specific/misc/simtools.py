@@ -90,9 +90,16 @@ def get_random_pose():
 
 def get_pose_on_radius(r=3):
     # use polar coords to always get a position of radius r away from setpoint
+    # nice for testing average rewards from each run after training, but not so nice for training due to bad exploration
     r = r
     theta = random.random()*2*math.pi # random angle between 
     E = r * math.cos(theta)
     N = r * math.sin(theta) # y-coord -> North
     Y = 0
+    return N, E, Y
+
+def get_pose_on_state_space(n=10,e=10,y=np.pi):
+    N = random.uniform(-n,n)
+    E = random.uniform(-e,e)
+    Y = random.uniform(-y,y)
     return N, E, Y

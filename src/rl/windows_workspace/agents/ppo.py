@@ -7,7 +7,7 @@ from keras.optimizers import Adam
 
 from utils.mathematics import normal_dist, clip_loss
 
-EPOCHS_ACTOR  = 1 
+EPOCHS_ACTOR  = 10
 EPOCHS_CRITIC = 10
 BUFFER_SIZE   = 2048
 BATCH_SIZE    = 256
@@ -22,10 +22,10 @@ class PPO(object):
                  num_states  = 6,
                  num_actions = 5,
                  layers      = (64,64),
-                 critic_lr   = 1e-3,
+                 critic_lr   = 1e-4,
                  actor_noise = 1.0,
-                 actor_lr    = 1e-3, # low lr could stabilize training
-                 actor_clip  = 0.15
+                 actor_lr    = 1e-4, # low lr could stabilize training
+                 actor_clip  = 0.2
                  ):
 
         self.num_states    = num_states
@@ -42,11 +42,11 @@ class PPO(object):
 
     def build_critic(self):
         inn = Input(shape = (self.num_states,),name='critic_input')
-        x = Dense(self.layer_dims[0], activation = 'tanh')(inn)
+        x = Dense(self.layer_dims[0],kernel_initializer = 'glorot_uniform', bias_initializer = 'normal', activation = 'relu')(inn)
         for i, hidden_nodes in enumerate(self.layer_dims):
             if i == 0: continue
-            x = Dense(hidden_nodes,activation='tanh')(x)
-        x = Dense(1)(x)
+            x = Dense(hidden_nodes,kernel_initializer = 'glorot_uniform', bias_initializer = 'normal',activation='relu')(x)
+        x = Dense(1)(x) # linear output
         m = Model(inputs = [inn], outputs=[x])
         m.compile(optimizer = Adam(lr = self.critic_lr), loss = 'mse')
         # m.summary()
@@ -75,7 +75,7 @@ class PPO(object):
         inn  = Input(shape = (self.num_states,), name = 'actor_input')
         A    = Input(shape = (1,), name = 'actor_adv') # advantage
         prev = Input(shape = (self.num_actions,), name = 'actor_oldpred') # old prediction
-        x    = Dense(self.layer_dims[0], activation = 'tanh')(inn)
+        x    = Dense(self.layer_dims[0],kernel_initializer = 'glorot_uniform', bias_initializer = 'normal', activation = 'tanh')(inn)
         for i, hidden_nodes in enumerate(self.layer_dims):
             if i == 0: continue 
             x = Dense(hidden_nodes, kernel_initializer = 'glorot_uniform', bias_initializer = 'normal', activation = 'tanh')(x)
@@ -101,11 +101,12 @@ class PPO(object):
         ''' o: observations - a: actions under new policy - p: predicted actions from old policy - r: discounted rewards (r + gamma * V) '''
         o, a, p, r = batch
         o, a, p, r = o[:BATCH_SIZE], a[:BATCH_SIZE], p[:BATCH_SIZE], r[:BATCH_SIZE]
-        old_prediction = p
-        pred_values    = self.critic.predict(o) # self.critic.predict(o) # forward pass
-        advantage      = r - pred_values # standardize? 
-        actor_loss     = self.actor.fit([o, advantage, old_prediction], [a], batch_size=BATCH_SIZE, shuffle=False, epochs=EPOCHS_ACTOR, verbose=False)
-        critic_loss    = self.critic.fit([o], [r], batch_size=BATCH_SIZE, shuffle=True, epochs=EPOCHS_CRITIC, verbose=False)
+        old_pred    = p
+        pred_values = self.critic.predict(o) # self.critic.predict(o) # forward pass
+        advantage   = r - pred_values # standardize?
+        advantage   = (advantage - np.mean(advantage)) / np.std(advantage)
+        actor_loss  = self.actor.fit([o, advantage, old_pred], [a], batch_size=BATCH_SIZE, shuffle=False, epochs=EPOCHS_ACTOR, verbose=False)
+        critic_loss = self.critic.fit([o], [r], batch_size=BATCH_SIZE, shuffle=True, epochs=EPOCHS_CRITIC, verbose=False)
         # remember that the "loss" is just an negative of the performance measurement under the current policy.
         # Once a single SGD step is taken, there is no connection to the performance of the current policy anymore
         # However, the value function itself just tries to find the optimal estimate of the average future reward, so it can be updated more often

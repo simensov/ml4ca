@@ -10,7 +10,7 @@ import joblib
 import shutil
 import numpy as np
 import tensorflow as tf
-import torch
+# import torch
 import os.path as osp, time, atexit, os
 import warnings
 from spinup.utils.mpi_tools import proc_id, mpi_statistics_scalar

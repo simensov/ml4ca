@@ -10,7 +10,7 @@ class Revolt(gym.Env):
     """Custom Environment that follows gym interface"""
     metadata = {'render.modes': ['human']}
 
-    def __init__(self,digitwin,num_actions=6,num_states=6,real_bounds=[20.0,20.0,np.inf,2.0,2.0,1.0]):
+    def __init__(self,digitwin,num_actions=6,num_states=6,real_bounds=[20.0,20.0,np.pi,2.0,2.0,1.0]):
         ''' The states and actions must be standardized! '''
         super(Revolt, self).__init__()
         # Define action and observation space as gym.spaces objects
@@ -85,7 +85,7 @@ class Revolt(gym.Env):
         # TODO if the previous actions are to be put into the state-vector, reset() must set random previous actions, or all previous actions must be set to zero
 
         if not init:
-            N, E, Y = get_pose_on_state_space(n=10,e=10,y=0) # get_random_pose()
+            N, E, Y = get_pose_on_state_space(n=self.real_bounds[0],e=self.real_bounds[1],y=self.real_bounds[2]) 
             init = {'Hull.PosNED':[N,E],'Hull.PosAttitude':[0,0,Y]}
 
         for modfeat in init:

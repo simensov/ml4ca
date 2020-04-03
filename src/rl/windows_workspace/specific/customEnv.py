@@ -2,7 +2,7 @@ import gym
 from gym import spaces
 import numpy as np
 import math
-from specific.misc.simtools import get_pose_3DOF, get_vel_3DOF, get_pose_on_state_space
+from specific.misc.simtools import get_pose_3DOF, get_vel_3DOF, get_pose_on_state_space, get_pose_on_radius
 from specific.misc.mathematics import gaussian
 from specific.errorFrame import ErrorFrame
 
@@ -10,7 +10,7 @@ class Revolt(gym.Env):
     """Custom Environment that follows gym interface"""
     metadata = {'render.modes': ['human']}
 
-    def __init__(self,digitwin,num_actions=6,num_states=6,real_bounds=[20.0,20.0,np.pi,2.0,2.0,1.0]):
+    def __init__(self,digitwin,num_actions=6,num_states=6,real_bounds=[20.0,20.0,np.pi,2.0,2.0,1.0],testing=False):
         ''' The states and actions must be standardized! '''
         super(Revolt, self).__init__()
         # Define action and observation space as gym.spaces objects
@@ -28,7 +28,7 @@ class Revolt(gym.Env):
             {'idx': 2, 'module': 'THR3', 'feature': 'ThrustOrTorqueCmdMtc'}
         ]
 
-        self.act_bnd = [100] * 3 + [math.pi] * 3
+        self.act_bnd = [100] * 3 + [math.pi] * 3 # TIP FROM RØRVIK: USE PI/2 INITIALLY
         self.num_actions = num_actions
         self.num_states = num_states
         self.valid_indices = list(range(6))[0:num_actions] # allows for num_actions == 3 for simplified thruster setup
@@ -42,9 +42,11 @@ class Revolt(gym.Env):
         self.observation_space = spaces.Box(low=bnds['spaces']['low'], high=bnds['spaces']['high'], dtype=np.float64)
 
         self.real_bounds = real_bounds
-
+        self.testing = testing # stores if the environment is being used while testing policy, or is being used for training
         # TODO add more states - store previous actions etc
 
+    def __str__(self):
+        return str(self.dTwin.name)
 
     def step(self, action):
         ''' Step a fixed number of steps in the Cybersea simulator 
@@ -85,7 +87,11 @@ class Revolt(gym.Env):
         # TODO if the previous actions are to be put into the state-vector, reset() must set random previous actions, or all previous actions must be set to zero
 
         if not init:
-            N, E, Y = get_pose_on_state_space(n=self.real_bounds[0],e=self.real_bounds[1],y=self.real_bounds[2]) 
+            if not self.testing:
+                N, E, Y = get_pose_on_state_space(n=self.real_bounds[0],e=self.real_bounds[1],y=self.real_bounds[2]) 
+            else: 
+                N, E, Y = get_pose_on_radius(r=3)
+
             init = {'Hull.PosNED':[N,E],'Hull.PosAttitude':[0,0,Y]}
 
         for modfeat in init:
@@ -128,12 +134,12 @@ class Revolt(gym.Env):
         return False
 
     def render(self):
-        self.dTwin.setRealTimeMode(False)
+        pass # The environment will always be rendered in Cybersea
 
 
 class RevoltSimple(Revolt):
-    def __init__(self,dt):
-        super().__init__(dt,num_actions=3,num_states=6)
+    def __init__(self,dt,testing=False):
+        super().__init__(dt,num_actions=3,num_states=6,testing=testing)
         # Overwrite default actions
         self.default_actions = {0: 0,
                                 1: 0,

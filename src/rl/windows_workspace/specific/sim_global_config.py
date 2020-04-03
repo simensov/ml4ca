@@ -1,12 +1,4 @@
 
-
-SIM_CONFIG_PATH     = "C:\\Users\\simen\\Documents\\Utdanning\\GTK\\configuration"
-SIM_PATH            = "C:\\Users\\simen\\Documents\\Utdanning\\GTK\\revoltsim\\bin\\revoltsim64.exe"
-PYTHON_PORT_INITIAL = 25338
-LOAD_SIM_CFG        = False
-NUM_SIMULATORS      = 1
-NUM_EPISODES        = 1000
-
 import argparse 
 parser = argparse.ArgumentParser()
 parser.add_argument('--sim_cfg_path', type=str, default="C:\\Users\\simen\\Documents\\Utdanning\\GTK\\configuration") 

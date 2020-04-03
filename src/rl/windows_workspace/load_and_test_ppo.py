@@ -5,21 +5,16 @@ if __name__ == '__main__':
     from spinup.utils.test_policy import load_policy_and_env, run_policy
     import argparse
     import gym
+    from specific.trainer import Trainer
+    from specific.customEnv import RevoltSimple
     
-    fpath = 'data\ppo\ppo_s0' # TODO this has to currently be entered from the command line
-    parser = argparse.ArgumentParser()
-    parser.add_argument('fpath', type=str,default=fpath)
-    parser.add_argument('--len', '-l', type=int, default=0)
-    parser.add_argument('--episodes', '-n', type=int, default=100)
-    parser.add_argument('--norender', '-nr', action='store_true')
-    parser.add_argument('--itr', '-i', type=int, default=-1)
-    parser.add_argument('--deterministic', '-d', action='store_true')
-    args = parser.parse_args()
+    from config import GLOBAL_TEST_ARGS, PPO_ARGS
 
-    _, get_action = load_policy_and_env(args.fpath, 
-                                          args.itr if args.itr >=0 else 'last',
-                                          args.deterministic)
+    _, get_action = load_policy_and_env(GLOBAL_TEST_ARGS.fpath, 
+                                        GLOBAL_TEST_ARGS.itr if GLOBAL_TEST_ARGS.itr >=0 else 'last',
+                                        GLOBAL_TEST_ARGS.deterministic)
 
-    env = gym.make('CartPole-v1')
-
-    run_policy(env,get_action)
+    t = Trainer(n_sims=1)
+    t.start_simulators()
+    env = RevoltSimple(t.get_digitwins()[0],testing=True)
+    run_policy(env,get_action,max_ep_len=PPO_ARGS.steps,num_episodes=10)

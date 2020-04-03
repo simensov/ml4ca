@@ -3,27 +3,26 @@ import joblib
 import os
 import os.path as osp
 import tensorflow as tf
-# import torch
 from spinup.utils.logx import EpochLogger, restore_tf_graph
 
 
 def load_policy_and_env(fpath, itr='last', deterministic=False):
     """
-    Load a policy from save, whether it's TF or PyTorch, along with RL env.
+    Load a policy from save, along with RL env.
 
     Not exceptionally future-proof, but it will suffice for basic uses of the 
     Spinning Up implementations.
 
     Checks to see if there's a tf1_save folder. If yes, assumes the model
-    is tensorflow and loads it that way. Otherwise, loads as if there's a 
-    PyTorch save.
+    is tensorflow and loads it that way. Otherwise, a NotImplementedError will be raised
+    due to the removal of all torch-implementations in this thesis.
     """
 
     # determine if tf save or pytorch save
     if any(['tf1_save' in x for x in os.listdir(fpath)]):
         backend = 'tf1'
     else:
-        backend = 'pytorch'
+        raise NotImplementedError('All torch-implementations has been deleted')
 
     # handle which epoch to load from
     if itr=='last':
@@ -33,12 +32,8 @@ def load_policy_and_env(fpath, itr='last', deterministic=False):
             saves = [int(x[8:]) for x in os.listdir(fpath) if 'tf1_save' in x and len(x)>8]
 
         elif backend == 'pytorch':
-            pytsave_path = osp.join(fpath, 'pyt_save')
-            # Each file in this folder has naming convention 'modelXX.pt', where
-            # 'XX' is either an integer or empty string. Empty string case
-            # corresponds to len(x)==8, hence that case is excluded.
-            saves = [int(x.split('.')[0][5:]) for x in os.listdir(pytsave_path) if len(x)>8 and 'model' in x]
-
+            raise NotImplementedError('All torch-implementations has been deleted')
+            
         itr = '%d'%max(saves) if len(saves) > 0 else ''
 
     else:
@@ -50,7 +45,7 @@ def load_policy_and_env(fpath, itr='last', deterministic=False):
     if backend == 'tf1':
         get_action = load_tf_policy(fpath, itr, deterministic)
     else:
-        get_action = load_pytorch_policy(fpath, itr, deterministic)
+        raise NotImplementedError('All torch-implementations has been deleted')
 
     # try to load environment from save
     # (sometimes this will fail because the environment could not be pickled)
@@ -86,25 +81,6 @@ def load_tf_policy(fpath, itr, deterministic=False):
     get_action = lambda x : sess.run(action_op, feed_dict={model['x']: x[None,:]})[0]
 
     return get_action
-
-
-def load_pytorch_policy(fpath, itr, deterministic=False):
-    """ Load a pytorch policy saved with Spinning Up Logger."""
-    
-    fname = osp.join(fpath, 'pyt_save', 'model'+itr+'.pt')
-    print('\n\nLoading from %s.\n\n'%fname)
-
-    model = torch.load(fname)
-
-    # make function for producing an action given a single state
-    def get_action(x):
-        with torch.no_grad():
-            x = torch.as_tensor(x, dtype=torch.float32)
-            action = model.act(x)
-        return action
-
-    return get_action
-
 
 def run_policy(env, get_action, max_ep_len=None, num_episodes=100, render=True):
 

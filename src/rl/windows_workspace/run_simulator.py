@@ -7,8 +7,7 @@ A test script for opening and running a (bad) actor inside a simulator
 from specific.trainer import Trainer
 
 if __name__ == "__main__":
-    from specific.sim_global_config import NUM_SIMULATORS, SIM_PATH, PYTHON_PORT_INITIAL, SIM_CONFIG_PATH, LOAD_SIM_CFG, NUM_EPISODES
-
-    trainer = Trainer(NUM_SIMULATORS)
-    trainer.start_simulators(SIM_PATH,PYTHON_PORT_INITIAL,SIM_CONFIG_PATH,LOAD_SIM_CFG)
-    trainer.train(n_episodes = NUM_EPISODES)
+    from config import GLOBAL_SIM_ARGS as args
+    trainer = Trainer(args.n_sims)
+    trainer.start_simulators(args.sim_path,args.python_port_initial,args.sim_config_path,args.load_cfg)
+    trainer.train(n_episodes = args.n_episodes)

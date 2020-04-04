@@ -44,7 +44,8 @@ class MpiAdamOptimizer(tf.train.AdamOptimizer):
 
     def compute_gradients(self, loss, var_list, **kwargs):
         """
-        Same as normal compute_gradients, except average grads over processes.
+        Same as normal compute_gradients, except the gradient is averaged over all processes.
+        This function overwrites the compute_gradients of tf.train.AdamOptimizer
         """
         grads_and_vars = super().compute_gradients(loss, var_list, **kwargs)
         grads_and_vars = [(g, v) for g, v in grads_and_vars if g is not None]
@@ -71,6 +72,7 @@ class MpiAdamOptimizer(tf.train.AdamOptimizer):
     def apply_gradients(self, grads_and_vars, global_step=None, name=None):
         """
         Same as normal apply_gradients, except sync params after update.
+        Syncing parameters means that all the actors in the different processes gets paramer updates simultaneously.
         """
         opt = super().apply_gradients(grads_and_vars, global_step, name)
         with tf.control_dependencies([opt]):

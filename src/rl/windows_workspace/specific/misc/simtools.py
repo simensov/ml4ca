@@ -99,6 +99,7 @@ def get_pose_on_radius(r=3):
     return N, E, Y
 
 def get_pose_on_state_space(n=10,e=10,y=np.pi):
+    # TODO should be able to take in the entire bound in one variable
     N = random.uniform(-n,n)
     E = random.uniform(-e,e)
     Y = random.uniform(-y,y)

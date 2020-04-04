@@ -3,8 +3,6 @@
     
 if __name__ == '__main__':
     from spinup.utils.test_policy import load_policy_and_env, run_policy
-    import argparse
-    import gym
     from specific.trainer import Trainer
     from specific.customEnv import RevoltSimple
     

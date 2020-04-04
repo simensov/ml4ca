@@ -120,7 +120,7 @@ class Revolt(gym.Env):
         # TODO expand
         vel = -math.sqrt(sum( [e**2 * c for e,c in zip(get_vel_3DOF(self.dTwin), [1,1,5])] ))
         gaus_rews = gaussian(self.EF.get_pose())
-        gaus_rews[2] = 0 if abs(self.EF.get_pose()[2]) > np.pi/2 else gaus_rews[2] # set reward of 
+        gaus_rews[2] = 0 if abs(self.EF.get_pose()[2]) > np.pi/2 else 5*gaus_rews[2] # set reward of yaw angle higher, or to zero
         return vel + sum(gaus_rews)
 
     def is_terminal(self,state):

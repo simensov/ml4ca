@@ -5,26 +5,10 @@ import argparse
 '''
 
 '''
-GLOBAL VARS FOR THE PPO ALGORITHM
-'''
-parser = argparse.ArgumentParser()
-parser.add_argument('--env', type=str, default='CartPole-v1') # HalfCheetah-v2
-parser.add_argument('--hid', type=int, default=64) # Number of nodes in hidden layers
-parser.add_argument('--l', type=int, default=2) # Number of hidden layers
-parser.add_argument('--gamma', type=float, default=0.99) # Discount factor
-parser.add_argument('--seed', '-s', type=int, default=0) # Random seed
-parser.add_argument('--cpu', type=int, default=4) # Number of CPU's used during training
-parser.add_argument('--steps', type=int, default=1000) # Number of steps during an episode
-parser.add_argument('--epochs', type=int, default=1000) # Number of EPISODES
-parser.add_argument('--exp_name', type=str, default='cputest') # Name of data storage area
-
-PPO_ARGS = parser.parse_args()
-
-'''
 GLOBAL VARS FOR THE LOADING SEQUENCE
 '''
 parser = argparse.ArgumentParser()
-fpath = 'data\ppoReVolt\ppoReVolt_s0_first_test'
+fpath = 'data\cputest\cputest_s0'
 parser = argparse.ArgumentParser()
 parser.add_argument('--fpath', type=str,default=fpath) # remove -- infront if wanting to use enter path from terminal
 parser.add_argument('--len', '-l', type=int, default=0)
@@ -34,6 +18,24 @@ parser.add_argument('--itr', '-i', type=int, default=-1) # this allows for loadi
 parser.add_argument('--deterministic', '-d', action='store_true')
 
 GLOBAL_TEST_ARGS = parser.parse_args()
+
+'''
+GLOBAL VARS FOR THE PPO ALGORITHM
+'''
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--env', type=str, default='CartPole-v1') # HalfCheetah-v2
+parser.add_argument('--hid', type=int, default=64) # Number of nodes in hidden layers
+parser.add_argument('--l', type=int, default=2) # Number of hidden layers
+parser.add_argument('--gamma', type=float, default=0.99) # Discount factor
+parser.add_argument('--seed', '-s', type=int, default=0) # Random seed
+parser.add_argument('--cpu', type=int, default=2) # Number of CPU's used during training
+parser.add_argument('--steps', type=int, default=3000) # Number of steps during an entire episode for all processes combined
+parser.add_argument('--epochs', type=int, default=2000) # Number of EPISODES
+parser.add_argument('--max_ep_len', type=int, default=1000) # Number of steps per episode IN TOTAL
+parser.add_argument('--exp_name', type=str, default='cputestwithTWO') # Name of data storage area
+
+PPO_ARGS = parser.parse_args()
 
 # '''
 # GLOBAL VARS FOR THE SIMULATOR

@@ -10,7 +10,7 @@ class Revolt(gym.Env):
     """Custom Environment that follows gym interface"""
     metadata = {'render.modes': ['human']}
 
-    def __init__(self,digitwin,num_actions=6,num_states=6,real_bounds=[20.0,20.0,np.pi,2.0,2.0,1.0],testing=False):
+    def __init__(self,digitwin,num_actions=6,num_states=6,real_bounds=[20.0,20.0,np.pi,2.0,2.0,1.0],testing=False,realtime=False,max_ep_len=1000):
         ''' The states and actions must be standardized! '''
         super(Revolt, self).__init__()
         # Define action and observation space as gym.spaces objects
@@ -20,12 +20,12 @@ class Revolt(gym.Env):
 
         # Set the name of actions in Cybersea
         self.actions = [
-            {'idx': 3, 'module': 'THR1', 'feature': 'AzmCmdMtc'}, # bow
-            {'idx': 4, 'module': 'THR2', 'feature': 'AzmCmdMtc'}, # stern, portside
-            {'idx': 5, 'module': 'THR3', 'feature': 'AzmCmdMtc'}, # stern, starboard
-            {'idx': 0, 'module': 'THR1', 'feature': 'ThrustOrTorqueCmdMtc'},
-            {'idx': 1, 'module': 'THR2', 'feature': 'ThrustOrTorqueCmdMtc'},
-            {'idx': 2, 'module': 'THR3', 'feature': 'ThrustOrTorqueCmdMtc'}
+            {'idx': 0, 'module': 'THR1', 'feature': 'ThrustOrTorqueCmdMtc'}, # bow
+            {'idx': 1, 'module': 'THR2', 'feature': 'ThrustOrTorqueCmdMtc'}, # stern, portside
+            {'idx': 2, 'module': 'THR3', 'feature': 'ThrustOrTorqueCmdMtc'}, # stern, starboard
+            {'idx': 3, 'module': 'THR1', 'feature': 'AzmCmdMtc'}, 
+            {'idx': 4, 'module': 'THR2', 'feature': 'AzmCmdMtc'}, 
+            {'idx': 5, 'module': 'THR3', 'feature': 'AzmCmdMtc'} 
         ]
 
         self.act_bnd = [100] * 3 + [math.pi] * 3 # TIP FROM RØRVIK: USE PI/2 INITIALLY
@@ -43,6 +43,8 @@ class Revolt(gym.Env):
 
         self.real_bounds = real_bounds
         self.testing = testing # stores if the environment is being used while testing policy, or is being used for training
+        self.n_steps = 1 if (testing and realtime) else 10 
+        self.max_ep_len = max_ep_len * int(10/self.n_steps) # 1000 is a good length while training
         # TODO add more states - store previous actions etc
 
     def __str__(self):
@@ -65,7 +67,7 @@ class Revolt(gym.Env):
             if a['idx'] in self.valid_indices:
                 self.dTwin.val(a['module'], a['feature'], action[a['idx']])
 
-        self.dTwin.step(10) # ReVolt is operating at 10 Hz. Input to step() is number of steps at 100 Hz
+        self.dTwin.step(self.n_steps) # ReVolt is operating at 10 Hz. Input to step() is number of steps at 100 Hz
         s = self.state() # These three lines could be put into return, but this order ensures err.update() after step()
         r = self.reward()
         d = self.is_terminal(s)
@@ -120,7 +122,7 @@ class Revolt(gym.Env):
         # TODO expand
         vel = -math.sqrt(sum( [e**2 * c for e,c in zip(get_vel_3DOF(self.dTwin), [1,1,5])] ))
         gaus_rews = gaussian(self.EF.get_pose())
-        gaus_rews[2] = 0 if abs(self.EF.get_pose()[2]) > np.pi/2 else 5*gaus_rews[2] # set reward of yaw angle higher, or to zero
+        gaus_rews[2] = 0 if abs(self.EF.get_pose()[2]) > np.pi/2 else gaus_rews[2] # set reward of yaw angle higher, or to zero
         return vel + sum(gaus_rews)
 
     def is_terminal(self,state):
@@ -138,8 +140,8 @@ class Revolt(gym.Env):
 
 
 class RevoltSimple(Revolt):
-    def __init__(self,dt,testing=False):
-        super().__init__(dt,num_actions=3,num_states=6,testing=testing)
+    def __init__(self,dt,testing=False,realtime=False):
+        super().__init__(dt,num_actions=3,num_states=6,testing=testing,realtime=realtime)
         # Overwrite default actions
         self.default_actions = {0: 0,
                                 1: 0,
@@ -147,3 +149,14 @@ class RevoltSimple(Revolt):
                                 3: math.pi / 2,
                                 4: -3 * math.pi / 4,
                                 5: 3 * math.pi / 4}
+
+class RevoltLimited(Revolt):
+    ''' Limiting stern angles '''
+    def __init__(self,dt,testing=False,realtime=False):
+        super().__init__(dt,num_actions=5,num_states=6,testing=testing,realtime=realtime)
+
+        # Not choosing the bow angle means (1) one less action bound, (2) remove one valid index, (3) set bow angle default to pi/2
+        self.act_bnd = [100] * 3 + [math.pi / 2 ] * 2
+        self.valid_indices = [0,1,2,4,5] 
+        self.default_actions = {0:0, 1:0, 2:0, 3: math.pi / 2, 4:0, 5:0}
+        

@@ -10,6 +10,9 @@ from py4j.java_gateway import GatewayParameters
 import subprocess
 import time
 from specific.misc.log import log, forcelog
+from datetime import datetime
+from spinup.utils.mpi_tools import proc_id, num_procs
+
 
 class DigiTwin:
     SCAL_INP = 'scalar_input'
@@ -131,8 +134,10 @@ class DigiTwin:
             except:
                 #start Cybersea if no reponse
                 if retries['current'] < 1:
-                    subprocess.Popen([sim_path, "--pythonPort="+str(python_port)])
-                    forcelog('Waiting for the CS sim to open...')
+                    user_dir_spec = datetime.now().strftime("%Y-%m-%d_--nproc={}_--p={}".format(num_procs(), proc_id()))
+                    user_dir = 'C:\\Users\\simen\\Documents\\Utdanning\\GTK\\userdirs\\' + user_dir_spec
+                    subprocess.Popen([sim_path, "--pythonPort="+str(python_port), "--userdir", user_dir] )
+                    forcelog('Waiting for the CS sim to open...') 
                     time.sleep(12)
                 #wait 3 seconds before trying again
                 retries['current'] += 1

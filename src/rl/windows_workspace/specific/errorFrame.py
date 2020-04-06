@@ -2,7 +2,7 @@ import numpy as np
 from specific.misc.mathematics import rotation_matrix, wrap_angle
 
 class ErrorFrame(object):
-    ''' Stores information about coordinates in an error frame of a 3 DOF surface vessel '''
+    ''' Stores information about coordinates in a body error frame of a 3 DOF surface vessel '''
 
     def __init__(self,pos=[0,0,0],ref=[0,0,0],b_v=[10,10,180]):
         '''
@@ -30,13 +30,8 @@ class ErrorFrame(object):
         return 
 
     def update(self,pos=None,ref=None,b_v=None):
-        ''' Use already set values if no argumentas are passed '''
+        ''' Use already set values if no arguments are passed '''
         self._pos = pos if pos else self._pos
         self._ref = ref if ref else self._ref
-        self._b_v = b_v if b_v else self._b_v
         self.transform()
         return
-
-    def make_uniform_fraction(self):
-        for i,b in enumerate(self._b_v):
-             self._error_coordinate[i] = self._error_coordinate[i] / (b[1] - b[0])

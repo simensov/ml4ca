@@ -88,7 +88,7 @@ def mlp_gaussian_policy(x, a, hidden_sizes, activation, output_activation, actio
 """
 Actor-Critics
 """
-def mlp_actor_critic(x, a, hidden_sizes=(64,64), activation=tf.tanh, 
+def mlp_actor_critic(x, a, hidden_sizes=(64,64), activation=tf.tanh, # tf.nn.leaky_relu
                      output_activation=None, policy=None, action_space=None):
 
     # default policy builder depends on action space

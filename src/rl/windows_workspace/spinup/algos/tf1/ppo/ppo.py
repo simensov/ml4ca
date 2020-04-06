@@ -8,11 +8,15 @@ from spinup.utils.mpi_tf import MpiAdamOptimizer, sync_all_params
 from spinup.utils.mpi_tools import mpi_fork, mpi_avg, proc_id, mpi_statistics_scalar, num_procs
 
 
-class PPOBuffer:
+class TrajectoryBuffer:
     """
-    A buffer for storing trajectories experienced by a PPO agent interacting
-    with the environment, and using Generalized Advantage Estimation (GAE-Lambda)
-    for calculating the advantages of state-action pairs.
+    A buffer for storing trajectories experienced by an agent interacting
+    with the environment, using Generalized Advantage Estimation (GAE-Lambda)
+    for calculating the advantages of state-action pairs. From the PPO-paper,
+    all trajectories has the same length, and this this class provides a method
+    for finishing paths that might be cut off due to exceeding max episode
+    length in order to keep all trajectories at the same length. In the paper,
+    the length is denoted 'T', which is the same as the parameter self.max_size
     """
 
     def __init__(self, obs_dim, act_dim, size, gamma=0.99, lam=0.95):
@@ -190,25 +194,25 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
     # Every step, get: action, value, and logprob
     get_action_ops = [pi, v, logp_pi]
 
-    # Experience buffer
+    # Initialize trajectory buffer for storing experience
     local_steps_per_epoch = int(steps_per_epoch / num_procs())
-    buf = PPOBuffer(obs_dim, act_dim, local_steps_per_epoch, gamma, lam)
+    buf = TrajectoryBuffer(obs_dim, act_dim, local_steps_per_epoch, gamma, lam)
 
     # Count variables
     var_counts = tuple(core.count_vars(scope) for scope in ['pi', 'v'])
     logger.log('\nNumber of parameters: \t pi: %d, \t v: %d\n'%var_counts)
 
     # PPO objectives
-    ratio = tf.exp(logp - logp_old_ph)          # pi(a|s) / pi_old(a|s)
+    ratio   = tf.exp(logp - logp_old_ph)          # r = pi(a|s) / pi_old(a|s)
     min_adv = tf.where(adv_ph>0, (1+clip_ratio)*adv_ph, (1-clip_ratio)*adv_ph)
     pi_loss = -tf.reduce_mean(tf.minimum(ratio * adv_ph, min_adv))
-    v_loss = tf.reduce_mean((ret_ph - v)**2)
+    v_loss  = tf.reduce_mean((ret_ph - v)**2)
 
     # Info (useful to watch during learning)
-    approx_kl = tf.reduce_mean(logp_old_ph - logp)      # a sample estimate for KL-divergence, easy to compute
-    approx_ent = tf.reduce_mean(-logp)                  # a sample estimate for entropy, also easy to compute
-    clipped = tf.logical_or(ratio > (1+clip_ratio), ratio < (1-clip_ratio))
-    clipfrac = tf.reduce_mean(tf.cast(clipped, tf.float32))
+    approx_kl  = tf.reduce_mean(logp_old_ph - logp)      # a sample estimate for KL-divergence, easy to compute
+    approx_ent = tf.reduce_mean(-logp)                   # a sample estimate for entropy, also easy to compute
+    clipped    = tf.logical_or(ratio > (1+clip_ratio), ratio < (1-clip_ratio))
+    clipfrac   = tf.reduce_mean(tf.cast(clipped, tf.float32))
 
     # Optimizers
     train_pi = MpiAdamOptimizer(learning_rate=pi_lr).minimize(pi_loss)
@@ -246,7 +250,9 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
                      DeltaLossV=(v_l_new - v_l_old))
 
     start_time = time.time()
-    o, r, d, ep_ret, ep_len = env.reset(), 0, False, 0, 0
+
+    # Initialize vars for state observation, return, done, trajectory return and trajectory length
+    o, r, d, traj_return, traj_len = env.reset(), 0, False, 0, 0 
 
     # Main loop: collect experience in env and update/log each epoch
     for epoch in range(epochs):
@@ -254,36 +260,41 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
             a, v_t, logp_t = sess.run(get_action_ops, feed_dict={x_ph: o.reshape(1,-1)})
 
             o2, r, d, _ = env.step(a[0])
-            ep_ret += r
-            ep_len += 1
+            traj_return += r
+            traj_len += 1
 
-            # save and log
+            # Save and log in the trajectory buffer
             buf.store(o, a, r, v_t, logp_t)
             logger.store(VVals=v_t)
 
-            # Update obs (critical!)
+            # Update observation from next to current
             o = o2
 
-            terminal = d or (ep_len == max_ep_len)
+            terminal = d or (traj_len == max_ep_len) # A trajectory is terminal if environment returns done, or the length exceeds max length
             if terminal or (t==local_steps_per_epoch-1):
                 if not(terminal):
-                    print('Warning: trajectory cut off by epoch at %d steps.'%ep_len)
-                # if trajectory didn't reach terminal state, bootstrap value target
+                    print('Warning: trajectory cut off by epoch {} at {} steps in current minibatch, {} steps in epoch .'.format(epoch,traj_len,t))
+
+                # If the trajectory didn't reach a terminal state, bootstrap the value target
+                # in order to keep all minibatch lengths going to the buffer the same
                 last_val = 0 if d else sess.run(v, feed_dict={x_ph: o.reshape(1,-1)})
                 buf.finish_path(last_val)
+
                 if terminal:
                     # only save EpRet / EpLen if trajectory finished
-                    logger.store(EpRet=ep_ret, EpLen=ep_len)
-                o, ep_ret, ep_len = env.reset(), 0, 0
+                    logger.store(EpRet=traj_return, EpLen=traj_len)
+
+                # Reset vars to continue gathering 
+                o, traj_return, traj_len = env.reset(), 0, 0
 
         # Save model
         if (epoch % save_freq == 0) or (epoch == epochs-1):
             logger.save_state({'env': env}, None)
 
-        # Perform PPO update!
+        # Perform PPO update / train policy and value functions
         update()
 
-        # Log info about epoch
+        # Log info about epoch. This averages stats over all minibatches within current epoch
         logger.log_tabular('Epoch', epoch)
         logger.log_tabular('EpRet', with_min_and_max=True)
         logger.log_tabular('EpLen', average_only=True)

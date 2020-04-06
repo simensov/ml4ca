@@ -28,8 +28,8 @@ def mpi_fork(n, bind_to_core=False):
             OMP_NUM_THREADS="1",
             IN_MPI="1"
         )
-        args = ["mpirun", "-np", str(n)] # TODO
-        args = ["mpiexec", "-np", str(n)] # TODO this is the windows equivalent
+        # args = ["mpirun", "-np", str(n)] # TODO this is the old way of doing it, compatible with linux and macos
+        args = ["mpiexec", "-np", str(n)] # this is the windows equivalent
         if bind_to_core:
             args += ["-bind-to", "core"]
         args += [sys.executable] + sys.argv

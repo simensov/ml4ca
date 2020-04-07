@@ -8,11 +8,9 @@ if __name__ == '__main__':
 
     import argparse
     parser = argparse.ArgumentParser()
-    fpath = 'data\ppoReVolt\ppoReVolt_s0'
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--fpath', type=str,default=fpath) # remove -- infront if wanting to use enter path from terminal as requirement
-    parser.add_argument('--len', '-l', type=int, default=0)
-    parser.add_argument('--episodes', '-n', type=int, default=5)
+    parser.add_argument('fpath', type=str,default='')
+    parser.add_argument('--len', '-l', type=int, default=0) # EPISODE LENGTH
+    parser.add_argument('--episodes', '-n', type=int, default=10)
     parser.add_argument('--norender', '-nr', action='store_true')
     parser.add_argument('--itr', '-i', type=int, default=-1) # this allows for loading models from earlier epochs than the last one!
     parser.add_argument('--deterministic', '-d', action='store_true')

@@ -8,16 +8,6 @@ from specific.errorFrame import ErrorFrame
 
 # NOTE: sim is used for a DigiTwin object
 
-def standardize_state(state, bounds=[1.0,1.0,1.0,1.0,1.0,1.0]):
-    ''' Based on normalizing a symmetric state distribution. State is (6,) numpy from ErrorFrame. Normalized according to visual inspection. '''
-    assert len(state) == len(bounds), 'The state and bounds are not of same length!'
-
-    for i,b in enumerate(bounds):
-        state[i] /= (1.0 * b) 
-
-    return state
-
-
 def reset_sim(sim,**init):
     #set init values
     for modfeat in init:
@@ -88,18 +78,19 @@ def get_random_pose():
     Y = (random.random()-0.5)*2*(math.pi)
     return N, E, Y
 
-def get_pose_on_radius(r=3):
+def get_pose_on_radius(r=3, angle=5*np.pi/180):
     # use polar coords to always get a position of radius r away from setpoint
     # nice for testing average rewards from each run after training, but not so nice for training due to bad exploration
-    r = r
     theta = random.random()*2*math.pi # random angle between 
     E = r * math.cos(theta)
     N = r * math.sin(theta) # y-coord -> North
-    Y = 0
+    # Y = 0
+    Y = random.uniform(-angle,angle)
     return N, E, Y
 
-def get_pose_on_state_space(n=10,e=10,y=np.pi):
-    # TODO should be able to take in the entire bound in one variable
+def get_pose_on_state_space(bounds = [5,5,np.pi/20]):
+    assert len(bounds) == 3, 'get_pose_on_state_space only sets 3dof eta'
+    n, e, y = bounds
     N = random.uniform(-n,n)
     E = random.uniform(-e,e)
     Y = random.uniform(-y,y)

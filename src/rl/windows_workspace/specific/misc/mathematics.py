@@ -17,14 +17,16 @@ def wrap_angle(angle,deg = True):
     return np.mod(angle + ref, 2*ref) - ref
 
 def gaussian(val,mean=None,var=None):
-    ''' Val, mean, var all needs to be vectors of same dim; e.g. (3,1) or (3,). Return shape is the same '''
+    ''' Val, mean, variance all needs to be vectors of same dim; e.g. (3,1) or (3,). Return shape is the same '''
     if isinstance(val,list):
         val = np.array(val)
 
-    mean = np.zeros(val.shape) if not mean or mean.shape != val.shape else mean
-    var = np.ones(val.shape) if not var or var.shape != val.shape else var
-    
+    mean = np.zeros(val.shape) if (mean is None) or (mean.shape != val.shape) else mean
+    var = np.ones(val.shape) if (var is None) or (var.shape != val.shape) else var
     return 1 / np.sqrt(2 * np.pi * var) * np.exp ( -0.5 * ((val - mean) / np.sqrt(var))**2 )
+
+def gaussian_like(val,mean,var):
+    return np.sqrt(2*np.pi*var) * gaussian(val,mean,var)
 
 
 '''

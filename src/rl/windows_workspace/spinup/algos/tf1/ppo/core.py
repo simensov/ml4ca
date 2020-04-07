@@ -39,6 +39,8 @@ def count_vars(scope=''):
     return sum([np.prod(var.shape.as_list()) for var in v])
 
 def gaussian_likelihood(x, mu, log_std):
+    # https://spinningup.openai.com/en/latest/spinningup/rl_intro.html#key-concepts-and-terminology
+    # This is the formula for Log-likelihood of a k-dimensional action a, for a diagonal Gaussoan with mean mu and std_dev 
     pre_sum = -0.5 * (((x-mu)/(tf.exp(log_std)+EPS))**2 + 2*log_std + np.log(2*np.pi))
     return tf.reduce_sum(pre_sum, axis=1)
 
@@ -77,12 +79,12 @@ def mlp_categorical_policy(x, a, hidden_sizes, activation, output_activation, ac
 def mlp_gaussian_policy(x, a, hidden_sizes, activation, output_activation, action_space):
     act_dim = a.shape.as_list()[-1]
     mu = mlp(x, list(hidden_sizes)+[act_dim], activation, output_activation)
-    log_std = tf.get_variable(name='log_std', initializer=-0.5*np.ones(act_dim, dtype=np.float32))
+    log_std = tf.get_variable(name='log_std', initializer=-0.5*np.ones(act_dim, dtype=np.float32)) # todo initialize randomly?
     std = tf.exp(log_std)
-    pi = mu + tf.random_normal(tf.shape(mu)) * std
-    logp = gaussian_likelihood(a, mu, log_std)
-    logp_pi = gaussian_likelihood(pi, mu, log_std)
-    return pi, logp, logp_pi
+    pi = mu + tf.random_normal(tf.shape(mu)) * std # current policy [vector] mu + noise * std
+    logp = gaussian_likelihood(a, mu, log_std) # probability [scalar] of action a in current policy
+    logp_pi = gaussian_likelihood(pi, mu, log_std) # probabilities [vector] of all actions with current policy
+    return pi, logp, logp_pi, mu, log_std
 
 
 """
@@ -98,7 +100,7 @@ def mlp_actor_critic(x, a, hidden_sizes=(64,64), activation=tf.tanh, # tf.nn.lea
         policy = mlp_categorical_policy
 
     with tf.variable_scope('pi'):
-        pi, logp, logp_pi = policy(x, a, hidden_sizes, activation, output_activation, action_space)
+        pi, logp, logp_pi, mu, log_std = policy(x, a, hidden_sizes, activation, output_activation, action_space)
     with tf.variable_scope('v'):
         v = tf.squeeze(mlp(x, list(hidden_sizes)+[1], activation, None), axis=1)
-    return pi, logp, logp_pi, v
+    return pi, logp, logp_pi, v, mu, log_std

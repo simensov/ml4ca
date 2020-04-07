@@ -7,16 +7,28 @@ from spinup.utils.logx import EpochLogger
 from spinup.utils.mpi_tf import MpiAdamOptimizer, sync_all_params
 from spinup.utils.mpi_tools import mpi_fork, mpi_avg, proc_id, mpi_statistics_scalar, num_procs
 
+def constfn(val):
+    ''' A function which returns a constant value, but is passable to functions requiring a function '''
+    def f(_):
+        return val
+    return f
 
 class TrajectoryBuffer:
     """
     A buffer for storing trajectories experienced by an agent interacting
     with the environment, using Generalized Advantage Estimation (GAE-Lambda)
-    for calculating the advantages of state-action pairs. From the PPO-paper,
-    all trajectories has the same length, and this this class provides a method
-    for finishing paths that might be cut off due to exceeding max episode
-    length in order to keep all trajectories at the same length. In the paper,
-    the length is denoted 'T', which is the same as the parameter self.max_size
+    for calculating the advantages of state-action pairs. All trajectories are
+    at most "size" steps long. Note that this buffer contains several trajectories,
+    and controlled by ptr (where the buffer is currently at), and path_start_idx 
+    (where the newsest trajectory that are being added to the buffer started)
+
+    An example of a list and the pointers are as follows, with values for 
+    trajectory 1 (t1) added, and trajectory 2 (t2) are currently being added.
+    The length of this list is "size", and cannot be overwritten. 
+
+    [ t1_0 , t1_1 , t1_2 , t2_0 , t2_1 , t2_2 , t2_3 , t2_4 , 0 , 0 , 0 , 0 , 0 , 0]
+                             ^path_start_idx             ^ptr
+                 
     """
 
     def __init__(self, obs_dim, act_dim, size, gamma=0.99, lam=0.95):
@@ -78,10 +90,10 @@ class TrajectoryBuffer:
         mean zero and std one). Also, resets some pointers in the buffer.
         """
         assert self.ptr == self.max_size    # buffer has to be full before you can get
-        self.ptr, self.path_start_idx = 0, 0
+        self.ptr, self.path_start_idx = 0, 0 # reset
         # the next two lines implement the advantage normalization trick
         adv_mean, adv_std = mpi_statistics_scalar(self.adv_buf)
-        self.adv_buf = (self.adv_buf - adv_mean) / adv_std
+        self.adv_buf = (self.adv_buf - adv_mean) / (adv_std + 1e-8)
         return [self.obs_buf, self.act_buf, self.adv_buf, 
                 self.ret_buf, self.logp_buf]
 
@@ -185,8 +197,12 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
     x_ph, a_ph = core.placeholders_from_spaces(env.observation_space, env.action_space)
     adv_ph, ret_ph, logp_old_ph = core.placeholders(None, None, None)
 
-    # Main outputs from computation graph
-    pi, logp, logp_pi, v = actor_critic(x_ph, a_ph, **ac_kwargs)
+    # Main outputs from computation graph:
+    #   - pi is the action sampler network (with means and std_devs)
+    #   - logp is the log probabilties of taking actions a = [a_0, a_1, ...] in state x_i coming from the actor's policy: log [ pi(a|x_i) ]
+    #   - lop_pi is the log probability of taking a specifically sampled action a_i coming from the actor's policy: log [ pi(a_i | x_i) ]
+    #   - v is the value estimate of state x, coming from the critic
+    pi, logp, logp_pi, v, mu, log_std = actor_critic(x_ph, a_ph, **ac_kwargs)
 
     # Need all placeholders in *this* order later (to zip with data from buffer)
     all_phs = [x_ph, a_ph, adv_ph, ret_ph, logp_old_ph]
@@ -205,12 +221,14 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
     # PPO objectives
     ratio   = tf.exp(logp - logp_old_ph)          # r = pi(a|s) / pi_old(a|s)
     min_adv = tf.where(adv_ph>0, (1+clip_ratio)*adv_ph, (1-clip_ratio)*adv_ph)
-    pi_loss = -tf.reduce_mean(tf.minimum(ratio * adv_ph, min_adv))
     v_loss  = tf.reduce_mean((ret_ph - v)**2)
 
-    # Info (useful to watch during learning)
-    approx_kl  = tf.reduce_mean(logp_old_ph - logp)      # a sample estimate for KL-divergence, easy to compute
-    approx_ent = tf.reduce_mean(-logp)                   # a sample estimate for entropy, also easy to compute
+    pi_loss = -tf.reduce_mean(tf.minimum(ratio * adv_ph, min_adv)) 
+
+    # Info (useful to watch during learning): 
+    # approx_kl  = tf.reduce_mean(logp_old_ph - logp)      # a sample estimate for KL-divergence, easy to compute
+    approx_kl  = 0.5 * tf.reduce_mean(tf.square( (-logp) - (-logp_old_ph) )) # openai baselines version
+    approx_ent = tf.reduce_mean(-logp)                   # a sample estimate for entropy, also easy to compute. Remember that entropy loss is applied to policy gradient methods for categorical policies (discrete)
     clipped    = tf.logical_or(ratio > (1+clip_ratio), ratio < (1-clip_ratio))
     clipfrac   = tf.reduce_mean(tf.cast(clipped, tf.float32))
 
@@ -294,6 +312,9 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         # Perform PPO update / train policy and value functions
         update()
 
+        testval = sess.run(tf.reduce_sum(log_std))
+        logger.store(logStd = testval)
+
         # Log info about epoch. This averages stats over all minibatches within current epoch
         logger.log_tabular('Epoch', epoch)
         logger.log_tabular('EpRet', with_min_and_max=True)
@@ -309,6 +330,7 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         logger.log_tabular('ClipFrac', average_only=True)
         logger.log_tabular('StopIter', average_only=True)
         logger.log_tabular('Time', time.time()-start_time)
+        logger.log_tabular('logStd', average_only=True)
         logger.dump_tabular()
 
 if __name__ == '__main__':

@@ -1,6 +1,8 @@
 
 import numpy as np
 
+
+
 def grid():
     import matplotlib.pyplot as plt
     from scipy.stats import multivariate_normal
@@ -8,7 +10,7 @@ def grid():
 
     #Parameters to set
     mu_x, mu_y = 0, 0
-    var_x, var_y = 1, 1
+    var_x, var_y = np.square(5), np.square(5)
 
     #Create grid and multivariate normal
     x = np.linspace(-10,10,500)
@@ -18,15 +20,15 @@ def grid():
     pos[:, :, 0] = X
     pos[:, :, 1] = Y
     rv = multivariate_normal([mu_x, mu_y], [[var_x, 0], [0, var_y]])
-    # TODO figure out how to scale this - multiply with a constant
 
     #Make a 3D plot
     fig = plt.figure()
     ax = fig.gca(projection='3d')
-    ax.plot_surface(X, Y, rv.pdf(pos),cmap='viridis',linewidth=0)
-    ax.set_xlabel('$\~{x}$')
-    ax.set_ylabel('Y axis')
-    ax.set_zlabel('Z axis')
+    scale = 100
+    ax.plot_surface(X, Y, scale * rv.pdf(pos),cmap='viridis',linewidth=0)
+    ax.set_xlabel('$\~{x}$',size=12)
+    ax.set_ylabel('$\~{y}$',size=12)
+    ax.set_zlabel('$r_{err}$',size=12)
     plt.show()
 
 
@@ -58,10 +60,21 @@ def reward_to_go(rews):
         rtgs[i] = rews[i] + (rtgs[i+1] if i+1 < n else 0)
     return rtgs
 
+def investigate_gaussian():
+    from mathematics import gaussian_like
+
+    vals =  np.array([-1,2,4])
+    mean = np.zeros_like(vals)
+    variance = np.square(np.array([1,1,1]))
+    return gaussian_like(vals,mean,variance)
+
+
+
 if __name__ == '__main__':
 
-    # grid()
+    grid()
     # contour()
-    rews = [-1,5,6,3,8,-6,3,4,-2,-9]
-    print(np.array(rews))
-    print(reward_to_go(rews))
+    # rews = [-1,5,6,3,8,-6,3,4,-2,-9]
+    # print(np.array(rews))
+    # print(reward_to_go(rews))
+    # print(investigate_gaussian())

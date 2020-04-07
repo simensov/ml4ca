@@ -134,11 +134,17 @@ class DigiTwin:
             except:
                 #start Cybersea if no reponse
                 if retries['current'] < 1:
-                    user_dir_spec = datetime.now().strftime("%Y-%m-%d_--nproc={}_--p={}".format(num_procs(), proc_id()))
+
+                    if num_procs() > 1:
+                        user_dir_spec = datetime.now().strftime("%Y-%m-%d_--nproc={}_--p={}".format(num_procs(), proc_id()))
+                    else:
+                        user_dir_spec = ''
+
                     user_dir = 'C:\\Users\\simen\\Documents\\Utdanning\\GTK\\userdirs\\' + user_dir_spec
                     subprocess.Popen([sim_path, "--pythonPort="+str(python_port), "--userdir", user_dir] )
                     forcelog('Waiting for the CS sim to open...') 
                     time.sleep(12)
+                    
                 #wait 3 seconds before trying again
                 retries['current'] += 1
                 forcelog("CS sim not started...attempt #" + str(retries['current']))

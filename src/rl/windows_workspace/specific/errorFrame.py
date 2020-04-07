@@ -4,14 +4,13 @@ from specific.misc.mathematics import rotation_matrix, wrap_angle
 class ErrorFrame(object):
     ''' Stores information about coordinates in a body error frame of a 3 DOF surface vessel '''
 
-    def __init__(self,pos=[0,0,0],ref=[0,0,0],b_v=[10,10,180]):
+    def __init__(self,pos=[0,0,0],ref=[0,0,0]):
         '''
         :params:
             - pos   list    [north,east,heading] of the vessel
             - ref   list    [north,east,heading] of the reference point (TODO could be set point to avoid dependency on reference model)
-            - b_v   list    [north,east,heading] boundary_values (max absolute value) of each of the three dimensions. Used when normalizing error coordinate for faster convergence during training
         '''
-        self.update(pos,ref,b_v)
+        self.update(pos,ref)
         return
 
     def get_pose(self,new_pose=None):
@@ -29,7 +28,7 @@ class ErrorFrame(object):
         self._error_coordinate = [pos_bod[0], pos_bod[1], ang]
         return 
 
-    def update(self,pos=None,ref=None,b_v=None):
+    def update(self,pos=None,ref=None):
         ''' Use already set values if no arguments are passed '''
         self._pos = pos if pos else self._pos
         self._ref = ref if ref else self._ref

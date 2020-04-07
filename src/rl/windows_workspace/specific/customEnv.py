@@ -10,10 +10,8 @@ class Revolt(gym.Env):
     """Custom Environment that follows gym interface"""
     metadata = {'render.modes': ['human']}
 
-    def __init__(self,digitwin,num_actions=6,num_states=6,real_bounds=[20.0,20.0,np.pi,2.0,2.0,1.0],testing=False,realtime=False,max_ep_len=1000):
-        ''' The states and actions must be standardized! '''
+    def __init__(self,digitwin,num_actions=6,num_states=6,real_bounds=[8.0,8.0,np.pi/18,2.0,2.0,1.0],testing=False,realtime=False,max_ep_len=1000):
         super(Revolt, self).__init__()
-        # Define action and observation space as gym.spaces objects
 
         self.dTwin = digitwin
         self.EF = ErrorFrame()
@@ -68,14 +66,19 @@ class Revolt(gym.Env):
                 self.dTwin.val(a['module'], a['feature'], action[a['idx']])
 
         self.dTwin.step(self.n_steps) # ReVolt is operating at 10 Hz. Input to step() is number of steps at 100 Hz
-        s = self.state() # These three lines could be put into return, but this order ensures err.update() after step()
+        s = self.state()
         r = self.reward()
         d = self.is_terminal(s)
+
+        # if d: r += -100 # TODO enforce large negative reward if terminal (there is no goal state, only death states)
+
+        # s = self.normalize_state(s) # TODO control
 
         return s,r,d, {'None': 0}
 
     def scale_and_clip(self,action):
-        ''' Action from actor might be out of bounds TODO but shouldnt be. scale thus is upper boundary'''
+        ''' Action from actor if close to being -1 and 1. Scale 100%, and clip. '''
+        # TODO adjust bow thruster - 100% and -100% is not the same! Limit the strongest side, and scale it up to 100% from fractional upper hand
         bnds = np.array(self.act_bnd[0:self.num_actions]) # select bounds according to environment specifications
         action = np.multiply(action,bnds) # The action comes as choices between -1 and 1...
         action = np.clip(action,-bnds,bnds) # ... but the std_dev in the stochastic policy means that we have to clip
@@ -90,7 +93,7 @@ class Revolt(gym.Env):
 
         if not init:
             if not self.testing:
-                N, E, Y = get_pose_on_state_space(n=self.real_bounds[0],e=self.real_bounds[1],y=self.real_bounds[2]) 
+                N, E, Y = get_pose_on_state_space(self.real_bounds[0:3]) 
             else: 
                 N, E, Y = get_pose_on_radius(r=3)
 
@@ -112,18 +115,51 @@ class Revolt(gym.Env):
         for a in self.actions:
             self.dTwin.val(a['module'], a['feature'], self.default_actions[a['idx']]) # set all default thruster states
 
-        return self.state()
+        state = self.state()
+        # self.normalize_state(state) # TODO control
+        return state
 
     def state(self):
         self.EF.update(get_pose_3DOF(self.dTwin))
         return np.array( self.EF.get_pose() + get_vel_3DOF(self.dTwin) ) # (6,) numpy array
 
+    def normalize_state(self,state):
+        ''' Based on normalizing a symmetric state distribution. 
+            Since reset samples uniformly (and the sampled state space distribution is known to not be normally distributed),
+            the states are normalized instead of standardized with means and stds 
+        
+        :args:
+            - state: (x,) numpy array, representing the full state
+        
+        :returns:
+            - (x,) shaped numpy array, normalized according to 
+        '''
+        assert len(state) == len(self.real_bounds), 'The state and bounds are not of same length!'
+
+        for i,b in enumerate(self.real_bounds):
+            state[i] /= (1.0 * b) 
+
+        return state
+
     def reward(self):
-        # TODO expand
-        vel = -math.sqrt(sum( [e**2 * c for e,c in zip(get_vel_3DOF(self.dTwin), [1,1,5])] ))
+        '''
+        TODO: expand
+        NOTE: The unitary gaussian is weird since the meters and radians are not comparable. Should be normalized wrt. bounds or something
+        NOTE: The velocity is being penalized too much it seems, as the agent looks "satisfied" with a certain error_pose, as long as the velocity is kept low
+              Especially, the yaw rate seems to be the reason to why the agent stagnates with a 
+        '''
+        return self.initial_reward_function()
+
+    def initial_reward_function(self):
+        vel = -math.sqrt(sum( [e**2 * c for e,c in zip(get_vel_3DOF(self.dTwin), [1,1,1])] ))
         gaus_rews = gaussian(self.EF.get_pose())
         gaus_rews[2] = 0 if abs(self.EF.get_pose()[2]) > np.pi/2 else gaus_rews[2] # set reward of yaw angle higher, or to zero
         return vel + sum(gaus_rews)
+
+    def pose_reward(self):
+        rews = gaussian(self.EF.get_pose())
+        rews[2] = 0 if abs(self.EF.get_pose()[2]) > np.pi/2 else rews[2]
+        return sum(rews)
 
     def is_terminal(self,state):
         ''' Returns true if the vessel has travelled too far from the set point.

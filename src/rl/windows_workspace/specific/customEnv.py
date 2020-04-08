@@ -7,10 +7,17 @@ from specific.misc.mathematics import gaussian
 from specific.errorFrame import ErrorFrame
 
 class Revolt(gym.Env):
-    """Custom Environment that follows gym interface"""
+    """ Custom Environment that follows OpenAI's gym API.
+        Max velocities measured with no thrust losses activated. Full means rotating stern azimuths only.
+            Full:   surge, sway, yaw = (+2.20, -1.60) m/s, +-0.35 m/s, +-0.60 rad/s
+            Simple: surge, sway, yaw = (+1.75, -1.40) m/s, +-0.30 m/s, +-0.51 rad/s
+    """
     metadata = {'render.modes': ['human']}
 
-    def __init__(self,digitwin,num_actions=6,num_states=6,real_bounds=[8.0,8.0,np.pi/18,2.0,2.0,1.0],testing=False,realtime=False,max_ep_len=1000):
+    def __init__(self, digitwin, num_actions = 6, num_states = 6,
+                 real_bounds=[8.0, 8.0, np.pi/2, 2.2, 0.35, 0.60], norm_env = False,
+                 testing = False, realtime = False, max_ep_len = 1000):
+
         super(Revolt, self).__init__()
 
         self.dTwin = digitwin
@@ -45,6 +52,8 @@ class Revolt(gym.Env):
         self.max_ep_len = max_ep_len * int(10/self.n_steps) # 1000 is a good length while training
         # TODO add more states - store previous actions etc
 
+        self._norm_state = norm_env
+
     def __str__(self):
         return str(self.dTwin.name)
 
@@ -70,9 +79,9 @@ class Revolt(gym.Env):
         r = self.reward()
         d = self.is_terminal(s)
 
-        # if d: r += -100 # TODO enforce large negative reward if terminal (there is no goal state, only death states)
-
-        # s = self.normalize_state(s) # TODO control
+        # if d: r += -1000 # TODO enforce large negative reward if terminal (there is no goal state, only death states)
+        if self._norm_state:
+            s = self.normalize_state(s) # TODO control
 
         return s,r,d, {'None': 0}
 
@@ -116,7 +125,9 @@ class Revolt(gym.Env):
             self.dTwin.val(a['module'], a['feature'], self.default_actions[a['idx']]) # set all default thruster states
 
         state = self.state()
-        # self.normalize_state(state) # TODO control
+        if self._norm_state:
+            state = self.normalize_state(state) # TODO control 
+
         return state
 
     def state(self):
@@ -176,8 +187,13 @@ class Revolt(gym.Env):
 
 
 class RevoltSimple(Revolt):
-    def __init__(self,dt,testing=False,realtime=False):
-        super().__init__(dt,num_actions=3,num_states=6,testing=testing,realtime=realtime)
+    def __init__(self,digitwin, testing = False, realtime = False, norm_env = False):
+        super().__init__(digitwin = digitwin, num_actions = 3, num_states = 6,
+                         testing = testing, realtime = realtime, norm_env = norm_env)
+
+        # Overwrite environment bounds according to measured max velocity for this specific setup
+        self.real_bounds = [8.0, 8.0, np.pi/2, 1.75, 0.30, 0.51] # TODO could be set to much smaller values: (scale 10,10,100 times to get them in the same range as the positional arguments)
+
         # Overwrite default actions
         self.default_actions = {0: 0,
                                 1: 0,
@@ -188,8 +204,8 @@ class RevoltSimple(Revolt):
 
 class RevoltLimited(Revolt):
     ''' Limiting stern angles '''
-    def __init__(self,dt,testing=False,realtime=False):
-        super().__init__(dt,num_actions=5,num_states=6,testing=testing,realtime=realtime)
+    def __init__(self,digitwin,testing=False,realtime=False):
+        super().__init__(digitwin,num_actions=5,num_states=6,testing=testing,realtime=realtime)
 
         # Not choosing the bow angle means (1) one less action bound, (2) remove one valid index, (3) set bow angle default to pi/2
         self.act_bnd = [100] * 3 + [math.pi / 2 ] * 2

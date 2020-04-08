@@ -24,11 +24,18 @@ def grid():
     #Make a 3D plot
     fig = plt.figure()
     ax = fig.gca(projection='3d')
-    scale = 100
-    ax.plot_surface(X, Y, scale * rv.pdf(pos),cmap='viridis',linewidth=0)
+    Z = 1000 * rv.pdf(pos)
+    Z[0,:] = -np.ones_like(Z[0,:])
+    Z[-1,:] = -np.ones_like(Z[-1,:])
+    Z[:,0] = -np.ones_like(Z[:,0])
+    Z[:,-1] = -np.ones_like(Z[:,-1])
+    print(Z, type(Z))
+    test = ax.plot_surface(X, Y, Z, cmap='viridis',linewidth=0)
     ax.set_xlabel('$\~{x}$',size=12)
     ax.set_ylabel('$\~{y}$',size=12)
     ax.set_zlabel('$r_{err}$',size=12)
+    bar = plt.colorbar(test)
+    bar.set_label('Reward ', rotation = 90, size = 12)
     plt.show()
 
 

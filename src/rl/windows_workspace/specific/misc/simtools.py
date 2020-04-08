@@ -81,16 +81,16 @@ def get_random_pose():
 def get_pose_on_radius(r=3, angle=5*np.pi/180):
     # use polar coords to always get a position of radius r away from setpoint
     # nice for testing average rewards from each run after training, but not so nice for training due to bad exploration
-    theta = random.random()*2*math.pi # random angle between 
+    theta = random.random()*2*math.pi # random angle between origin and the place on the circle to put the vessel. NOT the same as yaw angle
     E = r * math.cos(theta)
     N = r * math.sin(theta) # y-coord -> North
     # Y = 0
     Y = random.uniform(-angle,angle)
     return N, E, Y
 
-def get_pose_on_state_space(bounds = [5,5,np.pi/20]):
+def get_pose_on_state_space(bounds = [5,5,np.pi/18]):
     assert len(bounds) == 3, 'get_pose_on_state_space only sets 3dof eta'
-    n, e, y = bounds
+    n, e, y = bounds[0]*0.8, bounds[1]*0.8, bounds[2]*0.8
     N = random.uniform(-n,n)
     E = random.uniform(-e,e)
     Y = random.uniform(-y,y)

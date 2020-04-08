@@ -17,11 +17,12 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    print('Loading environment for testing of algorithms. Beware of normalized states or not!')
     _, get_action = load_policy_and_env(args.fpath, 
                                         args.itr if args.itr >=0 else 'last',
                                         args.deterministic)
 
     t = Trainer(n_sims=1)
     t.start_simulators()
-    env = RevoltSimple(t.get_digitwins()[0], testing = True, realtime = False)
+    env = RevoltSimple(t.get_digitwins()[0], testing = True, realtime = False, norm_env = False) # NOTE norm_env must be set according to how the algorithm was trained
     run_policy(env,get_action,max_ep_len=env.max_ep_len, num_episodes=5)

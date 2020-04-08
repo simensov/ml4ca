@@ -25,7 +25,7 @@ class DigiTwin:
                          VEC_INP, VEC_OUT, \
                          SCAL_PARA, VEC_PARA]
     
-    def __init__(self, name, load_cfg, sim_path, cfg_path, python_port):
+    def __init__(self, name, load_cfg, sim_path, cfg_path, python_port, user = '0'):
         '''
         DigiTwin class connects to a cybersea simulator from Python via Java, and allows for reading and setting values in it.
         :params:
@@ -36,6 +36,7 @@ class DigiTwin:
             - python_port (int):    the python port used by the main process
         '''
         self.name          = name
+        self.usertag       = user
         self.load_cfg      = self.connectToJVM(sim_path, python_port) # True if a new sim is startet,     False if already started
         self.load_cfg      = True if load_cfg else self.load_cfg # If the argument states to load config, do it no matter if the sim has already started
         self.mod_feat_func = self.get_mod_feat_funcs()
@@ -43,6 +44,7 @@ class DigiTwin:
         self.loaded_config = self.load_config() # load config
         self.config        = self.get_config() # read config
         self.setRealTimeMode(False) # step sim as fast as possible with "False"
+        
     
     def val(self, module, feat, val=None, report=False):
         '''
@@ -135,10 +137,10 @@ class DigiTwin:
                 #start Cybersea if no reponse
                 if retries['current'] < 1:
 
-                    if num_procs() > 1:
+                    if False and num_procs() > 1:
                         user_dir_spec = datetime.now().strftime("%Y-%m-%d_--nproc={}_--p={}".format(num_procs(), proc_id()))
                     else:
-                        user_dir_spec = ''
+                        user_dir_spec = self.usertag
 
                     user_dir = 'C:\\Users\\simen\\Documents\\Utdanning\\GTK\\userdirs\\' + user_dir_spec
                     subprocess.Popen([sim_path, "--pythonPort="+str(python_port), "--userdir", user_dir] )

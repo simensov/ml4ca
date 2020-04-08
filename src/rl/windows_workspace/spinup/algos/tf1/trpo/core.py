@@ -33,10 +33,11 @@ def placeholders_from_spaces(*args):
     return [placeholder_from_space(space) for space in args]
 
 def mlp(x, hidden_sizes=(32,), activation=tf.tanh, output_activation=None):
+    initializer = tf.initializers.glorot_normal
     for h in hidden_sizes[:-1]:
-        x = tf.layers.dense(x, units=h, activation=activation, kernel_initializer=tf.initializers.glorot_uniform, bias_initializer=tf.initializers.glorot_uniform)
-    return tf.layers.dense(x, units=hidden_sizes[-1], activation=output_activation, kernel_initializer=tf.initializers.glorot_uniform, bias_initializer=tf.initializers.glorot_uniform)
-
+        x = tf.layers.dense(x, units=h, activation=activation)
+    return tf.layers.dense(x, units=hidden_sizes[-1], activation=output_activation)
+    
 def get_vars(scope=''):
     return [x for x in tf.trainable_variables() if scope in x.name]
 

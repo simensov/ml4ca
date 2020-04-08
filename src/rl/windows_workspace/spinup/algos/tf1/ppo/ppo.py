@@ -19,7 +19,7 @@ class TrajectoryBuffer:
     with the environment, using Generalized Advantage Estimation (GAE-Lambda)
     for calculating the advantages of state-action pairs. All trajectories are
     at most "size" steps long. Note that this buffer contains several trajectories,
-    and controlled by ptr (where the buffer is currently at), and path_start_idx 
+    and controlled by ptr (where the buffer is currently at), and path_start 
     (where the newsest trajectory that are being added to the buffer started)
 
     An example of a list and the pointers are as follows, with values for 
@@ -27,30 +27,33 @@ class TrajectoryBuffer:
     The length of this list is "size", and cannot be overwritten. 
 
     [ t1_0 , t1_1 , t1_2 , t2_0 , t2_1 , t2_2 , t2_3 , t2_4 , 0 , 0 , 0 , 0 , 0 , 0]
-                             ^path_start_idx             ^ptr
+                             ^path_start             ^ptr
                  
     """
 
     def __init__(self, obs_dim, act_dim, size, gamma=0.99, lam=0.95):
-        self.obs_buf = np.zeros(core.combined_shape(size, obs_dim), dtype=np.float32)
-        self.act_buf = np.zeros(core.combined_shape(size, act_dim), dtype=np.float32)
-        self.adv_buf = np.zeros(size, dtype=np.float32)
-        self.rew_buf = np.zeros(size, dtype=np.float32)
-        self.ret_buf = np.zeros(size, dtype=np.float32)
-        self.val_buf = np.zeros(size, dtype=np.float32)
-        self.logp_buf = np.zeros(size, dtype=np.float32)
-        self.gamma, self.lam = gamma, lam
-        self.ptr, self.path_start_idx, self.max_size = 0, 0, size
+        self.obs_buf    = np.zeros(core.combined_shape(size, obs_dim), dtype=np.float32)
+        self.act_buf    = np.zeros(core.combined_shape(size, act_dim), dtype=np.float32)
+        self.adv_buf    = np.zeros(size, dtype=np.float32)
+        self.rew_buf    = np.zeros(size, dtype=np.float32)
+        self.ret_buf    = np.zeros(size, dtype=np.float32)
+        self.val_buf    = np.zeros(size, dtype=np.float32)
+        self.logp_buf   = np.zeros(size, dtype=np.float32)
+        self.gamma      = gamma
+        self.lam        = lam
+        self.ptr        = 0
+        self.path_start = 0
+        self.max_size   = size
 
     def store(self, obs, act, rew, val, logp):
         """
         Append one timestep of agent-environment interaction to the buffer.
         """
         assert self.ptr < self.max_size     # buffer has to have room so you can store
-        self.obs_buf[self.ptr] = obs
-        self.act_buf[self.ptr] = act
-        self.rew_buf[self.ptr] = rew
-        self.val_buf[self.ptr] = val
+        self.obs_buf[self.ptr]  = obs
+        self.act_buf[self.ptr]  = act
+        self.rew_buf[self.ptr]  = rew
+        self.val_buf[self.ptr]  = val
         self.logp_buf[self.ptr] = logp
         self.ptr += 1
 
@@ -70,7 +73,7 @@ class TrajectoryBuffer:
         for timesteps beyond the arbitrary episode horizon (or epoch cutoff).
         """
 
-        path_slice = slice(self.path_start_idx, self.ptr)
+        path_slice = slice(self.path_start, self.ptr)
         rews = np.append(self.rew_buf[path_slice], last_val)
         vals = np.append(self.val_buf[path_slice], last_val)
         
@@ -80,8 +83,7 @@ class TrajectoryBuffer:
         
         # the next line computes rewards-to-go, to be targets for the value function
         self.ret_buf[path_slice] = core.discount_cumsum(rews, self.gamma)[:-1]
-        
-        self.path_start_idx = self.ptr
+        self.path_start = self.ptr
 
     def get(self):
         """
@@ -90,7 +92,7 @@ class TrajectoryBuffer:
         mean zero and std one). Also, resets some pointers in the buffer.
         """
         assert self.ptr == self.max_size    # buffer has to be full before you can get
-        self.ptr, self.path_start_idx = 0, 0 # reset
+        self.ptr, self.path_start = 0, 0 # reset
         # the next two lines implement the advantage normalization trick
         adv_mean, adv_std = mpi_statistics_scalar(self.adv_buf)
         self.adv_buf = (self.adv_buf - adv_mean) / (adv_std + 1e-8)
@@ -104,8 +106,7 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97, max_ep_len=1000,
         target_kl=0.01, logger_kwargs=dict(), save_freq=10):
     """
-    Proximal Policy Optimization (by clipping), 
-
+    Proximal Policy Optimization (by clipping),
     with early stopping based on approximate KL
 
     Args:
@@ -312,9 +313,6 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         # Perform PPO update / train policy and value functions
         update()
 
-        testval = sess.run(tf.reduce_sum(log_std))
-        logger.store(logStd = testval)
-
         # Log info about epoch. This averages stats over all minibatches within current epoch
         logger.log_tabular('Epoch', epoch)
         logger.log_tabular('EpRet', with_min_and_max=True)
@@ -330,7 +328,7 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         logger.log_tabular('ClipFrac', average_only=True)
         logger.log_tabular('StopIter', average_only=True)
         logger.log_tabular('Time', time.time()-start_time)
-        logger.log_tabular('logStd', average_only=True)
+        logger.log_tabular('logStd', sess.run(tf.reduce_mean(log_std)))
         logger.dump_tabular()
 
 if __name__ == '__main__':

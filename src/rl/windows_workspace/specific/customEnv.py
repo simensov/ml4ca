@@ -147,8 +147,12 @@ class Revolt(gym.Env):
         '''
         assert len(state) == len(self.real_bounds), 'The state and bounds are not of same length!'
 
-        for i,b in enumerate(self.real_bounds):
-            state[i] /= (1.0 * b) 
+        # OLD WAY OF DOING IT
+        # for i,b in enumerate(self.real_bounds):
+        #     state[i] /= (1.0 * b) 
+
+        for i, b in enumerate(self.real_bounds):
+            state[i] = (state[i] - (-b)) / (b - (-b)) # https://www.statisticshowto.com/normalized/
 
         return state
 

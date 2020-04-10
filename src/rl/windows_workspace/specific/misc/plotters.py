@@ -1,10 +1,8 @@
 
 import numpy as np
-
-
+import matplotlib.pyplot as plt
 
 def grid():
-    import matplotlib.pyplot as plt
     from scipy.stats import multivariate_normal
     from mpl_toolkits.mplot3d import Axes3D
 
@@ -75,13 +73,30 @@ def investigate_gaussian():
     variance = np.square(np.array([1,1,1]))
     return gaussian_like(vals,mean,variance)
 
+def view_distribution():
+    import random 
+    x,y = [], []
+    for _ in range(2000):
+        x.append((random.uniform(-1,1)))
+        y.append((random.uniform(-1,1)))
+
+    for i in range(len(x)):
+        x[i] = (x[i] - min(x)) / (max(x) - min(x))
+
+    # plt.scatter(x,y)
+    plt.hist(x,len(x))
+    plt.show()
+
+    
 
 
 if __name__ == '__main__':
 
-    grid()
+    # grid()
     # contour()
     # rews = [-1,5,6,3,8,-6,3,4,-2,-9]
     # print(np.array(rews))
     # print(reward_to_go(rews))
     # print(investigate_gaussian())
+
+    view_distribution()

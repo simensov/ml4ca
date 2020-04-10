@@ -18,27 +18,30 @@ class GAEBuffer:
     """
 
     def __init__(self, obs_dim, act_dim, size, info_shapes, gamma=0.99, lam=0.95):
-        self.obs_buf = np.zeros(core.combined_shape(size, obs_dim), dtype=np.float32)
-        self.act_buf = np.zeros(core.combined_shape(size, act_dim), dtype=np.float32)
-        self.adv_buf = np.zeros(size, dtype=np.float32)
-        self.rew_buf = np.zeros(size, dtype=np.float32)
-        self.ret_buf = np.zeros(size, dtype=np.float32)
-        self.val_buf = np.zeros(size, dtype=np.float32)
-        self.logp_buf = np.zeros(size, dtype=np.float32)
-        self.info_bufs = {k: np.zeros([size] + list(v), dtype=np.float32) for k,v in info_shapes.items()}
+        self.obs_buf          = np.zeros(core.combined_shape(size, obs_dim), dtype=np.float32)
+        self.act_buf          = np.zeros(core.combined_shape(size, act_dim), dtype=np.float32)
+        self.adv_buf          = np.zeros(size, dtype=np.float32)
+        self.rew_buf          = np.zeros(size, dtype=np.float32)
+        self.ret_buf          = np.zeros(size, dtype=np.float32)
+        self.val_buf          = np.zeros(size, dtype=np.float32)
+        self.logp_buf         = np.zeros(size, dtype=np.float32)
+        self.info_bufs        = {k: np.zeros([size] + list(v), dtype=np.float32) for k,v in info_shapes.items()}
         self.sorted_info_keys = core.keys_as_sorted_list(self.info_bufs)
-        self.gamma, self.lam = gamma, lam
-        self.ptr, self.path_start_idx, self.max_size = 0, 0, size
+        self.gamma            = gamma
+        self.lam              = lam
+        self.ptr              = 0
+        self.path_start_idx   = 0
+        self.max_size         = size
 
     def store(self, obs, act, rew, val, logp, info):
         """
         Append one timestep of agent-environment interaction to the buffer.
         """
         assert self.ptr < self.max_size     # buffer has to have room so you can store
-        self.obs_buf[self.ptr] = obs
-        self.act_buf[self.ptr] = act
-        self.rew_buf[self.ptr] = rew
-        self.val_buf[self.ptr] = val
+        self.obs_buf[self.ptr]  = obs
+        self.act_buf[self.ptr]  = act
+        self.rew_buf[self.ptr]  = rew
+        self.val_buf[self.ptr]  = val
         self.logp_buf[self.ptr] = logp
         for i, k in enumerate(self.sorted_info_keys):
             self.info_bufs[k][self.ptr] = info[i]
@@ -61,8 +64,8 @@ class GAEBuffer:
         """
 
         path_slice = slice(self.path_start_idx, self.ptr)
-        rews = np.append(self.rew_buf[path_slice], last_val)
-        vals = np.append(self.val_buf[path_slice], last_val)
+        rews       = np.append(self.rew_buf[path_slice], last_val)
+        vals       = np.append(self.val_buf[path_slice], last_val)
         
         # the next two lines implement GAE-Lambda advantage calculation
         deltas = rews[:-1] + self.gamma * vals[1:] - vals[:-1]
@@ -90,10 +93,10 @@ class GAEBuffer:
 
 
 def trpo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0, 
-         steps_per_epoch=4000, epochs=50, gamma=0.99, delta=0.01, vf_lr=1e-3,
+         steps_per_epoch=4000, epochs=50, gamma=0.99, target_kl=0.01, vf_lr=1e-3,
          train_v_iters=80, damping_coeff=0.1, cg_iters=10, backtrack_iters=10, 
          backtrack_coeff=0.8, lam=0.97, max_ep_len=1000, logger_kwargs=dict(), 
-         save_freq=10, algo='trpo'):
+         save_freq=10, algo='trpo', normed=False):
     """
     Trust Region Policy Optimization 
 
@@ -150,7 +153,7 @@ def trpo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
 
         gamma (float): Discount factor. (Always between 0 and 1.)
 
-        delta (float): KL-divergence limit for TRPO / NPG update. 
+        target_kl (float): KL-divergence limit for TRPO / NPG update. 
             (Should be small for stability. Values like 0.01, 0.05.)
 
         vf_lr (float): Learning rate for value function optimizer.
@@ -193,6 +196,10 @@ def trpo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
 
         algo: Either 'trpo' or 'npg': this code supports both, since they are 
             almost the same.
+
+        normed (bool): If the state vector is normalized or not. Not used 
+            in the algorithm, but stored so that it follows logger(locals())
+            as it ends up in the config.json file
 
     """
 
@@ -288,7 +295,7 @@ def trpo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
 
         # Core calculations for TRPO or NPG
         x = cg(Hx, g)
-        alpha = np.sqrt(2*delta/(np.dot(x, Hx(x))+EPS))
+        alpha = np.sqrt(2*target_kl/(np.dot(x, Hx(x))+EPS))
         old_params = sess.run(get_pi_params)
 
         def set_and_eval(step):
@@ -303,7 +310,7 @@ def trpo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
             # trpo augments npg with backtracking line search, hard kl
             for j in range(backtrack_iters):
                 kl, pi_l_new = set_and_eval(step=backtrack_coeff**j)
-                if kl <= delta and pi_l_new <= pi_l_old:
+                if kl <= target_kl and pi_l_new <= pi_l_old:
                     logger.log('Accepting new params at step %d of line search.'%j)
                     logger.store(BacktrackIters=j)
                     break

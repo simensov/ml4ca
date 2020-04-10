@@ -33,10 +33,10 @@ if __name__ == '__main__':
     parser.add_argument('--epochs',         type=int,   default=700)    # Number of EPISODES
     parser.add_argument('--max_ep_len',     type=int,   default=800)    # Number of steps per local episode # (1000 is lower bound for 10 Hz steps) only affects how long each episode can be - not how many that are rolled out
     parser.add_argument('--save_freq',      type=int,   default=10)     # Number of episodes between storage of actor-critic weights
-    parser.add_argument('--exp_name',       type=str,   default='trponorm') # Name of data storage area
-    parser.add_argument('--algo',           type=str,   default='trpo') # Name of the algorithm used
+    parser.add_argument('--exp_name',       type=str,   default='test') # Name of data storage area
+    parser.add_argument('--algo',           type=str,   default='ppo')  # Name of the algorithm used
     parser.add_argument('--simulator',      type=int,   default=0)      # Simulator copy used: 0, 1 or 2
-    parser.add_argument('--norm',           type=bool,  default=True)  # To normalize that state vector or not
+    parser.add_argument('--norm',           type=bool,  default=False)  # To normalize that state vector or not
     args = parser.parse_args()
 
     print('Training {} with {} core(s)'.format(args.algo.upper(), args.cpu))
@@ -58,7 +58,7 @@ if __name__ == '__main__':
 
     if args.algo == 'ppo':
 
-        ppo(env_fn        = t.env_fn,            actor_critic  = ppo_ac,
+        ppo(env_fn        = t.env_fn,            actor_critic  = ppo_ac,        normed          = args.norm,
             ac_kwargs     = actor_critic_kwargs, seed          = args.seed,     steps_per_epoch = args.steps,
             epochs        = args.epochs,         gamma         = args.gamma,    clip_ratio      = args.clip_ratio,
             pi_lr         = args.pi_lr,          vf_lr         = args.vf_lr,    train_pi_iters  = args.pi_epochs,
@@ -67,9 +67,10 @@ if __name__ == '__main__':
     
     elif args.algo == 'trpo':
 
-        trpo(env_fn   = t.env_fn,            actor_critic = trpo_ac,
-            ac_kwargs = actor_critic_kwargs, seed         = args.seed,  steps_per_epoch = args.steps,
-            epochs    = args.epochs,         gamma        = args.gamma, logger_kwargs   = logger_kwargs)
+        trpo(env_fn    = t.env_fn,            actor_critic   = trpo_ac,         normed          = args.norm,
+             ac_kwargs = actor_critic_kwargs, seed           = args.seed,       steps_per_epoch = args.steps,
+             max_ep_len= args.max_ep_len,     save_freq      = args.save_freq,  lam             = args.lam,
+             epochs    = args.epochs,         gamma          = args.gamma,      logger_kwargs   = logger_kwargs)
    
     else:
         raise ValueError('The algorithm set is not a valid one')

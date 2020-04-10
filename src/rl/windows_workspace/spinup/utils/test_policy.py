@@ -22,7 +22,7 @@ def load_policy_and_env(fpath, itr='last', deterministic=False):
     if any(['tf1_save' in x for x in os.listdir(fpath)]):
         backend = 'tf1'
     else:
-        raise NotImplementedError('All torch-implementations has been deleted')
+        raise Exception('The tf1_save dir was not found')
 
     # handle which epoch to load from
     if itr=='last':
@@ -67,6 +67,15 @@ def load_tf_policy(fpath, itr, deterministic=False):
     # load the things!
     sess = tf.Session()
     model = restore_tf_graph(sess, fname)
+
+    ### EXPERIMENT WITH TENSORBOARD. AFTER THIS, RUN 'tensorboard --logdir 'dir'
+    # with tf.Session() as sess:
+    #     writer = tf.summary.FileWriter("graphputputtest", sess.graph)
+    #     print(sess.run(model))
+    #     writer.close()
+
+    # err = input('Pausing: press enter')
+    ### EXPERIMENT
 
     # get the correct op for executing actions
     if deterministic and 'mu' in model.keys():

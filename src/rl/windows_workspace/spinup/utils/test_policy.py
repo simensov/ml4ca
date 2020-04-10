@@ -98,8 +98,13 @@ def run_policy(env, get_action, max_ep_len=None, num_episodes=100, render=True):
         "and we can't run the agent in it. :( \n\n Check out the readthedocs " + \
         "page on Experiment Outputs for how to handle this situation."
 
+    data = [[]] # One list of n_episodes number of lists. Each element in those lists are (observations, rewards)
+    dataidx = 0
+
     logger = EpochLogger()
     o, r, d, ep_ret, ep_len, n = env.reset(), 0, False, 0, 0, 0
+    data[dataidx].append((o,r))
+    
     while n < num_episodes:
         if render:
             env.render()
@@ -107,6 +112,7 @@ def run_policy(env, get_action, max_ep_len=None, num_episodes=100, render=True):
 
         a = get_action(o)
         o, r, d, _ = env.step(a)
+        data[dataidx].append((o,r))
         ep_ret += r
         ep_len += 1
 
@@ -116,9 +122,15 @@ def run_policy(env, get_action, max_ep_len=None, num_episodes=100, render=True):
             o, r, d, ep_ret, ep_len = env.reset(), 0, False, 0, 0
             n += 1
 
+            data.append([])
+            dataidx += 1
+            data[dataidx].append((o,r))
+
     logger.log_tabular('EpRet', with_min_and_max=True)
     logger.log_tabular('EpLen', average_only=True)
     logger.dump_tabular()
+
+    return data
 
 
 if __name__ == '__main__':

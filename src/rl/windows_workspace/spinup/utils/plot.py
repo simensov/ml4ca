@@ -12,6 +12,8 @@ DIV_LINE_WIDTH = 50
 exp_idx = 0
 units = dict()
 
+label_equivs = {'AverageEpRet': 'Average Episodal Return', 'AverageVVals': 'Average $\hat{V}(s)$', 'TotalEnvInteracts': 'Simulator Time Steps', 'LossV': 'Critic Loss'}
+
 def plot_data(data, xaxis='Epoch', value="AverageEpRet", condition="Condition1", smooth=1, **kwargs):
     if smooth > 1:
         """
@@ -41,15 +43,10 @@ def plot_data(data, xaxis='Epoch', value="AverageEpRet", condition="Condition1",
     Changes the colorscheme and the default legend style, though.
     """
     plt.legend(loc='best').set_draggable(True)
-    #plt.legend(loc='upper center', ncol=3, handlelength=1, borderaxespad=0., prop={'size': 13})
-    #plt.legend(loc='upper center', ncol=6, handlelength=1, mode="expand", borderaxespad=0., prop={'size': 13})
 
     """
     For the version of the legend used in the Spinning Up benchmarking page, 
-    swap L38 with:
-
-    plt.legend(loc='upper center', ncol=6, handlelength=1,
-               mode="expand", borderaxespad=0., prop={'size': 13})
+    swap L38 with plt.legend(loc='upper center', ncol=6, handlelength=1, mode="expand", borderaxespad=0., prop={'size': 13})
     """
 
     xscale = np.max(np.asarray(data[xaxis])) > 5e3
@@ -58,6 +55,13 @@ def plot_data(data, xaxis='Epoch', value="AverageEpRet", condition="Condition1",
         plt.ticklabel_format(style='sci', axis='x', scilimits=(0,0))
 
     plt.tight_layout(pad=0.5)
+
+    # TODO check if improving labels work:
+    if value in label_equivs:
+        plt.ylabel(label_equivs[value])
+
+    if xaxis == 'TotalEnvInteracts':
+        plt.xlabel(label_equivs[xaxis])
 
 def get_datasets(logdir, condition=None):
     """

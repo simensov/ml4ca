@@ -33,16 +33,17 @@ if __name__ == '__main__':
     parser.add_argument('--epochs',         type=int,   default=700)    # Number of EPISODES
     parser.add_argument('--max_ep_len',     type=int,   default=800)    # Number of steps per local episode # (1000 is lower bound for 10 Hz steps) only affects how long each episode can be - not how many that are rolled out
     parser.add_argument('--save_freq',      type=int,   default=10)     # Number of episodes between storage of actor-critic weights
-    parser.add_argument('--exp_name',       type=str,   default='test') # Name of data storage area
+    parser.add_argument('--exp_name',       type=str,   default='default') # Name of data storage area
     parser.add_argument('--algo',           type=str,   default='ppo')  # Name of the algorithm used
-    parser.add_argument('--simulator',      type=int,   default=0)      # Simulator copy used: 0, 1 or 2
+    parser.add_argument('--simulator',      type=int,   default=1)      # Simulator copy used: 0, 1 or 2
     parser.add_argument('--norm',           type=bool,  default=False)  # To normalize that state vector or not
+    parser.add_argument('--lw',             type=bool,  default=False)  # To use the lightweight simulator or not - True can be an advantage when training for longer
     args = parser.parse_args()
 
     print('Training {} with {} core(s)'.format(args.algo.upper(), args.cpu))
     assert args.cpu == 1 or int(args.steps / args.cpu) > args.max_ep_len, 'If n_cpu > 1: The number of steps (interations between the agent and environment per epoch) per process must be larger than the largest episode to avoid empty episodal returns'
     
-    t = Trainer(n_sims = args.cpu, start = True, norm_env = args.norm, simulator_no = args.simulator)
+    t = Trainer(n_sims = args.cpu, start = True, norm_env = args.norm, simulator_no = args.simulator, lw = args.lw)
     mpi_fork(args.cpu)  # run parallel code with mpi 
 
     logger_kwargs = setup_logger_kwargs(args.exp_name, args.seed, datestamp=False) 

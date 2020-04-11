@@ -25,7 +25,7 @@ class DigiTwin:
                          VEC_INP, VEC_OUT, \
                          SCAL_PARA, VEC_PARA]
     
-    def __init__(self, name, load_cfg, sim_path, cfg_path, python_port, user = '0'):
+    def __init__(self, name, load_cfg, sim_path, cfg_path, python_port, user = '0', realtime = False):
         '''
         DigiTwin class connects to a cybersea simulator from Python via Java, and allows for reading and setting values in it.
         :params:
@@ -43,7 +43,7 @@ class DigiTwin:
         self.cfg_path      = cfg_path
         self.loaded_config = self.load_config() # load config
         self.config        = self.get_config() # read config
-        self.setRealTimeMode(False) # step sim as fast as possible with "False"
+        self.setRealTimeMode(realtime) # step sim as fast as possible with "False"
         
     
     def val(self, module, feat, val=None, report=False):

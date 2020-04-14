@@ -13,6 +13,11 @@ def constfn(val):
         return val
     return f
 
+def linear_decrease(gamma_start,gamma_end,episodes):
+    ''' Linearly increase gamma during training for more emphasis on future rewards later on '''
+    dg_dt = (gamma_end - gamma_start) / episodes
+
+
 class TrajectoryBuffer:
     """
     A buffer for storing trajectories experienced by an agent interacting

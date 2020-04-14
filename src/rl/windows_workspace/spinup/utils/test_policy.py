@@ -4,6 +4,7 @@ import os
 import os.path as osp
 import tensorflow as tf
 from spinup.utils.logx import EpochLogger, restore_tf_graph
+import numpy as np
 
 
 def load_policy_and_env(fpath, itr='last', deterministic=False):
@@ -91,19 +92,27 @@ def load_tf_policy(fpath, itr, deterministic=False):
 
     return get_action
 
-def run_policy(env, get_action, max_ep_len=None, num_episodes=100, render=True):
+def run_RL_policy(env, get_action, max_ep_len=None, num_episodes=100, render=True, test_setpoint_changes = False):
 
     assert env is not None, \
         "Environment not found!\n\n It looks like the environment wasn't saved, " + \
         "and we can't run the agent in it. :( \n\n Check out the readthedocs " + \
         "page on Experiment Outputs for how to handle this situation."
 
-    data = [[]] # One list of n_episodes number of lists. Each element in those lists are (observations, rewards)
+    data = [[]] # A list of n_episodes number of lists. Each element in those lists are (observations, rewards)
     dataidx = 0
+    
+    ned_pos = [[]] # A list of n_episodes number of lists. Each element in those lists are (NED pos, NED ref)
+    nedidx = 0
 
     logger = EpochLogger()
     o, r, d, ep_ret, ep_len, n = env.reset(), 0, False, 0, 0, 0
+    # a = env.default_actions
     data[dataidx].append((o,r))
+    ned_pos[nedidx].append((env.EF.get_NED_pos(), env.EF.get_NED_ref()))
+
+    refs = [[5,0,0], [0,-5, 0], [0, 0, np.pi/2], [0, 5, np.pi/2], [-5,0,0] ]
+    ref_ctr = 0
     
     while n < num_episodes:
         if render:
@@ -111,26 +120,44 @@ def run_policy(env, get_action, max_ep_len=None, num_episodes=100, render=True):
             time.sleep(1e-3)
 
         a = get_action(o)
-        o, r, d, _ = env.step(a)
-        data[dataidx].append((o,r))
+
+        # Allow changes in setpoint changes
+        if ep_len == int(max_ep_len / 2) and test_setpoint_changes:
+            ref = refs[ref_ctr]; 
+            print('Setting ref to {}'.format(ref))
+            o, r, d, _ = env.step(np.zeros_like(a), new_ref=ref) # TODO resetting to zeros since this is what has been trained
+            ref_ctr += 1
+        else:
+            o, r, d, _ = env.step(a)
+
         ep_ret += r
-        ep_len += 1
+        ep_len += 1            
+        
+        data[dataidx].append((o,r))
+        ned_pos[nedidx].append((env.EF.get_NED_pos(), env.EF.get_NED_ref()))
 
         if d or (ep_len == max_ep_len):
+            
             logger.store(EpRet=ep_ret, EpLen=ep_len)
             print('Episode %d \t EpRet %.3f \t EpLen %d'%(n, ep_ret, ep_len))
-            o, r, d, ep_ret, ep_len = env.reset(), 0, False, 0, 0
+
+            none_ref = [0,0,0] if test_setpoint_changes else None
+            o, r, d, ep_ret, ep_len = env.reset(new_ref=none_ref), 0, False, 0, 0
             n += 1
 
-            data.append([])
-            dataidx += 1
-            data[dataidx].append((o,r))
+            if not n == num_episodes:
+                data.append([]) # Add a new episode-list
+                dataidx += 1 # Update counter to point to that list
+                data[dataidx].append((o,r)) # Add initial state to that episode
+                ned_pos.append([])
+                nedidx += 1
+                ned_pos[nedidx].append((env.EF.get_NED_pos(), env.EF.get_NED_ref()))
 
     logger.log_tabular('EpRet', with_min_and_max=True)
     logger.log_tabular('EpLen', average_only=True)
     logger.dump_tabular()
 
-    return data
+    return data, ned_pos
 
 
 if __name__ == '__main__':
@@ -142,6 +169,7 @@ if __name__ == '__main__':
     parser.add_argument('--norender', '-nr', action='store_true')
     parser.add_argument('--itr', '-i', type=int, default=-1)
     parser.add_argument('--deterministic', '-d', action='store_true')
+
     args = parser.parse_args()
     env, get_action = load_policy_and_env(args.fpath, 
                                           args.itr if args.itr >=0 else 'last',

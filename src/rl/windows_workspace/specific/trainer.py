@@ -13,7 +13,7 @@ class Trainer(object):
     '''
     Keeps track of all digitwins and its simulators + environments for a training session
     '''
-    def __init__(self, n_sims = 1, start = False, testing = False, norm_env = False, realtime = False, simulator_no = 0, lw = False):
+    def __init__(self, n_sims = 1, start = False, testing = False, norm_env = False, realtime = False, simulator_no = 0, lw = False, env_type = 'simple'):
         assert isinstance(n_sims,int) and n_sims > 0, 'Number of simulators must be an integer'
         self._n_sims      = n_sims
         self._digitwins   = []
@@ -21,27 +21,34 @@ class Trainer(object):
         self._env_counter = 0
         self._sim_no      = simulator_no # used for running the simulator from different directories
         self._realtime    = realtime
-        self._lw = lw
+        self._lw          = lw
 
         if start:
             self.start_simulators()
-            self.set_environments(env_type='simple',testing = testing)        
+            self.set_environments(env_type=env_type,testing = testing)        
 
     def start_simulators(self,sim_path=SIM_PATH_0,python_port_initial=PYTHON_PORT_INITIAL_0,sim_cfg_path=SIM_CONFIG_PATH,load_cfg=LOAD_SIM_CFG):
         ''' Start all simulators '''
 
         # TODO use {}.format() in sim path and rename revoltsim to revoltsim0 for more efficient code
         assert self._sim_no in [0,1,2], 'The given sim number is not in the prepared list of simulators'
-        appendix = 'lightweight_revoltsim' + str(self._sim_no) if self._lw else 'revoltsim' + str(self._sim_no)
+        if self._lw:
+            appendix = 'lightweight_revoltsim{}'.format(self._sim_no)
+        else:
+            appendix = 'revoltsim{}'.format(self._sim_no)
+
         sim_path = SIM_PATH.format(appendix)
+        # TODO above didnt work
+        # sim_path = SIM_PATH_0.format(self._sim_no)
         python_port_initial = PYTHON_PORT_INITIAL_0 + self._sim_no
 
         if True:
             # There will be only one simulator per process
             python_port = python_port_initial + proc_id()
-            print("Open CS sim " + str(proc_id()) + " Python_port=" + str(python_port))
+            print("Open CS sim at: " + str(appendix) + "; Python_port=" + str(python_port))
             self._digitwins.append(None)
-            self._digitwins[-1] = DigiTwin('Sim'+str(proc_id()), load_cfg, sim_path, sim_cfg_path, python_port, realtime = self._realtime, user = str(self._sim_no))
+            usertag = ('LW{}' if self._lw else '{}').format(self._sim_no)
+            self._digitwins[-1] = DigiTwin('Sim'+str(proc_id()), load_cfg, sim_path, sim_cfg_path, python_port, realtime = self._realtime, user = usertag)
         else:
             for sim_ix in range(self._n_sims):
                 python_port = python_port_initial + sim_ix

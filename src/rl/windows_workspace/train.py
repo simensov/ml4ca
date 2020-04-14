@@ -17,10 +17,10 @@ import tensorflow as tf
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--hid',            type=int,   default=32)     # Number of nodes in hidden layers
+    parser.add_argument('--hid',            type=int,   default=64)     # Number of nodes in hidden layers
     parser.add_argument('--l',              type=int,   default=3)      # Number of hidden layers
     parser.add_argument('--gamma',          type=float, default=0.99)   # Discount factor (0.99) NOTE from author' mujoco experience, high dim robotics works better with lower gammas, e.g. < 0.99
-    parser.add_argument('--lam',            type=float, default=0.95)   # Decay factor (0.97)
+    parser.add_argument('--lam',            type=float, default=0.97)   # Decay factor (0.97)
     parser.add_argument('--clip_ratio',     type=float, default=0.2)    # Allowance for policy ratio change per update (1 +- clip_ratio)
     parser.add_argument('--pi_lr',          type=float, default=3e-4)   # Policy network learning rate / initial step size for optimizer (3e-4)
     parser.add_argument('--vf_lr',          type=float, default=1e-3)   # Value function network learning rate (1e-3)
@@ -33,9 +33,10 @@ if __name__ == '__main__':
     parser.add_argument('--epochs',         type=int,   default=700)    # Number of EPISODES
     parser.add_argument('--max_ep_len',     type=int,   default=800)    # Number of steps per local episode # (1000 is lower bound for 10 Hz steps) only affects how long each episode can be - not how many that are rolled out
     parser.add_argument('--save_freq',      type=int,   default=10)     # Number of episodes between storage of actor-critic weights
-    parser.add_argument('--exp_name',       type=str,   default='default') # Name of data storage area
+    parser.add_argument('--exp_name',       type=str,   default='test') # Name of data storage area
+    parser.add_argument('--env',            type=str,   default='simple')  # Name of the algorithm used
     parser.add_argument('--algo',           type=str,   default='ppo')  # Name of the algorithm used
-    parser.add_argument('--simulator',      type=int,   default=1)      # Simulator copy used: 0, 1 or 2
+    parser.add_argument('--sim',            type=int,   default=0)      # Simulator copy used: 0, 1 or 2
     parser.add_argument('--norm',           type=bool,  default=False)  # To normalize that state vector or not
     parser.add_argument('--lw',             type=bool,  default=False)  # To use the lightweight simulator or not - True can be an advantage when training for longer
     args = parser.parse_args()
@@ -43,7 +44,7 @@ if __name__ == '__main__':
     print('Training {} with {} core(s)'.format(args.algo.upper(), args.cpu))
     assert args.cpu == 1 or int(args.steps / args.cpu) > args.max_ep_len, 'If n_cpu > 1: The number of steps (interations between the agent and environment per epoch) per process must be larger than the largest episode to avoid empty episodal returns'
     
-    t = Trainer(n_sims = args.cpu, start = True, norm_env = args.norm, simulator_no = args.simulator, lw = args.lw)
+    t = Trainer(n_sims = args.cpu, start = True, norm_env = args.norm, simulator_no = args.sim, lw = args.lw, env_type = args.env)
     mpi_fork(args.cpu)  # run parallel code with mpi 
 
     logger_kwargs = setup_logger_kwargs(args.exp_name, args.seed, datestamp=False) 

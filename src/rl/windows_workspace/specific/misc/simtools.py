@@ -78,7 +78,7 @@ def get_random_pose():
     Y = (random.random()-0.5)*2*(math.pi)
     return N, E, Y
 
-def get_pose_on_radius(r=3, angle=5*np.pi/180):
+def get_pose_on_radius(r=5, angle=5*np.pi/180):
     # use polar coords to always get a position of radius r away from setpoint
     # nice for testing average rewards from each run after training, but not so nice for training due to bad exploration
     theta = random.random()*2*math.pi # random angle between origin and the place on the circle to put the vessel. NOT the same as yaw angle

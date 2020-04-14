@@ -21,6 +21,12 @@ def gaussian(val,mean=None,var=None):
     if isinstance(val,list):
         val = np.array(val)
 
+    if isinstance(mean,list):
+        mean = np.array(mean)
+
+    if isinstance(var,list):
+        var = np.array(var)
+        
     mean = np.zeros(val.shape) if (mean is None) or (mean.shape != val.shape) else mean
     var = np.ones(val.shape) if (var is None) or (var.shape != val.shape) else var
     return 1 / np.sqrt(2 * np.pi * var) * np.exp ( -0.5 * ((val - mean) / np.sqrt(var))**2 )

@@ -13,6 +13,7 @@ from specific.misc.log import log, forcelog
 from datetime import datetime
 from spinup.utils.mpi_tools import proc_id, num_procs
 
+from specific.local_paths import USER_DIR
 
 class DigiTwin:
     SCAL_INP = 'scalar_input'
@@ -142,7 +143,7 @@ class DigiTwin:
                     else:
                         user_dir_spec = datetime.now().strftime("%Y-%m-%d") + '_sim' + self.usertag
 
-                    user_dir = 'C:\\Users\\simen\\Documents\\Utdanning\\GTK\\userdirs\\' + user_dir_spec
+                    user_dir = USER_DIR + user_dir_spec
                     subprocess.Popen([sim_path, "--pythonPort="+str(python_port), "--userdir", user_dir] )
                     forcelog('Waiting for the CS sim to open...') 
                     time.sleep(12)

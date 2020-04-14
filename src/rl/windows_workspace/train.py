@@ -13,9 +13,31 @@ from spinup.algos.tf1.trpo.trpo import trpo
 from spinup.utils.mpi_tools import mpi_fork
 from spinup.utils.run_utils import setup_logger_kwargs
 import tensorflow as tf
+import argparse
+
+
+
+def str2bool(v):
+    '''
+        parser.add_argument("--nice", type=str2bool, nargs='?',
+                                const=True, default=False,
+                                help="Activate nice mode.")
+        
+        allows me to use:
+        script --nice
+        script --nice <bool>
+    '''
+    if isinstance(v, bool):
+       return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
 
 if __name__ == '__main__':
-    import argparse
+    
     parser = argparse.ArgumentParser()
     parser.add_argument('--hid',            type=int,   default=64)     # Number of nodes in hidden layers
     parser.add_argument('--l',              type=int,   default=3)      # Number of hidden layers

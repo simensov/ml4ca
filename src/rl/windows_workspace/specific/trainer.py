@@ -2,12 +2,8 @@ from specific.digitwin import DigiTwin
 from specific.customEnv import Revolt,RevoltSimple, RevoltLimited
 from spinup.utils.mpi_tools import proc_id, num_procs
 
-SIM_CONFIG_PATH       = 'C:\\Users\\simen\\Documents\\Utdanning\\GTK\\configuration'
-SIM_PATH_0            = 'C:\\Users\\simen\\Documents\\Utdanning\\GTK\\revoltsim{}\\bin\\revoltsim64.exe'
-# SIM_PATH_LW           = 'C:\\Users\\simen\\Documents\\Utdanning\\GTK\\lightweight_revoltsim{}\\revoltsim\\bin\\revoltsim64.exe'
-SIM_PATH           = 'C:\\Users\\simen\\Documents\\Utdanning\\GTK\\{}\\bin\\revoltsim64.exe'
-PYTHON_PORT_INITIAL_0 = 25338
-LOAD_SIM_CFG          = False
+from specific.local_paths import SIM_CONFIG_PATH, SIM_PATH, PYTHON_PORT_INITIAL
+# sim path must be a string like 'C:\\Users\\local\\Documents\\GTK\\{}\\bin\\revoltsim64.exe' so that it can be formatted
 
 class Trainer(object):
     '''
@@ -27,20 +23,19 @@ class Trainer(object):
             self.start_simulators()
             self.set_environments(env_type=env_type,testing = testing)        
 
-    def start_simulators(self,sim_path=SIM_PATH_0,python_port_initial=PYTHON_PORT_INITIAL_0,sim_cfg_path=SIM_CONFIG_PATH,load_cfg=LOAD_SIM_CFG):
+    def start_simulators(self,sim_path=SIM_PATH,python_port_initial=PYTHON_PORT_INITIAL,sim_cfg_path=SIM_CONFIG_PATH,load_cfg=False):
         ''' Start all simulators '''
 
         # TODO use {}.format() in sim path and rename revoltsim to revoltsim0 for more efficient code
         assert self._sim_no in [0,1,2], 'The given sim number is not in the prepared list of simulators'
+        
         if self._lw:
             appendix = 'lightweight_revoltsim{}'.format(self._sim_no)
         else:
             appendix = 'revoltsim{}'.format(self._sim_no)
 
         sim_path = SIM_PATH.format(appendix)
-        # TODO above didnt work
-        # sim_path = SIM_PATH_0.format(self._sim_no)
-        python_port_initial = PYTHON_PORT_INITIAL_0 + self._sim_no
+        python_port_initial = PYTHON_PORT_INITIAL + self._sim_no
 
         if True:
             # There will be only one simulator per process

@@ -109,7 +109,7 @@ class TrajectoryBuffer:
 def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0, 
         steps_per_epoch=4000, epochs=50, gamma=0.99, clip_ratio=0.2, pi_lr=3e-4,
         vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97, max_ep_len=1000,
-        target_kl=0.01, logger_kwargs=dict(), save_freq=10, normed=False):
+        target_kl=0.01, logger_kwargs=dict(), save_freq=10, normed=False, curriculum=False):
     """
     Proximal Policy Optimization (by clipping),
     with early stopping based on approximate KL
@@ -280,7 +280,8 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
     start_time = time.time()
 
     # Initialize vars for state observation, return, done, trajectory return and trajectory length
-    o, r, d, traj_return, traj_len = env.reset(), 0, False, 0, 0 
+    # Optional: sample from a fraction of the state space if using curriculum learning
+    o, r, d, traj_return, traj_len = env.reset(fraction = 0.0 if curriculum else 0.8), 0, False, 0, 0 
 
     # Main loop: collect experience in env and update/log each epoch
     for epoch in range(epochs):
@@ -313,7 +314,11 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
                     logger.store(EpRet=traj_return, EpLen=traj_len)
 
                 # Reset vars to continue gathering 
-                o, traj_return, traj_len = env.reset(), 0, 0
+
+                # Optional: use curriculum learning
+                fraction = min( max(0.1, 2.0 * epoch / epochs), 0.8) if curriculum else 0.8 # 2*ep/tot_ep becomes 0.8 at 40% out during training. Alwats explore at least 10%
+
+                o, traj_return, traj_len = env.reset(fraction = fraction), 0, 0
 
         # Save model
         if (epoch % save_freq == 0) or (epoch == epochs-1):

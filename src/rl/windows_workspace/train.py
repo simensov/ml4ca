@@ -15,8 +15,6 @@ from spinup.utils.run_utils import setup_logger_kwargs
 import tensorflow as tf
 import argparse
 
-
-
 def str2bool(v):
     '''
         parser.add_argument("--nice", type=str2bool, nargs='?',
@@ -61,15 +59,16 @@ if __name__ == '__main__':
     parser.add_argument('--sim',            type=int,   default=0)      # Simulator copy used: 0, 1 or 2
     parser.add_argument('--norm',           type=bool,  default=False)  # To normalize that state vector or not
     parser.add_argument('--lw',             type=bool,  default=False)  # To use the lightweight simulator or not - True can be an advantage when training for longer
+    parser.add_argument('--curr',           type=bool,  default=False)  # To use the lightweight simulator or not - True can be an advantage when training for longer
     args = parser.parse_args()
 
     print('Training {} with {} core(s)'.format(args.algo.upper(), args.cpu))
     assert args.cpu == 1 or int(args.steps / args.cpu) > args.max_ep_len, 'If n_cpu > 1: The number of steps (interations between the agent and environment per epoch) per process must be larger than the largest episode to avoid empty episodal returns'
     
-    t = Trainer(n_sims = args.cpu, start = True, norm_env = args.norm, simulator_no = args.sim, lw = args.lw, env_type = args.env)
+    t = Trainer(n_sims = args.cpu, start = True, norm_env = args.norm, simulator_no = args.sim, lw = args.lw, env_type = args.env, curriculum=args.curr)
     mpi_fork(args.cpu)  # run parallel code with mpi 
 
-    logger_kwargs = setup_logger_kwargs(args.exp_name, args.seed, datestamp=False) 
+    logger_kwargs = setup_logger_kwargs(args.exp_name, args.seed, datestamp = False) 
     actor_critic_kwargs = {'hidden_sizes' : [args.hid]*args.l,'activation' : tf.nn.leaky_relu}
 
     '''
@@ -80,14 +79,21 @@ if __name__ == '__main__':
         - Should be good to go!
     '''
 
+    # Just for testing implementation without cybersea
+    # import gym
+    # env_fn = lambda : gym.make('MountainCarContinuous-v0')
+
+    # curriculum ON
+    env_fn = t.env_fn
+    
     if args.algo == 'ppo':
 
-        ppo(env_fn        = t.env_fn,            actor_critic  = ppo_ac,        normed          = args.norm,
+        ppo(env_fn        = env_fn,            actor_critic  = ppo_ac,        normed          = args.norm,
             ac_kwargs     = actor_critic_kwargs, seed          = args.seed,     steps_per_epoch = args.steps,
             epochs        = args.epochs,         gamma         = args.gamma,    clip_ratio      = args.clip_ratio,
             pi_lr         = args.pi_lr,          vf_lr         = args.vf_lr,    train_pi_iters  = args.pi_epochs,
             train_v_iters = args.vf_epochs,      lam           = args.lam,      max_ep_len      = args.max_ep_len,
-            target_kl     = args.target_kl,      logger_kwargs = logger_kwargs, save_freq       = args.save_freq)
+            target_kl     = args.target_kl,      logger_kwargs = logger_kwargs, save_freq       = args.save_freq, curriculum=args.curr)
     
     elif args.algo == 'trpo':
 

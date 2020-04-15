@@ -2,8 +2,8 @@ import gym
 from gym import spaces
 import numpy as np
 import math
-from specific.misc.simtools import get_pose_3DOF, get_vel_3DOF, get_pose_on_state_space, get_pose_on_radius
-from specific.misc.mathematics import gaussian
+from specific.misc.simtools import get_pose_3DOF, get_vel_3DOF, get_pose_on_state_space, get_pose_on_radius, get_vel_on_state_space
+from specific.misc.mathematics import gaussian, gaussian_like
 from specific.errorFrame import ErrorFrame
 
 class Revolt(gym.Env):
@@ -14,9 +14,16 @@ class Revolt(gym.Env):
     """
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, digitwin, num_actions = 6, num_states = 6,
-                 real_ss_bounds=[8.0, 8.0, np.pi/2, 2.2, 0.35, 0.60], norm_env = False,
-                 testing = False, realtime = False, max_ep_len = 800):
+    def __init__(self, 
+                 digitwin,
+                 num_actions = 6, 
+                 num_states = 6,
+                 real_ss_bounds=[8.0, 8.0, np.pi/2, 2.2, 0.35, 0.60], 
+                 norm_env = False,
+                 testing = False, 
+                 realtime = False, 
+                 max_ep_len = 800, 
+                 curriculum = False):
 
         super(Revolt, self).__init__()
         self.dTwin = digitwin
@@ -56,15 +63,23 @@ class Revolt(gym.Env):
         self.n_steps    = 1 if (testing and realtime) else 10 # I dont want to step at 100 Hz ever, really
         self.testing    = testing # stores if the environment is being used while testing policy, or is being used for training
         self.max_ep_len = max_ep_len * int(10/self.n_steps)
+        self.curriculum = curriculum # parameter for gradually increasing the sampled state space during training
 
+
+        ''' 2D reward parameters '''
         self.covar = np.array([[1,0],[0,0.1**2]]) # meters and radians
         self.covar_inv = np.linalg.inv(self.covar)
         self.covar_det = np.linalg.det(self.covar)
-        self.thrust_taken = [0, 0, 0]
 
-        self.Sigma = np.array([[1.0,0.0,0.0],[0.0,1.0,0.0],[0.0,0.0,0.1**2]]) # meters and radians
+        ''' 3D Reward parameters '''
+        self.Sigma = np.array([[1.0,0.0,0.0],
+                               [0.0,1.0,0.0],
+                               [0.0,0.0,0.1**2]]) # meters and radians
         self.Sigma_inv = np.linalg.inv(self.Sigma)
         self.Sigma_det = np.linalg.det(self.Sigma)
+
+        ''' Storage of previous thrust '''
+        self.thrust_taken = [0, 0, 0]
 
     def __str__(self):
         return str(self.dTwin.name)
@@ -109,28 +124,32 @@ class Revolt(gym.Env):
         :returns:
             A list of the scaled and clipped action
          '''
-        
-        # TODO adjust bow thruster - 100% and -100% is not the same! Limit the strongest side, and scale it up to 100% from fractional upper hand
-
         bnds = np.array(self.real_action_bounds[0:self.num_actions]) # select bounds according to environment specifications
         action = np.multiply(action,bnds) # The action comes as choices between -1 and 1...
         action = np.clip(action,-bnds,bnds) # ... but the std_dev in the stochastic policy means that we have to clip
         return action.tolist()
 
-    def reset(self,new_ref=None,**init):
+    def reset(self, new_ref = None, fraction = 1.0, **init):
         """ Resets the state of the environment and returns an initial observation.
         :returns:
             observation (object): the initial observation.
         """
         # TODO if the previous actions are to be put into the state-vector, reset() must set random previous actions, or all previous actions must be set to zero
 
+        # Decide which initial values shall be set
         if not init:
+            N, E, Y, u, v, r = 0, 0, 0, 0, 0, 0
             if not self.testing:
-                N, E, Y = get_pose_on_state_space(self.real_ss_bounds[0:3]) 
+                if not self.curriculum: # TODO this shouldnt be a part of env
+                    N, E, Y = get_pose_on_state_space(self.real_ss_bounds[0:3], fraction = fraction)
+                else:
+                    N, E, Y = get_pose_on_state_space(self.real_ss_bounds[0:3], fraction = fraction)
+                    u, v, r = get_vel_on_state_space(self.real_ss_bounds[3:], fraction = 0.25 * fraction)
+
             else: 
                 N, E, Y = get_pose_on_radius()
 
-            init = {'Hull.PosNED':[N,E],'Hull.PosAttitude':[0,0,Y]}
+            init = {'Hull.PosNED':[N,E],'Hull.PosAttitude':[0,0,Y], 'Hull.VelocityNu':[u,v,0,0,0,r]}
 
         if self.testing and new_ref is not None:
             self.EF.update(ref=new_ref)
@@ -163,20 +182,12 @@ class Revolt(gym.Env):
 
     def normalize_state(self,state):
         ''' Based on normalizing a symmetric state distribution: x = (x - x_min) / (x_max - x_min) -> https://www.statisticshowto.com/normalized/
-            Since reset samples uniformly (and the sampled state space distribution is known to not be normally distributed),
-            the states are normalized instead of standardized with means and stds 
         :args:
             - state: (x,) numpy array, representing the full state
-        
         :returns:
             - (x,) shaped numpy array, normalized according to 
         '''
         assert len(state) == len(self.real_ss_bounds), 'The state and bounds are not of same length!'
-
-        # OLD WAY OF DOING IT
-        # for i,b in enumerate(self.real_ss_bounds):
-        #     state[i] /= (1.0 * b) 
-
         for i, b in enumerate(self.real_ss_bounds):
             state[i] = (state[i] - (-b)) / (b - (-b))
 
@@ -208,10 +219,13 @@ class Revolt(gym.Env):
               Especially, the yaw rate seems to be the reason to why the agent stagnates with a 
         '''
         # rew = self.vel_reward() + self.pose_reward()
-        rew = self.vel_reward() + self.smaller_yaw_dist()
-        # rew = self.vel_reward() + self.unitary_multivariate_reward_3D()
-        # rew = self.vel_reward() + self.smaller_yaw_dist() + self.action_penalty()
-        # rew = self.vel_reward() + 10 * self.unitary_multivariate_reward_3D() + self.action_penalty()
+        # rew = self.vel_reward() + self.smaller_yaw_dist()
+        # rew = self.vel_reward() + self.unitary_multivariate_reward_2D() # multivar
+        rew = self.vel_reward() + self.unitary_multivariate_reward_3D() # multivar3D MUST BE MUCH WIDER - REWARD IS TOO SPARSE!
+        # rew = self.vel_reward() + self.smaller_yaw_dist() + self.action_penalty(pen_coeff = [0.5, 1.0, 1.0]) # simactpen, limactpen has 0.5 on bow
+        # rew = self.vel_reward() + 10 * self.unitary_multivariate_reward_3D() + self.action_penalty() # simeqactlargemulti has 1.0 on bowpen
+        rew = self.vel_reward() + self.new_multivar()
+
         return rew  
 
     def pose_reward(self):
@@ -240,9 +254,28 @@ class Revolt(gym.Env):
         
         return 4 * np.exp(-0.5 * (x.T).dot(self.covar_inv).dot(x))
 
-    def action_penalty(self):
+    def new_gaussian(self):
+        ''' This still encourages reducing r before yaw or vice versa '''
+        surge, sway, yaw = self.EF.get_pose()
+        r = math.sqrt(surge**2 + sway**2)
+
+        g1 = gaussian_like(val = [r], mean = [0], var = [4])[0] # a wide, but sparse multivariate gaussian
+        g2 = max(1 - 0.1 * r, 0.0) # reduce sparsity, but don't give negative reward far away
+        g3 = gaussian_like(val = [yaw], mean = [0], var = [0.1**2])[0] # a narrow gaussian (std_dev = 5.7 deg)
+        g4 = max(1 - 0.10 * np.abs(yaw) * 180 / np.pi, 0.0) # reduce sparsity around 10 degrees using 0.1 as constant
+        return (g1 + g2 + g3 + g4) # maximum score of 4
+
+    def new_multivar(self):
+        surge, sway, yaw = self.EF.get_pose()
+        r = math.sqrt(surge**2 + sway**2)
+
+        yaw_vs_r_factor = 0.25 # how much one degree is weighted vs a meter
+        r3d = math.sqrt(r**2 + (yaw * 180 / np.pi * 0.25)**2)
+        return gaussian_like(val = [r3d], mean = [0], var = [2.0**2]) + max(0.0, (1-0.05*r3d))
+
+    def action_penalty(self, pen_coeff = [1., 1., 1.]):
         pen = 0
-        pen_coeff = [1.,1.,1.] # must not be greater than 
+        # must not be greater than one
         for T,c in zip(self.thrust_taken, pen_coeff):
             pen -= np.abs(T) / 100.0 * c
 
@@ -253,16 +286,13 @@ class Revolt(gym.Env):
         x = np.array([[surge,sway,yaw]]).T
         return np.exp(-0.5 * (x.T).dot(self.Sigma_inv).dot(x))
 
-
-
-
 class RevoltSimple(Revolt):
     ''' +++++++++++++++++++++++++++++++ '''
     '''      FIXED THRUSTER SETUP       '''
     ''' +++++++++++++++++++++++++++++++ '''
-    def __init__(self,digitwin, testing = False, realtime = False, norm_env = False, max_ep_len = 800):
+    def __init__(self,digitwin, testing = False, realtime = False, norm_env = False, max_ep_len = 800, curriculum = False):
         super().__init__(digitwin = digitwin, num_actions = 3, num_states = 6,
-                         testing = testing, realtime = realtime, norm_env = norm_env, max_ep_len = max_ep_len)
+                         testing = testing, realtime = realtime, norm_env = norm_env, max_ep_len = max_ep_len, curriculum=curriculum)
 
         # Overwrite environment bounds according to measured max velocity for this specific setup
         self.real_ss_bounds = [8.0, 8.0, np.pi/2, 1.75, 0.30, 0.51] # TODO could be set to much smaller values: (scale 10,10,100 times to get them in the same range as the positional arguments)
@@ -281,11 +311,11 @@ class RevoltLimited(Revolt):
     ''' +++++++++++++++++++++++++++++++ '''
     '''      LIMITED AZIMUTH ANGLES     '''
     ''' +++++++++++++++++++++++++++++++ '''
-    def __init__(self,digitwin,testing=False,realtime=False, norm_env=False,):
-        super().__init__(digitwin,num_actions=5,num_states=6,testing=testing,realtime=realtime, norm_env = norm_env)
+    def __init__(self,digitwin,testing=False,realtime=False, norm_env=False,curriculum=False):
+        super().__init__(digitwin,num_actions=5,num_states=6,testing=testing,realtime=realtime,norm_env=norm_env,curriculum=curriculum)
 
         # Not choosing the bow angle means (1) one less action bound, (2) remove one valid index, (3) set bow angle default to pi/2
-        self.real_ss_bounds       = [8.0, 8.0, 30 * np.pi / 180, 2.2, 0.35, 0.30]
+        self.real_ss_bounds       = [8.0, 8.0, 30 * np.pi / 180, 2.2, 0.35, 0.30] 
         self.real_action_bounds   = [100] * 3 + [math.pi / 2 ] * 2
         self.valid_action_indices = [ 0,    1,      2,      4,      5]
         self.act_2_act_map        = { 0:0,  1:1,    2:2,    4:3,    5:4} # {index in self.actions : index in action vector}

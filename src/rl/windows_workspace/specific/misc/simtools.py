@@ -88,10 +88,18 @@ def get_pose_on_radius(r=5, angle=5*np.pi/180):
     Y = random.uniform(-angle,angle)
     return N, E, Y
 
-def get_pose_on_state_space(bounds = [5,5,np.pi/18]):
+def get_pose_on_state_space(bounds = [5,5,np.pi/18], fraction = 1.0):
     assert len(bounds) == 3, 'get_pose_on_state_space only sets 3dof eta'
-    n, e, y = bounds[0]*0.8, bounds[1]*0.8, bounds[2]*0.8
+    n, e, y = bounds[0] * fraction, bounds[1] * fraction, bounds[2] * fraction
     N = random.uniform(-n,n)
     E = random.uniform(-e,e)
     Y = random.uniform(-y,y)
     return N, E, Y
+
+def get_vel_on_state_space(bounds = [2.2, 0.35, 0.60], fraction = 1.0):
+    assert len(bounds) == 3, 'get_vel_on_state_space only sets 3dof nu'
+    u, v, r = bounds[0] * fraction, bounds[1] * fraction, bounds[2] * fraction
+    U = random.uniform(-u,u)
+    V = random.uniform(-v,v)
+    R = random.uniform(-r,r)
+    return U,V,R

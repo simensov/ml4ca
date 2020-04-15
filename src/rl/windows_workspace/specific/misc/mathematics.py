@@ -29,9 +29,16 @@ def gaussian(val,mean=None,var=None):
         
     mean = np.zeros(val.shape) if (mean is None) or (mean.shape != val.shape) else mean
     var = np.ones(val.shape) if (var is None) or (var.shape != val.shape) else var
-    return 1 / np.sqrt(2 * np.pi * var) * np.exp ( -0.5 * ((val - mean) / np.sqrt(var))**2 )
+    return 1 / np.sqrt(2 * np.pi * var) * np.exp ( - 0.5 * ((val - mean) / np.sqrt(var))**2 ) # NB exp(-0.5) originally
 
-def gaussian_like(val,mean,var):
+def gaussian_like(val=[0],mean=[0],var=[1]):
+    if isinstance(val,list):
+        val = np.array(val)
+    if isinstance(mean,list):
+        mean = np.array(mean)
+    if isinstance(var,list):
+        var = np.array(var)
+
     return np.sqrt(2*np.pi*var) * gaussian(val,mean,var)
 
 

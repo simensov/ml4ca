@@ -63,8 +63,6 @@ class Revolt(gym.Env):
         self.n_steps    = 1 if (testing and realtime) else 10 # I dont want to step at 100 Hz ever, really
         self.testing    = testing # stores if the environment is being used while testing policy, or is being used for training
         self.max_ep_len = max_ep_len * int(10/self.n_steps)
-        self.curriculum = curriculum # parameter for gradually increasing the sampled state space during training
-
 
         ''' 2D reward parameters '''
         self.covar = np.array([[1,0],[0,0.1**2]]) # meters and radians
@@ -140,12 +138,8 @@ class Revolt(gym.Env):
         if not init:
             N, E, Y, u, v, r = 0, 0, 0, 0, 0, 0
             if not self.testing:
-                if not self.curriculum: # TODO this shouldnt be a part of env
-                    N, E, Y = get_pose_on_state_space(self.real_ss_bounds[0:3], fraction = fraction)
-                else:
                     N, E, Y = get_pose_on_state_space(self.real_ss_bounds[0:3], fraction = fraction)
                     u, v, r = get_vel_on_state_space(self.real_ss_bounds[3:], fraction = 0.25 * fraction)
-
             else: 
                 N, E, Y = get_pose_on_radius()
 
@@ -221,11 +215,12 @@ class Revolt(gym.Env):
         # rew = self.vel_reward() + self.pose_reward()
         # rew = self.vel_reward() + self.smaller_yaw_dist()
         # rew = self.vel_reward() + self.unitary_multivariate_reward_2D() # multivar
-        rew = self.vel_reward() + self.unitary_multivariate_reward_3D() # multivar3D MUST BE MUCH WIDER - REWARD IS TOO SPARSE!
         # rew = self.vel_reward() + self.smaller_yaw_dist() + self.action_penalty(pen_coeff = [0.5, 1.0, 1.0]) # simactpen, limactpen has 0.5 on bow
-        # rew = self.vel_reward() + 10 * self.unitary_multivariate_reward_3D() + self.action_penalty() # simeqactlargemulti has 1.0 on bowpen
-        rew = self.vel_reward() + self.new_multivar()
+        
+        rew = self.vel_reward() + self.new_multivar() # newmultivarcurr
+        # rew = self.vel_reward() + self.smaller_yaw_dist() + self.action_penalty(pen_coeff = [0.2, 0.3, 0.3]) # limactcurr
 
+        # rew = self.vel_reward() + self.new_multivar() + self.action_penalty(pen_coeff = [0.1, 0.1, 0.1]) #limcomplicated
         return rew  
 
     def pose_reward(self):

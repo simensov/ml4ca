@@ -2,6 +2,7 @@ __pycache__/
 tests/
 venv/
 data/
-
+specific/local_paths.py
+experiments/
 *.pyc 
 *.vscode

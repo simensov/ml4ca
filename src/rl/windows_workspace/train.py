@@ -59,7 +59,8 @@ if __name__ == '__main__':
     parser.add_argument('--sim',            type=int,   default=0)      # Simulator copy used: 0, 1 or 2
     parser.add_argument('--norm',           type=bool,  default=False)  # To normalize that state vector or not
     parser.add_argument('--lw',             type=bool,  default=False)  # To use the lightweight simulator or not - True can be an advantage when training for longer
-    parser.add_argument('--curr',           type=bool,  default=False)  # To use the lightweight simulator or not - True can be an advantage when training for longer
+    parser.add_argument('--curr',           type=bool,  default=False)  # To use curriculum learning or not
+    parser.add_argument('--note',           type=str,   default='')     # Add a comment
     args = parser.parse_args()
 
     print('Training {} with {} core(s)'.format(args.algo.upper(), args.cpu))
@@ -93,7 +94,7 @@ if __name__ == '__main__':
             epochs        = args.epochs,         gamma         = args.gamma,    clip_ratio      = args.clip_ratio,
             pi_lr         = args.pi_lr,          vf_lr         = args.vf_lr,    train_pi_iters  = args.pi_epochs,
             train_v_iters = args.vf_epochs,      lam           = args.lam,      max_ep_len      = args.max_ep_len,
-            target_kl     = args.target_kl,      logger_kwargs = logger_kwargs, save_freq       = args.save_freq, curriculum=args.curr)
+            target_kl     = args.target_kl,      logger_kwargs = logger_kwargs, save_freq       = args.save_freq, curriculum=args.curr, note=args.note)
     
     elif args.algo == 'trpo':
 

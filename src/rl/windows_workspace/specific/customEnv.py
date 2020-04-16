@@ -59,25 +59,19 @@ class Revolt(gym.Env):
         ''' +++++++++++++++++++++++++++++++ '''
         '''     REWARD AND TEST PARAMS      '''
         ''' +++++++++++++++++++++++++++++++ '''
-        self.vel_rew_coeffs = [1,1,1] # weighting between surge, sway and heading deviations used in reward function
+        self.vel_rew_coeffs = [0.5,0.5,0.5] # weighting between surge, sway and heading deviations used in reward function
         self.n_steps    = 1 if (testing and realtime) else 10 # I dont want to step at 100 Hz ever, really
         self.testing    = testing # stores if the environment is being used while testing policy, or is being used for training
         self.max_ep_len = max_ep_len * int(10/self.n_steps)
 
-        ''' 2D reward parameters '''
-        self.covar = np.array([[1,0],[0,0.1**2]]) # meters and radians
+        ''' Unitary gaussian reward parameters '''
+        self.covar = np.array([ [1**2,     0   ],  # meters
+                                [0,     (5)**2]])  # degrees
         self.covar_inv = np.linalg.inv(self.covar)
         self.covar_det = np.linalg.det(self.covar)
 
-        ''' 3D Reward parameters '''
-        self.Sigma = np.array([[1.0,0.0,0.0],
-                               [0.0,1.0,0.0],
-                               [0.0,0.0,0.1**2]]) # meters and radians
-        self.Sigma_inv = np.linalg.inv(self.Sigma)
-        self.Sigma_det = np.linalg.det(self.Sigma)
-
         ''' Storage of previous thrust '''
-        self.thrust_taken = [0, 0, 0]
+        self.prev_thrust = [0, 0, 0]
 
     def __str__(self):
         return str(self.dTwin.name)
@@ -94,9 +88,6 @@ class Revolt(gym.Env):
         """'''
 
         action = self.scale_and_clip(action)
-        
-        self.thrust_taken = [action[0], action[1], action[2]]
-
         for a in self.actions:
             if a['idx'] in self.valid_action_indices:
                 # self.dTwin.val(a['module'], a['feature'], action[a['idx']]) # original, working with revoltsimple, but once the action vector couldnt be followed chronologically as for limited, it broke
@@ -112,6 +103,8 @@ class Revolt(gym.Env):
 
         if new_ref is not None:
             self.EF.update(ref=new_ref)
+
+        self.prev_thrust = [action[0], action[1], action[2]]
 
         return s,r,d, {'None': 0}
 
@@ -167,7 +160,7 @@ class Revolt(gym.Env):
         s = self.state()
         if self.norm_env: s = self.normalize_state(s)
 
-        self.thrust_taken = [0,0,0]
+        self.prev_thrust = [0,0,0]
         return s
 
     def state(self):
@@ -187,7 +180,6 @@ class Revolt(gym.Env):
 
         return state
 
-
     def is_terminal(self,state):
         ''' Returns true if the vessel has travelled too far from the set point.'''
 
@@ -199,7 +191,6 @@ class Revolt(gym.Env):
 
     def render(self):
         pass # The environment will always be rendered in Cybersea
-
     
     ''' +++++++++++++++++++++++++++++++ '''
     '''           REWARD SHAPING        '''
@@ -217,10 +208,13 @@ class Revolt(gym.Env):
         # rew = self.vel_reward() + self.unitary_multivariate_reward_2D() # multivar
         # rew = self.vel_reward() + self.smaller_yaw_dist() + self.action_penalty(pen_coeff = [0.5, 1.0, 1.0]) # simactpen, limactpen has 0.5 on bow
         
-        rew = self.vel_reward() + self.new_multivar() # newmultivarcurr
-        # rew = self.vel_reward() + self.smaller_yaw_dist() + self.action_penalty(pen_coeff = [0.2, 0.3, 0.3]) # limactcurr
+        # rew = self.vel_reward() + self.new_multivar() + self.action_penalty(pen_coeff = [0.1, 0.1, 0.1]) # limcomplicated WORKED WELL! 
+        
+        rew = self.vel_reward() + self.new_multivar() # newmultivarcurr WORKED WELL
+        rew = self.vel_reward() + self.unitary_multivariate_reward() #  + self.action_penalty([0.1,0.1,0.1]) # newcomplicated and newlimcomplicated
 
-        # rew = self.vel_reward() + self.new_multivar() + self.action_penalty(pen_coeff = [0.1, 0.1, 0.1]) #limcomplicated
+        # rew = self.vel_reward() + SOME_MULTIVAR + self.action_penalty([0.1,0.1,0.1]) # newcomplicated and newlimcomplicated
+
         return rew  
 
     def pose_reward(self):
@@ -237,49 +231,37 @@ class Revolt(gym.Env):
         return sum(rews)
 
     def smaller_yaw_dist(self):
+        ''' First reward function that fixed the steady state error in yaw by sharpening the yaw gaussian '''
         surge, sway, yaw = self.EF.get_pose()
         rews = gaussian([surge,sway]) # mean 0 and var == 1
         yawrew = gaussian([yaw], var=[0.1**2]) # Before, using var = 1, there wasnt any real difference between surge and sway and yaw
         return sum(rews) + yawrew
 
-    def unitary_multivariate_reward_2D(self):
+    def unitary_multivariate_reward(self):
         surge, sway, yaw = self.EF.get_pose()
+        yaw = yaw * 180 / math.pi # Use degrees since that was the standard when creating the reward function - easier visualized than radians
         r = math.sqrt(surge**2 + sway**2)
-        x = np.array([[r,yaw]]).T
+        special_measurement = math.sqrt(r**2 + (yaw * 0.25)**2) 
+        x = np.array([[r, yaw]]).T
         
-        return 4 * np.exp(-0.5 * (x.T).dot(self.covar_inv).dot(x))
-
-    def new_gaussian(self):
-        ''' This still encourages reducing r before yaw or vice versa '''
-        surge, sway, yaw = self.EF.get_pose()
-        r = math.sqrt(surge**2 + sway**2)
-
-        g1 = gaussian_like(val = [r], mean = [0], var = [4])[0] # a wide, but sparse multivariate gaussian
-        g2 = max(1 - 0.1 * r, 0.0) # reduce sparsity, but don't give negative reward far away
-        g3 = gaussian_like(val = [yaw], mean = [0], var = [0.1**2])[0] # a narrow gaussian (std_dev = 5.7 deg)
-        g4 = max(1 - 0.10 * np.abs(yaw) * 180 / np.pi, 0.0) # reduce sparsity around 10 degrees using 0.1 as constant
-        return (g1 + g2 + g3 + g4) # maximum score of 4
-
+        # Note that x is meters and degrees!
+        return 2 * np.exp(-0.5 * (x.T).dot(self.covar_inv).dot(x)) + max(0.0, (1-0.1*special_measurement)) + 0.5 # can be viewed in reward_plots.py
+        
     def new_multivar(self):
         surge, sway, yaw = self.EF.get_pose()
         r = math.sqrt(surge**2 + sway**2)
-
         yaw_vs_r_factor = 0.25 # how much one degree is weighted vs a meter
         r3d = math.sqrt(r**2 + (yaw * 180 / np.pi * 0.25)**2)
         return gaussian_like(val = [r3d], mean = [0], var = [2.0**2]) + max(0.0, (1-0.05*r3d))
 
-    def action_penalty(self, pen_coeff = [1., 1., 1.]):
+    def action_penalty(self, pen_coeff = [0.1, 0.1, 0.1]):
+        assert np.all(np.array(pen_coeff) >= 0.0) and np.all(np.array(pen_coeff) <= 1.0), 'Action penalty coefficients must be in range 0.0 - 1.0'
         pen = 0
-        # must not be greater than one
-        for T,c in zip(self.thrust_taken, pen_coeff):
+        # coeffs must not be greater than one
+        for T,c in zip(self.prev_thrust, pen_coeff):
             pen -= np.abs(T) / 100.0 * c
 
         return pen # maximum penalty is 1 per time step
-
-    def unitary_multivariate_reward_3D(self):
-        surge, sway, yaw = self.EF.get_pose()
-        x = np.array([[surge,sway,yaw]]).T
-        return np.exp(-0.5 * (x.T).dot(self.Sigma_inv).dot(x))
 
 class RevoltSimple(Revolt):
     ''' +++++++++++++++++++++++++++++++ '''

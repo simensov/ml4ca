@@ -65,22 +65,23 @@ def summed_gaussian_vs_2D():
             val2 = (1-0.1*r) # + x_vals[i] + y_vals[j]
             Z2[i,j] = val1 + val2
 
-    fig = plt.figure()
-    ax1 = fig.add_subplot(2,2,1,projection='3d')
-    ax2 = fig.add_subplot(2,2,2,projection='3d')
-    ax3 = fig.add_subplot(2,2,3)
-    ax4 = fig.add_subplot(2,2,4)
-    plt1 = ax1.plot_surface(X, Y, Z1, cmap='viridis',linewidth=0)
-    plt2 = ax2.plot_surface(X, Y, Z2, cmap='viridis',linewidth=0)
-    plt3 = ax3.contour(X,Y,Z1)
-    plt4 = ax4.contour(X,Y,Z2)
+    if False:
+        fig = plt.figure()
+        ax1 = fig.add_subplot(2,2,1,projection='3d')
+        ax2 = fig.add_subplot(2,2,2,projection='3d')
+        ax3 = fig.add_subplot(2,2,3)
+        ax4 = fig.add_subplot(2,2,4)
+        plt1 = ax1.plot_surface(X, Y, Z1, cmap='viridis',linewidth=0)
+        plt2 = ax2.plot_surface(X, Y, Z2, cmap='viridis',linewidth=0)
+        plt3 = ax3.contour(X,Y,Z1)
+        plt4 = ax4.contour(X,Y,Z2)
 
-    for ax, plot in [(ax1,plt1) ,(ax2,plt2)]:
-        ax.set_xlabel('$\~{x}$', size=12)
-        ax.set_ylabel('$\~{y}$', size=12)
-        ax.set_zlabel('$Reward$', size=12)
-        # bar = plt.colorbar(plot, orientation='horizontal',pad=0.2)
-        # bar.set_label('Reward ',  size = 12)    
+        for ax, plot in [(ax1,plt1) ,(ax2,plt2)]:
+            ax.set_xlabel('$\~{x}$', size=12)
+            ax.set_ylabel('$\~{y}$', size=12)
+            ax.set_zlabel('$Reward$', size=12)
+            # bar = plt.colorbar(plot, orientation='horizontal',pad=0.2)
+            # bar.set_label('Reward ',  size = 12)    
 
     if True:
         max_r = np.sqrt(2 * 8**2)
@@ -101,20 +102,27 @@ def summed_gaussian_vs_2D():
                 Z2[rew,y] = 2 * gaussian_like(val = [measure], mean = [0], var=[2**2]) + max(0.0,(1-0.05*measure))
 
         f1 = plt.figure()
-        ax1 = f1.add_subplot(1,2,1,projection='3d')
-        ax2 = f1.add_subplot(1,2,2,projection='3d')
+        ax1 = f1.add_subplot(2,2,1,projection='3d')
+        ax2 = f1.add_subplot(2,2,2,projection='3d')
+        ax3 = f1.add_subplot(2,2,3)
+        ax4 = f1.add_subplot(2,2,4)
         total1 = ax1.plot_surface(X, Y, Z1, cmap='viridis',linewidth=0)
         total2 = ax2.plot_surface(X, Y, Z2, cmap='viridis',linewidth=0)
+        plt3 = ax3.contour(X,Y,Z1)
+        plt4 = ax4.contour(X,Y,Z2)
         ax1.set_xlabel('$\~{r}$',size=12)
         ax1.set_ylabel('$\~{\psi}$',size=12)
         ax1.set_zlabel('$Reward$',size=12)
         ax2.set_xlabel('$\~{r}$',size=12)
         ax2.set_ylabel('$\~{\psi}$',size=12)
         ax2.set_zlabel('$Reward$',size=12)
+        ax3.set_xlabel('$\~{r}$',size=12)
+        ax3.set_ylabel('$\~{\psi}$',size=12)
+        ax4.set_xlabel('$\~{r}$',size=12)
+        ax4.set_ylabel('$\~{\psi}$',size=12)
         # bar = plt.colorbar(total)
         # bar.set_label('Reward ', rotation = 90, size = 12)
 
-    plt.show()
 
 def contour():
     import matplotlib.pyplot as plt
@@ -169,7 +177,8 @@ def plot_unitary():
 
     for i in range(len(x)):
         for j in range(len(y)):
-            Z[i,j] = 10.0 * unitary_multivar_normal(x = [x[i],y[j]], mu=[0,0], var=[1**2, 5**2])
+            measure = np.sqrt( x[i]**2 + (y[j]/4)**2 )
+            Z[i,j] = 2 * unitary_multivar_normal(x = [x[i],y[j]], mu=[0,0], var=[1**2, 5.7**2]) + max(0.0 , (1-0.1*measure)) + 0.5
 
     f1 = plt.figure()
     ax = f1.gca(projection='3d')
@@ -179,9 +188,10 @@ def plot_unitary():
     ax.set_zlabel('$Reward$',size=12)
     bar = plt.colorbar(total)
     bar.set_label('Reward ', rotation = 90, size = 12)
-    plt.show()
+    # plt.show()
 
 if __name__ == '__main__':
-    # plot_unitary()
+    plot_unitary()
     summed_gaussian_vs_2D()
+    plt.show()
     pass

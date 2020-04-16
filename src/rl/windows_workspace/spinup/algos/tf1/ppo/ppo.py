@@ -109,7 +109,7 @@ class TrajectoryBuffer:
 def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0, 
         steps_per_epoch=4000, epochs=50, gamma=0.99, clip_ratio=0.2, pi_lr=3e-4,
         vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97, max_ep_len=1000,
-        target_kl=0.01, logger_kwargs=dict(), save_freq=10, normed=False, curriculum=False):
+        target_kl=0.01, logger_kwargs=dict(), save_freq=10, normed=False, curriculum=False, note=''):
     """
     Proximal Policy Optimization (by clipping),
     with early stopping based on approximate KL
@@ -186,6 +186,11 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         normed (bool): If the state vector is normalized or not. Not used 
             in the algorithm, but stored so that it follows logger(locals())
             as it ends up in the config.json file
+
+        curriculum (bool): If using curriculum learning or not
+
+        note (str): A string which is saved with locals() to config.json with
+            additional comments if wanted, e.g. on reward function used
 
     """
 
@@ -316,7 +321,7 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
                 # Reset vars to continue gathering 
 
                 # Optional: use curriculum learning
-                fraction = min( max(0.1, 2.0 * epoch / epochs), 0.8) if curriculum else 0.8 # 2*ep/tot_ep becomes 0.8 at 40% out during training. Alwats explore at least 10%
+                fraction = min( 3.0 * epoch / epochs, 0.8) if curriculum else 0.8 # 3*ep/tot_ep becomes 0.8 at 26.7% out during training
 
                 o, traj_return, traj_len = env.reset(fraction = fraction), 0, 0
 

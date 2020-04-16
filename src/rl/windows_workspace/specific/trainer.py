@@ -5,6 +5,7 @@ from spinup.utils.mpi_tools import proc_id, num_procs
 from specific.local_paths import SIM_CONFIG_PATH, SIM_PATH, PYTHON_PORT_INITIAL
 # sim path must be a string like 'C:\\Users\\local\\Documents\\GTK\\{}\\bin\\revoltsim64.exe' so that it can be formatted
 
+ENVIRONMENTS = {'simple': RevoltSimple, 'limited': RevoltLimited, 'full': Revolt}
 class Trainer(object):
     '''
     Keeps track of all digitwins and its simulators + environments for a training session
@@ -13,22 +14,20 @@ class Trainer(object):
                  n_sims       = 1,
                  start        = True,
                  testing      = False,
-                 norm_env     = False,
                  realtime     = False,
                  simulator_no = 0,
                  lw           = False,
                  env_type     = 'simple',
-                 curriculum   = False):
+                 extended_state = False):
 
         assert isinstance(n_sims,int) and n_sims > 0, 'Number of simulators must be an integer'
         self._n_sims      = n_sims
         self._digitwins   = []
-        self._norm_env    = norm_env
         self._env_counter = 0
         self._sim_no      = simulator_no # used for running the simulator from different directories
         self._realtime    = realtime
         self._lw          = lw
-        self._curriculum  = curriculum
+        self._ext = extended_state
 
         if start:
             self.start_simulators()
@@ -63,22 +62,14 @@ class Trainer(object):
 
     def set_environments(self,env_type='simple',testing=False):
         n_envs = self._n_sims if num_procs() == 1 else 1 # If multiprocessing, each process only gets one environment
-
-        if env_type.lower() == 'simple':
-            self._envs = [RevoltSimple(self._digitwins[i], testing=testing, norm_env = self._norm_env, curriculum = self._curriculum) for i in range(n_envs)]
-        elif env_type.lower() == 'full':
-            self._envs = [Revolt(self._digitwins[i], testing=testing, norm_env = self._norm_env, curriculum = self._curriculum) for i in range(n_envs)]
-        elif env_type.lower() == 'limited':
-            self._envs = [RevoltLimited(self._digitwins[i], testing=testing, norm_env = self._norm_env, curriculum = self._curriculum) for i in range(n_envs)]
-        else:
-            raise ValueError('The environment type passed to Trainer is invalid')
+        Env = ENVIRONMENTS[env_type.lower()]
+        self._envs = [Env(self._digitwins[i], testing=testing, extended_state=self._ext) for i in range(n_envs)]
 
     def get_environments(self):
         return self._envs
 
     def env_fn(self):
         ''' This function is made for returning one environment at a time to the ppo algorithm'''
-        
         if num_procs() > 0:
             # env = self._envs[proc_id()] # TODO old testing from where mpi_fork was called after Trainer()
             env = self._envs[0]

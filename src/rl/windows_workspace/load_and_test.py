@@ -17,9 +17,9 @@ if __name__ == '__main__':
     parser.add_argument('--len',            type = int,           default = 800) # EPISODE LENGTH
     parser.add_argument('--episodes',       type = int,           default = 5)
     parser.add_argument('--itr',            type = int,           default = -1) # this allows for loading models from earlier epochs than the last one!
-    parser.add_argument('--norm',           type = bool,          default = False)
     parser.add_argument('--realtime',       type = bool,          default = False) # doesnt really do anything since env.step() overwrites digitwin.setRealTimeMode(), so the sim speed is decided from how fast the cpu can loop the python code
     parser.add_argument('--env',            type = str,           default = 'simple')
+    parser.add_argument('--ext',            type = bool,          default = False)
     parser.add_argument('--plot',           type = bool,          default = True)
     parser.add_argument('--setpoints',      type = bool,          default = False) # Params for testing set point changes during policy
     parser.add_argument('--deterministic',  action='store_true')
@@ -29,17 +29,12 @@ if __name__ == '__main__':
     '''    LOAD POLICY AND START SIM    '''
     ''' +++++++++++++++++++++++++++++++ '''
 
-    print('Loading environment for testing of algorithms. Beware of normalized states or not!')
+    print('Loading environment for testing of algorithms')
     _, get_action = load_policy_and_env(args.fpath, args.itr if args.itr >=0 else 'last', args.deterministic)
 
-    t = Trainer(n_sims=1)
-    t.start_simulators()
-    if (args.env).lower() == 'simple':
-        env = RevoltSimple(t.get_digitwins()[0], testing = True, realtime = args.realtime, norm_env = args.norm, max_ep_len = args.len) # NOTE norm_env must be set according to how the algorithm was trained
-    elif (args.env).lower() == 'limited':
-        env = RevoltLimited(t.get_digitwins()[0], testing = True, realtime = args.realtime, norm_env = args.norm) # NOTE norm_env must be set according to how the algorithm was trained
-    else:
-        raise Exception('The chosen env type is not applicable')
+    # As a difference from train.py, the trainer does not 
+    t = Trainer(n_sims=1, start=True, testing = True, env_type=args.env, realtime = args.realtime, extended_state=args.ext)
+    env = t.get_environments()[0]
 
     ''' +++++++++++++++++++++++++++++++ '''
     '''     RUN POLICY AND PLOT RES     '''

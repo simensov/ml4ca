@@ -101,7 +101,7 @@ if __name__ == '__main__':
         trpo(env_fn    = t.env_fn,            actor_critic   = trpo_ac,         normed          = args.norm,
              ac_kwargs = actor_critic_kwargs, seed           = args.seed,       steps_per_epoch = args.steps,
              max_ep_len= args.max_ep_len,     save_freq      = args.save_freq,  lam             = args.lam,
-             epochs    = args.epochs,         gamma          = args.gamma,      logger_kwargs   = logger_kwargs)
+             epochs    = args.epochs,         gamma          = args.gamma,      logger_kwargs   = logger_kwargs, note = args.note)
    
     else:
         raise ValueError('The algorithm set is not a valid one')

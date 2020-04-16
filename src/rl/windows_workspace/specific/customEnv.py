@@ -210,8 +210,8 @@ class Revolt(gym.Env):
         
         # rew = self.vel_reward() + self.new_multivar() + self.action_penalty(pen_coeff = [0.1, 0.1, 0.1]) # limcomplicated WORKED WELL! 
         
-        rew = self.vel_reward() + self.new_multivar() # newmultivarcurr WORKED WELL
-        rew = self.vel_reward() + self.unitary_multivariate_reward() #  + self.action_penalty([0.1,0.1,0.1]) # newcomplicated and newlimcomplicated
+        rew = self.vel_reward() + self.new_multivar() # + self.action_penalty([0.2,0.1,0.1])
+        # rew = self.vel_reward() + self.unitary_multivariate_reward() #  + self.action_penalty([0.1,0.1,0.1]) # newcomplicated and newlimcomplicated
 
         # rew = self.vel_reward() + SOME_MULTIVAR + self.action_penalty([0.1,0.1,0.1]) # newcomplicated and newlimcomplicated
 

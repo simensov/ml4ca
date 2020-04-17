@@ -31,16 +31,16 @@ if __name__ == '__main__':
     parser.add_argument('--seed',           type=int,   default=0)      # Random seed
     parser.add_argument('--cpu',            type=int,   default=1)      # Number of CPU's used during training
     parser.add_argument('--steps',          type=int,   default=1600)   # Number of steps during an entire episode for all processes combined. Should be twice the size of ep_len TIMES n_cpu
-    parser.add_argument('--epochs',         type=int,   default=700)    # Number of EPISODES
+    parser.add_argument('--epochs',         type=int,   default=2000)    # Number of EPISODES
     parser.add_argument('--max_ep_len',     type=int,   default=800)    # Number of steps per local episode # (1000 is lower bound for 10 Hz steps) only affects how long each episode can be - not how many that are rolled out
     parser.add_argument('--save_freq',      type=int,   default=10)     # Number of episodes between storage of actor-critic weights
     parser.add_argument('--exp_name',       type=str,   default='test') # Name of data storage area
     parser.add_argument('--env',            type=str,   default='limited')  # Name of the algorithm used
     parser.add_argument('--algo',           type=str,   default='ppo')  # Name of the algorithm used
     parser.add_argument('--sim',            type=int,   default=0)      # Simulator copy used. Requires a certain number of copies of the simulator available
-    parser.add_argument('--lw',             type=bool,  default=False)  # To use the lightweight simulator or not - True can be an advantage when training for longer
+    parser.add_argument('--lw',             type=bool,  default=True)  # To use the lightweight simulator or not - True can be an advantage when training for longer
     parser.add_argument('--note',           type=str,   default='')     # Add a comment
-    parser.add_argument('--ext',            type=bool,  default=True)  # To use the lightweight simulator or not - True can be an advantage when training for longer
+    parser.add_argument('--ext',            type=bool,  default=True)  # To use an extended state vector
     args = parser.parse_args()
 
     print('Training {} with {} core(s)'.format(args.algo.upper(), args.cpu))

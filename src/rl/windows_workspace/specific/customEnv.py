@@ -187,8 +187,14 @@ class Revolt(gym.Env):
         '''
         # rew = self.vel_reward() + self.smaller_yaw_dist()
         rew = self.vel_reward() + self.multivariate_gaussian() + self.action_penalty([0.1,0.1,0.1])
-        rew = self.vel_reward() + self.multivariate_gaussian() + self.action_penalty([0.3,0.3,0.3])
-        rew = self.vel_reward() + self.multivariate_gaussian() + self.action_penalty([0.1,0.1,0.1], torque_based=True)
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.action_penalty([0.3,0.3,0.3])
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.action_penalty([0.1,0.1,0.1], torque_based=True)
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.action_penalty([0.3,0.3,0.3], torque_based=True)
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.action_penalty([0.2,0.2,0.2])
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.action_penalty([0.2,0.2,0.2], torque_based = True)
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.action_penalty([0.2,0.2,0.2])
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.action_penalty([0.2,0.2,0.2]) + self.action_derivative_penalty([0.1,0.1,0.1])
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.action_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty([0.3,0.3,0.3])
         return rew  
 
     def vel_reward(self):
@@ -238,8 +244,8 @@ class Revolt(gym.Env):
         # prev_thrust stores the current thrust in (-100,100), while the last three elements of the extended state stores the prev thrust in (-1,1)
         derr = (np.array(self.prev_thrust) - self.state_extended()[-3:]*100 )/ self.dt 
         for dT,c in zip(derr, pen_coeff):
-            pen -= np.abs(dT) / 200.0 * c # 200 is the maximum change from one second to another
-        return pen # maximum penalty is 1 per time step if coeffs are <= 0.33
+            pen -= np.abs(dT / 100.0) * c # 200 is the maximum change from one second to another
+        return pen # maximum penalty is 1 per time step if coeffs are <= 0.33 and division is done by 200.0
 
 class RevoltSimple(Revolt):
     ''' +++++++++++++++++++++++++++++++ '''

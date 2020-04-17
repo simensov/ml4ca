@@ -28,10 +28,10 @@ def plot_policytest_data(args,data):
         pos = {'sway': [], 'surge' : []}
 
         for step in episode:
-            state, reward = step
+            state, reward = step # state is [errorframe] + [velocities]
             eucl_dists.append( np.sqrt(state[0]**2 + state[1]**2) )
-            pos['sway'].append(state[0])
-            pos['surge'].append(state[1])
+            pos['surge'].append(state[0])
+            pos['sway'].append(state[1])
             headings.append(state[2] * 180 / np.pi)
             rewards.append(reward)
         
@@ -70,9 +70,9 @@ def plot_NED_data(args,data):
     ax3.set_ylabel('Heading [rad]')
 
     f2, ax4 = plt.subplots()
-    ax4.set_ylabel('NED North')
     ax4.set_xlabel('NED East')
-
+    ax4.set_ylabel('NED North')
+    
     step_len = 0.001 if args.realtime else 0.1
     ep_no, ep_len = 0, 0
     for episode in data:
@@ -105,7 +105,6 @@ def plot_NED_data(args,data):
     ax4.add_artist(circle)
     ax4.set_xlim(-5,5)
     ax4.set_ylim(-5,5)
-    f1.tight_layout()
     f2.tight_layout()
 
 

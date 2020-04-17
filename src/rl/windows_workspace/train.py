@@ -40,7 +40,7 @@ if __name__ == '__main__':
     parser.add_argument('--sim',            type=int,   default=0)      # Simulator copy used. Requires a certain number of copies of the simulator available
     parser.add_argument('--lw',             type=bool,  default=False)  # To use the lightweight simulator or not - True can be an advantage when training for longer
     parser.add_argument('--note',           type=str,   default='')     # Add a comment
-    parser.add_argument('--ext',            type=bool,  default=False)  # To use the lightweight simulator or not - True can be an advantage when training for longer
+    parser.add_argument('--ext',            type=bool,  default=True)  # To use the lightweight simulator or not - True can be an advantage when training for longer
     args = parser.parse_args()
 
     print('Training {} with {} core(s)'.format(args.algo.upper(), args.cpu))

@@ -84,7 +84,6 @@ def get_pose_on_radius(r=5, angle=5*np.pi/180):
     theta = random.random()*2*math.pi # random angle between origin and the place on the circle to put the vessel. NOT the same as yaw angle
     E = r * math.cos(theta)
     N = r * math.sin(theta) # y-coord -> North
-    # Y = 0
     Y = random.uniform(-angle,angle)
     return N, E, Y
 
@@ -103,3 +102,24 @@ def get_vel_on_state_space(bounds = [2.2, 0.35, 0.60], fraction = 1.0):
     V = random.uniform(-v,v)
     R = random.uniform(-r,r)
     return U,V,R
+
+
+def str2bool(v):
+    import argparse
+    '''
+        parser.add_argument("--nice", type=str2bool, nargs='?',
+                                const=True, default=False,
+                                help="Activate nice mode.")
+        
+        allows me to use:
+        script --nice
+        script --nice <bool>
+    '''
+    if isinstance(v, bool):
+       return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')

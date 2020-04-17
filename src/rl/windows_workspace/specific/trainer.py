@@ -41,7 +41,7 @@ class Trainer(object):
         ''' Start all simulators '''
 
         # TODO use {}.format() in sim path and rename revoltsim to revoltsim0 for more efficient code
-        assert self._sim_no in [0,1,2], 'The given sim number is not in the prepared number of simulators'
+        assert self._sim_no in [0,1,2,3], 'The given sim number is not in the prepared number of simulators'
         
         if self._lw:
             appendix = 'lightweight_revoltsim{}'.format(self._sim_no)

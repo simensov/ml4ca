@@ -15,25 +15,6 @@ from spinup.utils.run_utils import setup_logger_kwargs
 import tensorflow as tf
 import argparse
 
-def str2bool(v):
-    '''
-        parser.add_argument("--nice", type=str2bool, nargs='?',
-                                const=True, default=False,
-                                help="Activate nice mode.")
-        
-        allows me to use:
-        script --nice
-        script --nice <bool>
-    '''
-    if isinstance(v, bool):
-       return v
-    if v.lower() in ('yes', 'true', 't', 'y', '1'):
-        return True
-    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
-        return False
-    else:
-        raise argparse.ArgumentTypeError('Boolean value expected.')
-
 if __name__ == '__main__':
     
     parser = argparse.ArgumentParser()
@@ -54,9 +35,9 @@ if __name__ == '__main__':
     parser.add_argument('--max_ep_len',     type=int,   default=800)    # Number of steps per local episode # (1000 is lower bound for 10 Hz steps) only affects how long each episode can be - not how many that are rolled out
     parser.add_argument('--save_freq',      type=int,   default=10)     # Number of episodes between storage of actor-critic weights
     parser.add_argument('--exp_name',       type=str,   default='test') # Name of data storage area
-    parser.add_argument('--env',            type=str,   default='simple')  # Name of the algorithm used
+    parser.add_argument('--env',            type=str,   default='limited')  # Name of the algorithm used
     parser.add_argument('--algo',           type=str,   default='ppo')  # Name of the algorithm used
-    parser.add_argument('--sim',            type=int,   default=0)      # Simulator copy used: 0, 1 or 2
+    parser.add_argument('--sim',            type=int,   default=0)      # Simulator copy used. Requires a certain number of copies of the simulator available
     parser.add_argument('--lw',             type=bool,  default=False)  # To use the lightweight simulator or not - True can be an advantage when training for longer
     parser.add_argument('--note',           type=str,   default='')     # Add a comment
     parser.add_argument('--ext',            type=bool,  default=False)  # To use the lightweight simulator or not - True can be an advantage when training for longer
@@ -65,7 +46,7 @@ if __name__ == '__main__':
     print('Training {} with {} core(s)'.format(args.algo.upper(), args.cpu))
     assert args.cpu == 1 or int(args.steps / args.cpu) > args.max_ep_len, 'If n_cpu > 1: The number of steps (interations between the agent and environment per epoch) per process must be larger than the largest episode to avoid empty episodal returns'
     
-    t = Trainer(n_sims = args.cpu, start = True, simulator_no = args.sim, lw = args.lw, env_type = args.env, extended_state=args.ext)
+    t = Trainer(n_sims = args.cpu, start = True, simulator_no = args.sim, lw = args.lw, env_type = args.env, extended_state = args.ext)
     mpi_fork(args.cpu)  # run parallel code with mpi 
 
     logger_kwargs = setup_logger_kwargs(args.exp_name, args.seed, datestamp = False) 
@@ -86,14 +67,14 @@ if __name__ == '__main__':
             epochs        = args.epochs,         gamma         = args.gamma,    clip_ratio      = args.clip_ratio,
             pi_lr         = args.pi_lr,          vf_lr         = args.vf_lr,    train_pi_iters  = args.pi_epochs,
             train_v_iters = args.vf_epochs,      lam           = args.lam,      max_ep_len      = args.max_ep_len,
-            target_kl     = args.target_kl,      logger_kwargs = logger_kwargs, save_freq       = args.save_freq, note=args.note)
+            target_kl     = args.target_kl,      logger_kwargs = logger_kwargs, save_freq       = args.save_freq, note=args.note, ext=args.ext)
     
     elif args.algo == 'trpo':
 
         trpo(env_fn    = t.env_fn,            actor_critic   = trpo_ac,       
              ac_kwargs = actor_critic_kwargs, seed           = args.seed,       steps_per_epoch = args.steps,
              max_ep_len= args.max_ep_len,     save_freq      = args.save_freq,  lam             = args.lam,
-             epochs    = args.epochs,         gamma          = args.gamma,      logger_kwargs   = logger_kwargs, note = args.note)
+             epochs    = args.epochs,         gamma          = args.gamma,      logger_kwargs   = logger_kwargs, note = args.note, ext=args.ext)
    
     else:
         raise ValueError('The algorithm set is not a valid one')

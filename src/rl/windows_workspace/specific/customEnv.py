@@ -54,7 +54,7 @@ class Revolt(gym.Env):
         self.valid_action_indices = list(range(6))[0:self.num_actions] # NOTE  Only works this way for full env and simple: a list of all idx in self.actions that is allowed for this environment.
         self.action_space         = spaces.Box(low=bnds['action']['low'], high=bnds['action']['high'], dtype=np.float64) # action space bound in environment
         self.real_action_bounds   = [100] * 3 + [math.pi] * 3 # action space IRL
-        self.observation_space    = spaces.Box(low=bnds['spaces']['low'], high=bnds['spaces']['high'], dtype=np.float64) # state space bound in environment
+        self.observation_space    = spaces.Box(low=bnds['spaces']['low'], high=bnds['spaces']['high'], dtype=np.float64) # state space bound in environment # TODO not used
         self.real_ss_bounds       = real_ss_bounds # state space bound IRL
         self.EF                   = ErrorFrame()
 
@@ -67,11 +67,10 @@ class Revolt(gym.Env):
         self.testing    = testing # stores if the environment is being used while testing policy, or is being used for training
         self.max_ep_len = max_ep_len * int(10/self.n_steps)
 
-        ''' Unitary gaussian reward parameters '''
+        ''' Unitary multivariate gaussian reward parameters '''
         self.covar = np.array([ [1**2,     0   ],  # meters
                                 [0,     (5)**2]])  # degrees
         self.covar_inv = np.linalg.inv(self.covar)
-        self.covar_det = np.linalg.det(self.covar)
 
         ''' Storage of previous thrust '''
         self.prev_thrust = [0, 0, 0]
@@ -102,14 +101,12 @@ class Revolt(gym.Env):
         self.prev_thrust = [action[0], action[1], action[2]]
         r = self.reward()
         d = self.is_terminal()
-        
 
-        if new_ref is not None:
-            self.EF.update(ref=new_ref)
+        if new_ref is not None: self.EF.update(ref=new_ref)
 
         return s,r,d, {'None': 0}
 
-    def scale_and_clip(self,action, scale=True, clip=True):
+    def scale_and_clip(self,action):
         ''' Action from actor if close to being -1 and 1. Scale 100%, and clip.
         :args:
             - action (numpy array): an action provided by the agent
@@ -117,10 +114,8 @@ class Revolt(gym.Env):
             A list of the scaled and clipped actions
          '''
         bnds = np.array(self.real_action_bounds[0:self.num_actions]) # select bounds according to environment specifications
-        if scale:
-            action = np.multiply(action,bnds) # The action comes as choices between -1 and 1...
-        if clip:
-            action = np.clip(action,-bnds,bnds) # ... but the std_dev in the stochastic policy means that we have to clip
+        action = np.multiply(action,bnds) # The action comes as choices between -1 and 1...
+        action = np.clip(action,-bnds,bnds) # ... but the std_dev in the stochastic policy means that we have to clip
         return action.tolist()
 
     def reset(self, new_ref = None, fraction = 0.8, **init):
@@ -191,12 +186,9 @@ class Revolt(gym.Env):
             - A float representing the scalar reward of the agent being in the current state
         '''
         # rew = self.vel_reward() + self.smaller_yaw_dist()
-        # rew = self.vel_reward() + self.unitary_multivariate_reward_2D() # multivar
-        # rew = self.vel_reward() + self.smaller_yaw_dist() + self.action_penalty(pen_coeff = [0.2, 0.1, 0.1]) # simactpen, limactpen has 0.5 on bow
-        # rew = self.vel_reward() + self.new_multivar() # + self.action_penalty(pen_coeff = [0.1, 0.1, 0.1]) # limcomplicated WORKED WELL! 
-        # rew = self.vel_reward() + self.new_multivar() + self.action_penalty([0.2,0.1,0.1])
-        rew = self.vel_reward() + self.unitary_multivariate_reward() #  + self.action_penalty([0.1,0.1,0.1]) # newcomplicated and newlimcomplicated
-        # rew = self.vel_reward() + SOME_MULTIVAR + self.action_penalty([0.1,0.1,0.1]) # newcomplicated and newlimcomplicated
+        rew = self.vel_reward() + self.multivariate_gaussian() + self.action_penalty([0.1,0.1,0.1])
+        rew = self.vel_reward() + self.multivariate_gaussian() + self.action_penalty([0.3,0.3,0.3])
+        rew = self.vel_reward() + self.multivariate_gaussian() + self.action_penalty([0.1,0.1,0.1], torque_based=True)
         return rew  
 
     def vel_reward(self):
@@ -210,15 +202,16 @@ class Revolt(gym.Env):
         yawrew = gaussian([yaw], var=[0.1**2]) # Before, using var = 1, there wasnt any real difference between surge and sway and yaw
         return sum(rews) + yawrew
 
-    def unitary_multivariate_reward(self):
+    def multivariate_gaussian(self):
+        ''' Using a multivariate gaussian distribution without normalizing area to 1, with a diagonal covariance matrix and a linear "sparsity-regularizer" '''
         surge, sway, yaw = self.EF.get_pose()
         r = math.sqrt(surge**2 + sway**2) # meters
         yaw = yaw * 180 / math.pi # Use degrees since that was the standard when creating the reward function - easier visualized than radians
         special_measurement = math.sqrt(r**2 + (yaw * 0.25)**2) 
         x = np.array([[r, yaw]]).T
-        return 2 * np.exp(-0.5 * (x.T).dot(self.covar_inv).dot(x)) + max(0.0, (1-0.1*special_measurement)) + 0.5 # can be viewed in reward_plots.py
+        return 2 * np.exp(-0.5 * (x.T).dot(self.covar_inv).dot(x)) + 1 * max(0.0, (1-0.1*special_measurement)) + 0.5 # can be viewed in reward_plots.py
         
-    def new_multivar(self):
+    def multivar(self):
         surge, sway, yaw = self.EF.get_pose()
         r = math.sqrt(surge**2 + sway**2)
         yaw_vs_r_factor = 0.25 # how much one degree is weighted vs a meter
@@ -236,7 +229,7 @@ class Revolt(gym.Env):
                 pen -= np.abs(n) / 100.0 * c
         return pen # maximum penalty is 1 per time step if coeffs are <= 0.33
 
-    def action_der_pen(self,pen_coeff=[0.2,0.2,0.2]):
+    def action_derivative_penalty(self,pen_coeff=[0.2,0.2,0.2]):
         if not self.extended_state:
             return 0
 
@@ -253,8 +246,8 @@ class RevoltSimple(Revolt):
     '''      FIXED THRUSTER SETUP       '''
     ''' +++++++++++++++++++++++++++++++ '''
     def __init__(self,digitwin, testing = False, realtime = False, max_ep_len = 800, extended_state=False):
-        super().__init__(digitwin = digitwin, num_actions = 3, num_states = 6,
-                         testing = testing, realtime = realtime, max_ep_len = max_ep_len, extended_state = extended_state)
+        super().__init__(digitwin = digitwin, num_actions = 3, num_states = 6, testing = testing, 
+                         realtime = realtime, max_ep_len = max_ep_len, extended_state = extended_state)
 
         self.name = 'revoltsimple'
         # Overwrite environment bounds according to measured max velocity for this specific setup
@@ -275,8 +268,9 @@ class RevoltLimited(Revolt):
     ''' +++++++++++++++++++++++++++++++ '''
     '''      LIMITED AZIMUTH ANGLES     '''
     ''' +++++++++++++++++++++++++++++++ '''
-    def __init__(self,digitwin,testing=False,realtime=False, extended_state = False):
-        super().__init__(digitwin,num_actions=5,num_states=6,testing=testing,realtime=realtime,extended_state=extended_state)
+    def __init__(self, digitwin, testing = False, realtime = False, max_ep_len = 800, extended_state = False):
+        super().__init__(digitwin = digitwin, num_actions = 5, num_states = 6, testing = testing,
+                         realtime = realtime, max_ep_len = max_ep_len, extended_state = extended_state)
 
         # Not choosing the bow angle means (1) one less action bound, (2) remove one valid index, (3) set bow angle default to pi/2
         self.name = 'revoltlimited'
@@ -291,7 +285,3 @@ class RevoltLimited(Revolt):
                                      3: math.pi / 2, 
                                      4: 0, 
                                      5: 0}
-        
-
-        
-        

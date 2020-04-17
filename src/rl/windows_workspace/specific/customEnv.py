@@ -190,19 +190,14 @@ class Revolt(gym.Env):
         :returns:
             - A float representing the scalar reward of the agent being in the current state
         '''
-        # rew = self.vel_reward() + self.pose_reward()
         # rew = self.vel_reward() + self.smaller_yaw_dist()
         # rew = self.vel_reward() + self.unitary_multivariate_reward_2D() # multivar
-        rew = self.vel_reward() + self.smaller_yaw_dist() + self.action_penalty(pen_coeff = [0.2, 0.1, 0.1]) # simactpen, limactpen has 0.5 on bow
-        # rew = self.vel_reward() + self.new_multivar() + self.action_penalty(pen_coeff = [0.1, 0.1, 0.1]) # limcomplicated WORKED WELL! 
+        # rew = self.vel_reward() + self.smaller_yaw_dist() + self.action_penalty(pen_coeff = [0.2, 0.1, 0.1]) # simactpen, limactpen has 0.5 on bow
+        # rew = self.vel_reward() + self.new_multivar() # + self.action_penalty(pen_coeff = [0.1, 0.1, 0.1]) # limcomplicated WORKED WELL! 
         # rew = self.vel_reward() + self.new_multivar() + self.action_penalty([0.2,0.1,0.1])
-        # rew = self.vel_reward() + self.unitary_multivariate_reward() #  + self.action_penalty([0.1,0.1,0.1]) # newcomplicated and newlimcomplicated
+        rew = self.vel_reward() + self.unitary_multivariate_reward() #  + self.action_penalty([0.1,0.1,0.1]) # newcomplicated and newlimcomplicated
         # rew = self.vel_reward() + SOME_MULTIVAR + self.action_penalty([0.1,0.1,0.1]) # newcomplicated and newlimcomplicated
         return rew  
-
-    def pose_reward(self):
-        rews = gaussian(self.EF.get_pose())
-        return sum(rews)
 
     def vel_reward(self):
         ''' Penalizes high velocities. Maximum penalty with real_bounds and all coeffs = 1 : -2.37. All coeffs = 0.5 : -1.675'''
@@ -233,15 +228,12 @@ class Revolt(gym.Env):
     def action_penalty(self, pen_coeff = [0.1, 0.1, 0.1], torque_based = False):
         assert np.all(np.array(pen_coeff) >= 0.0) and np.all(np.array(pen_coeff) <= 0.33), 'Action penalty coefficients must be in range 0.0 - 0.33'
         pen = 0
-
         if torque_based: # The penalty is based on torque, meaning that 
             for n,c in zip(self.prev_thrust, pen_coeff):
-                pen -= np.abs(n**1.5) / 1000.0 * c
+                pen -= np.abs(n / 100.0)**1.5 * c
         else:
             for n,c in zip(self.prev_thrust, pen_coeff):
                 pen -= np.abs(n) / 100.0 * c
-
-        
         return pen # maximum penalty is 1 per time step if coeffs are <= 0.33
 
     def action_der_pen(self,pen_coeff=[0.2,0.2,0.2]):
@@ -287,13 +279,19 @@ class RevoltLimited(Revolt):
         super().__init__(digitwin,num_actions=5,num_states=6,testing=testing,realtime=realtime,extended_state=extended_state)
 
         # Not choosing the bow angle means (1) one less action bound, (2) remove one valid index, (3) set bow angle default to pi/2
+        self.name = 'revoltlimited'
         self.real_ss_bounds       = [8.0, 8.0, 30 * np.pi / 180, 2.2, 0.35, 0.60] 
         self.real_action_bounds   = [100] * 3 + [math.pi / 2 ] * 2
-        self.valid_action_indices = [ 0,    1,      2,      4,      5]
-        self.act_2_act_map        = { 0:0,  1:1,    2:2,    4:3,    5:4} # {index in self.actions : index in action vector outputed by this actor for this env}
-        self.act_2_act_map_inv    = { 0:0,  1:1,    2:2,    3:4,    4:5} # {index in action vector outputed by this actor for this env : index self.actions}
-        self.default_actions      = {0:0, 1:0, 2:0, 3: math.pi / 2, 4:0, 5:0}
-        self.name = 'revoltlimited'
+        self.valid_action_indices = [0,    1,      2,      4,      5]
+        self.act_2_act_map        = {0:0,  1:1,    2:2,    4:3,    5:4} # {index in self.actions : index in action vector outputed by this actor for this env}
+        self.act_2_act_map_inv    = {0:0,  1:1,    2:2,    3:4,    4:5} # {index in action vector outputed by this actor for this env : index self.actions}
+        self.default_actions      = {0: 0, 
+                                     1: 0, 
+                                     2: 0, 
+                                     3: math.pi / 2, 
+                                     4: 0, 
+                                     5: 0}
+        
 
         
         

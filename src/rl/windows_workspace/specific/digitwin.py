@@ -9,7 +9,6 @@ from py4j.java_gateway import JavaGateway, Py4JNetworkError
 from py4j.java_gateway import GatewayParameters
 import subprocess
 import time
-from specific.misc.log import log, forcelog
 from datetime import datetime
 from spinup.utils.mpi_tools import proc_id, num_procs
 
@@ -70,14 +69,14 @@ class DigiTwin:
         ftype = self.get_mod_feat_type(module, feat)
         if ftype is None:
             #if feat != 'StateResetOn':
-            forcelog('unknown module or feature !! ' + module + '.' + feat)
+            print('unknown module or feature !! ' + module + '.' + feat)
             if val is None:
                 return None
             return
         if val is None:
             val = self.mod_feat_func[ftype][0](module, feat)
             if report:
-                log(str(self.name)+' read '+str(val)+' from '+str(module)+'.'+str(feat))
+                print(str(self.name)+' read '+str(val)+' from '+str(module)+'.'+str(feat))
             return val
         else:
             #is val a vector?
@@ -95,7 +94,7 @@ class DigiTwin:
                         val = [val]*maxveclen
                     else:
                         if len(val) > maxveclen:
-                            forcelog('Val vector len ('+str(len(val))+'>'+str(maxveclen)+\
+                            print('Val vector len ('+str(len(val))+'>'+str(maxveclen)+\
                                                       ') too long for '+module+'.'+feat)
                             val = val[:maxveclen]
                     vec_ix = 0
@@ -103,15 +102,15 @@ class DigiTwin:
                         self.mod_feat_func[ftype][2](module, feat, vec_ix, float(v))
                         vec_ix+=1
                     if report:
-                        forcelog(str(self.name)+' wrote '+str(val[0])+' to '+str(module)+'.'+str(feat)+'[0:'+str(vec_ix)+']')
+                        print(str(self.name)+' wrote '+str(val[0])+' to '+str(module)+'.'+str(feat)+'[0:'+str(vec_ix)+']')
                 else: #if not vector in ftype
                     self.mod_feat_func[ftype][1](module, feat, float(val))
                     if report:
-                        forcelog(str(self.name)+' wrote '+str(val)+' to '+str(module)+'.'+str(feat))
+                        print(str(self.name)+' wrote '+str(val)+' to '+str(module)+'.'+str(feat))
             else: #if single_vec_ix
                 self.mod_feat_func[ftype][2](module, feat, vec_ix, float(val))
                 if report:
-                    forcelog(str(self.name)+' wrote '+str(val)+' to '+str(module)+'.'+str(feat)+'['+str(vec_ix)+']')
+                    print(str(self.name)+' wrote '+str(val)+' to '+str(module)+'.'+str(feat)+'['+str(vec_ix)+']')
                 
     def connectToJVM(self, sim_path, python_port):
         '''
@@ -121,8 +120,8 @@ class DigiTwin:
             - python_port (int):    Port number for this simulator (standard is 25338)
         '''
         #Need to establish a connection to the JVM. That will happen only when the Cybersea Simulator is opened.
-        #log('Waiting time for the application to open...'); time.sleep(15)
-        log('Opening simulator')
+        #print('Waiting time for the application to open...'); time.sleep(15)
+        print('Opening simulator')
         self.gateway            = JavaGateway(gateway_parameters=GatewayParameters(port=python_port))
         self.simulator          = self.gateway.entry_point
         isPythonListenerStarted = None
@@ -132,7 +131,7 @@ class DigiTwin:
             try:
                 #check if the simulator already runs
                 isPythonListenerStarted = self.simulator.isPythonListenerStarted()
-                log("CS sim already started")
+                print("CS sim already started")
                 return False
             except:
                 #start Cybersea if no reponse
@@ -145,15 +144,15 @@ class DigiTwin:
 
                     user_dir = USER_DIR + user_dir_spec
                     subprocess.Popen([sim_path, "--pythonPort="+str(python_port), "--userdir", user_dir] )
-                    forcelog('Waiting for the CS sim to open...') 
+                    print('Waiting for the CS sim to open...') 
                     time.sleep(12)
                     
                 #wait 3 seconds before trying again
                 retries['current'] += 1
-                forcelog("CS sim not started...attempt #" + str(retries['current']))
+                print("CS sim not started...attempt #" + str(retries['current']))
                 time.sleep(3)
         
-                log("CS sim started. JVM accepted python connection.")
+                print("CS sim started. JVM accepted python connection.")
                 return True
     
     def get_mod_feat_funcs(self):
@@ -181,15 +180,15 @@ class DigiTwin:
             self.simulator.configure(self.cfg_path)
             return True
         else:
-            log('skipped config...')
+            print('skipped config...')
             # self.set_all_reset(1); self.step(50) old comment from J.A. in __init__
             return False
        
     def set_all_reset(self, val):
         if len(self.config) == 0:
-            forcelog('No content in config!')
+            print('No content in config!')
             return False
-        log('reset all = '+str(val))
+        print('reset all = '+str(val))
         feat = 'StateReset'
         for module in self.config.keys():
             s=str(self.config[module])
@@ -216,13 +215,13 @@ class DigiTwin:
         elif steps == 1:
             self.simulator.step()
         else:
-            forcelog('Invalid stepping!! ' + str(steps))
+            print('Invalid stepping!! ' + str(steps))
                
     def get_mod_vals(self, module, ftype=None, N=-1):
         out = {}
         cfg = self.config.get(module, None)
         if cfg is None:
-            forcelog('get_mod_vals: invalid module name '+module)
+            print('get_mod_vals: invalid module name '+module)
             return None
         if ftype is None:
             for ft in cfg.keys():
@@ -245,14 +244,14 @@ class DigiTwin:
                     out[feat] = val
                 return out
             else:
-                forcelog('get_mod_vals: invalid ftype name '+ftype)
+                print('get_mod_vals: invalid ftype name '+ftype)
                 return {}
             
     def get_mod_feat_type(self, module, feat):
         if "__v__" in feat:
             feat = feat.split("__v__")[0]
         if module not in self.config:
-            forcelog('Unknown module !! ' + module + ' -> ' + str(self.config.keys()))
+            print('Unknown module !! ' + module + ' -> ' + str(self.config.keys()))
             return None
         for ftyp in self.config[module].keys():
             for ft in self.config[module][ftyp]:

@@ -105,12 +105,23 @@ def run_RL_policy(env, get_action, max_ep_len=None, num_episodes=100, render=Tru
     ned_pos = [[]] # A list of n_episodes number of lists. Each element in those lists are (NED pos, NED ref)
     nedidx = 0
 
+    action_data = [[]]
+    actidx = 0
+
     logger = EpochLogger()
     o, r, d, ep_ret, ep_len, n = env.reset(), 0, False, 0, 0, 0
-    # a = env.default_actions
+    
     data[dataidx].append((o,r))
     ned_pos[nedidx].append((env.EF.get_NED_pos(), env.EF.get_NED_ref()))
 
+    action_vec = np.zeros(len(env.default_actions))
+    for key in env.default_actions:
+        action_vec[key] = env.default_actions[key]
+
+    action_init = np.copy(action_vec)
+    action_data[actidx].append(action_vec)
+
+    # Only used if test_setpoint_changes is set to True
     refs = [[5,0,0], [0,-5, 0], [0, 0, np.pi/2], [0, 5, np.pi/2], [-5,0,0] ]
     ref_ctr = 0
     
@@ -120,12 +131,16 @@ def run_RL_policy(env, get_action, max_ep_len=None, num_episodes=100, render=Tru
             time.sleep(1e-3)
 
         a = get_action(o)
+        act = np.array(env.scale_and_clip(a))
+        for i in range(len(act)):
+            action_vec[env.act_2_act_map_inv[i]] = act[i]
 
         # Allow changes in setpoint changes
         if ep_len == int(max_ep_len / 2) and test_setpoint_changes:
             ref = refs[ref_ctr]; 
             print('Setting ref to {}'.format(ref))
             o, r, d, _ = env.step(np.zeros_like(a), new_ref=ref) # TODO resetting to zeros since this is what has been trained
+            action_vec = np.copy(action_init)
             ref_ctr += 1
         else:
             o, r, d, _ = env.step(a)
@@ -134,7 +149,8 @@ def run_RL_policy(env, get_action, max_ep_len=None, num_episodes=100, render=Tru
         ep_len += 1            
         
         data[dataidx].append((o,r))
-        ned_pos[nedidx].append((env.EF.get_NED_pos(), env.EF.get_NED_ref()))
+        ned_pos[dataidx].append((env.EF.get_NED_pos(), env.EF.get_NED_ref()))
+        action_data[dataidx].append(np.copy(action_vec))
 
         if d or (ep_len == max_ep_len):
             
@@ -150,14 +166,15 @@ def run_RL_policy(env, get_action, max_ep_len=None, num_episodes=100, render=Tru
                 dataidx += 1 # Update counter to point to that list
                 data[dataidx].append((o,r)) # Add initial state to that episode
                 ned_pos.append([])
-                nedidx += 1
-                ned_pos[nedidx].append((env.EF.get_NED_pos(), env.EF.get_NED_ref()))
+                ned_pos[dataidx].append((env.EF.get_NED_pos(), env.EF.get_NED_ref()))
+                action_data.append([])
+                action_data[dataidx].append(np.copy(action_init))
 
     logger.log_tabular('EpRet', with_min_and_max=True)
     logger.log_tabular('EpLen', average_only=True)
     logger.dump_tabular()
 
-    return data, ned_pos
+    return data, ned_pos, action_data
 
 
 if __name__ == '__main__':

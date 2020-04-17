@@ -27,6 +27,7 @@ class Revolt(gym.Env):
         super(Revolt, self).__init__()
         assert digitwin is not None, 'No digitwin was passed to Revolt environment'
         self.dTwin = digitwin
+        self.name = 'revolt'
         
         ''' +++++++++++++++++++++++++++++++ '''
         '''     STATE AND ACTION SPACE      '''
@@ -49,6 +50,7 @@ class Revolt(gym.Env):
 
         self.default_actions      = {0:0,1:0,2:0,3:0,4:0,5:0} # 
         self.act_2_act_map        = {0:0,1:1,2:2,3:3,4:4,5:5} # A map between action number and the environment specific action number (look on the other subclasses for examples of non-"one to one" mappings)
+        self.act_2_act_map_inv    = self.act_2_act_map
         self.valid_action_indices = list(range(6))[0:self.num_actions] # NOTE  Only works this way for full env and simple: a list of all idx in self.actions that is allowed for this environment.
         self.action_space         = spaces.Box(low=bnds['action']['low'], high=bnds['action']['high'], dtype=np.float64) # action space bound in environment
         self.real_action_bounds   = [100] * 3 + [math.pi] * 3 # action space IRL
@@ -107,16 +109,18 @@ class Revolt(gym.Env):
 
         return s,r,d, {'None': 0}
 
-    def scale_and_clip(self,action):
+    def scale_and_clip(self,action, scale=True, clip=True):
         ''' Action from actor if close to being -1 and 1. Scale 100%, and clip.
         :args:
             - action (numpy array): an action provided by the agent
         :returns:
-            A list of the scaled and clipped action
+            A list of the scaled and clipped actions
          '''
         bnds = np.array(self.real_action_bounds[0:self.num_actions]) # select bounds according to environment specifications
-        action = np.multiply(action,bnds) # The action comes as choices between -1 and 1...
-        action = np.clip(action,-bnds,bnds) # ... but the std_dev in the stochastic policy means that we have to clip
+        if scale:
+            action = np.multiply(action,bnds) # The action comes as choices between -1 and 1...
+        if clip:
+            action = np.clip(action,-bnds,bnds) # ... but the std_dev in the stochastic policy means that we have to clip
         return action.tolist()
 
     def reset(self, new_ref = None, fraction = 0.8, **init):
@@ -260,6 +264,7 @@ class RevoltSimple(Revolt):
         super().__init__(digitwin = digitwin, num_actions = 3, num_states = 6,
                          testing = testing, realtime = realtime, max_ep_len = max_ep_len, extended_state = extended_state)
 
+        self.name = 'revoltsimple'
         # Overwrite environment bounds according to measured max velocity for this specific setup
         self.real_ss_bounds = [8.0, 8.0, np.pi/2, 1.75, 0.30, 0.51] # TODO vel could be set to much smaller values: (scale 10,10,100 times to get them in the same range as the positional arguments)
 
@@ -272,6 +277,7 @@ class RevoltSimple(Revolt):
                                 5: 3 * math.pi / 4}
 
         self.act_2_act_map = {0: 0, 1: 1, 2: 2}
+        self.act_2_act_map_inv = self.act_2_act_map
 
 class RevoltLimited(Revolt):
     ''' +++++++++++++++++++++++++++++++ '''
@@ -284,8 +290,10 @@ class RevoltLimited(Revolt):
         self.real_ss_bounds       = [8.0, 8.0, 30 * np.pi / 180, 2.2, 0.35, 0.60] 
         self.real_action_bounds   = [100] * 3 + [math.pi / 2 ] * 2
         self.valid_action_indices = [ 0,    1,      2,      4,      5]
-        self.act_2_act_map        = { 0:0,  1:1,    2:2,    4:3,    5:4} # {index in self.actions : index in action vector}
+        self.act_2_act_map        = { 0:0,  1:1,    2:2,    4:3,    5:4} # {index in self.actions : index in action vector outputed by this actor for this env}
+        self.act_2_act_map_inv    = { 0:0,  1:1,    2:2,    3:4,    4:5} # {index in action vector outputed by this actor for this env : index self.actions}
         self.default_actions      = {0:0, 1:0, 2:0, 3: math.pi / 2, 4:0, 5:0}
+        self.name = 'revoltlimited'
 
         
         

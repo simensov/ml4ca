@@ -61,6 +61,7 @@ class Revolt(gym.Env):
         ''' +++++++++++++++++++++++++++++++ '''
         self.vel_rew_coeffs = [0.5,0.5,0.5] # weighting between surge, sway and heading deviations used in reward function
         self.n_steps    = 1 if (testing and realtime) else 10 # I dont want to step at 100 Hz ever, really
+        self.dt         = 0.01 * self.n_steps
         self.testing    = testing # stores if the environment is being used while testing policy, or is being used for training
         self.max_ep_len = max_ep_len * int(10/self.n_steps)
 
@@ -200,6 +201,7 @@ class Revolt(gym.Env):
         return sum(rews)
 
     def vel_reward(self):
+        ''' Penalizes high velocities. Maximum penalty with real_bounds and all coeffs = 1 : -2.37. All coeffs = 0.5 : -1.675'''
         return -math.sqrt(sum( [e**2 * c for e,c in zip(get_vel_3DOF(self.dTwin), self.vel_rew_coeffs)] ))
 
     def smaller_yaw_dist(self):
@@ -224,11 +226,18 @@ class Revolt(gym.Env):
         r3d = math.sqrt(r**2 + (yaw * 180 / np.pi * 0.25)**2)
         return gaussian_like(val = [r3d], mean = [0], var = [2.0**2]) + max(0.0, (1-0.05*r3d))
 
-    def action_penalty(self, pen_coeff = [0.1, 0.1, 0.1]):
+    def action_penalty(self, pen_coeff = [0.1, 0.1, 0.1], torque_based = False):
         assert np.all(np.array(pen_coeff) >= 0.0) and np.all(np.array(pen_coeff) <= 0.33), 'Action penalty coefficients must be in range 0.0 - 0.33'
         pen = 0
-        for T,c in zip(self.prev_thrust, pen_coeff):
-            pen -= np.abs(T) / 100.0 * c
+
+        if torque_based: # The penalty is based on torque, meaning that 
+            for n,c in zip(self.prev_thrust, pen_coeff):
+                pen -= np.abs(n**1.5) / 1000.0 * c
+        else:
+            for n,c in zip(self.prev_thrust, pen_coeff):
+                pen -= np.abs(n) / 100.0 * c
+
+        
         return pen # maximum penalty is 1 per time step if coeffs are <= 0.33
 
     def action_der_pen(self,pen_coeff=[0.2,0.2,0.2]):
@@ -237,9 +246,10 @@ class Revolt(gym.Env):
 
         assert np.all(np.array(pen_coeff) >= 0.0) and np.all(np.array(pen_coeff) <= 0.33), 'Action penalty coefficients must be in range 0.0 - 0.33'
         pen = 0
-        derr = np.array(self.prev_thrust) - self.state_extended()[-3:]
-        for T,c in zip(derr, pen_coeff):
-            pen -= np.abs(T) / 200.0 * c
+        # prev_thrust stores the current thrust in (-100,100), while the last three elements of the extended state stores the prev thrust in (-1,1)
+        derr = (np.array(self.prev_thrust) - self.state_extended()[-3:]*100 )/ self.dt 
+        for dT,c in zip(derr, pen_coeff):
+            pen -= np.abs(dT) / 200.0 * c # 200 is the maximum change from one second to another
         return pen # maximum penalty is 1 per time step if coeffs are <= 0.33
 
 class RevoltSimple(Revolt):

@@ -93,35 +93,43 @@ def summed_gaussian_vs_2D():
         pos[:, :, 1] = Y
         Z1 = np.zeros((x.shape[0], y.shape[0]))
         Z2 = np.zeros((x.shape[0], y.shape[0]))
-
-        for rew in range(len(rads)):
-            for y in range(len(yaws)):
-                measure = np.sqrt((rads[rew])**2 + (yaws[y]/4)**2)
-                Z1[rew,y] = gaussian_like([rads[rew]]) + gaussian_like([yaws[y]], var = [(180/np.pi*0.1)**2]) # + max(0.0, (1-0.1*measure))'
-                
-                Z2[rew,y] = 2 * gaussian_like(val = [measure], mean = [0], var=[2**2]) + max(0.0,(1-0.05*measure))
+        Z3 = np.zeros((x.shape[0], y.shape[0]))
+        Z4 = np.zeros((x.shape[0], y.shape[0]))
+        for i in range(len(rads)):
+            for j in range(len(yaws)):
+                measure = np.sqrt((rads[i])**2 + (yaws[j]/4)**2)
+                # Z1[i,j] = gaussian_like([rads[i]]) + gaussian_like([yaws[j]], var = [(180/np.pi*0.1)**2]) # + max(0.0, (1-0.1*measure))'
+                Z1[i,j] = 2 * unitary_multivar_normal( [rads[i], yaws[j]], mu = [0,0], var=[1**2, 5.7**2]) + max(0.0,(1-0.1*measure)) + 0.5
+                Z2[i,j] = unitary_multivar_normal( [rads[i], yaws[j]], mu = [0,0], var=[1**2, 5.7**2])
+                Z3[i,j] = max(0.0,(1-0.1*measure))
+                Z4[i,j] = 0.5
 
         f1 = plt.figure()
         ax1 = f1.add_subplot(2,2,1,projection='3d')
         ax2 = f1.add_subplot(2,2,2,projection='3d')
-        ax3 = f1.add_subplot(2,2,3)
-        ax4 = f1.add_subplot(2,2,4)
+        ax3 = f1.add_subplot(2,2,3,projection='3d')
+        ax4 = f1.add_subplot(2,2,4,projection='3d')
         total1 = ax1.plot_surface(X, Y, Z1, cmap='viridis',linewidth=0)
         total2 = ax2.plot_surface(X, Y, Z2, cmap='viridis',linewidth=0)
-        plt3 = ax3.contour(X,Y,Z1)
-        plt4 = ax4.contour(X,Y,Z2)
+        
+        if False:
+            plt3 = ax3.contour(X,Y,Z1)
+            plt4 = ax4.contour(X,Y,Z2)
+        else:
+            ax3.plot_surface(X, Y, Z3, cmap='viridis',linewidth=0)
+            ax4.plot_surface(X, Y, Z4, cmap='viridis',linewidth=0)
+
         ax1.set_xlabel('$\~{r}$',size=12)
         ax1.set_ylabel('$\~{\psi}$',size=12)
-        ax1.set_zlabel('$Reward$',size=12)
+        # ax1.set_zlabel('$Reward$',size=12)
         ax2.set_xlabel('$\~{r}$',size=12)
         ax2.set_ylabel('$\~{\psi}$',size=12)
-        ax2.set_zlabel('$Reward$',size=12)
+        # ax2.set_zlabel('$Reward$',size=12)
         ax3.set_xlabel('$\~{r}$',size=12)
         ax3.set_ylabel('$\~{\psi}$',size=12)
         ax4.set_xlabel('$\~{r}$',size=12)
         ax4.set_ylabel('$\~{\psi}$',size=12)
-        # bar = plt.colorbar(total)
-        # bar.set_label('Reward ', rotation = 90, size = 12)
+
 
 
 def contour():
@@ -191,7 +199,7 @@ def plot_unitary():
     # plt.show()
 
 if __name__ == '__main__':
-    plot_unitary()
+    # plot_unitary()
     summed_gaussian_vs_2D()
     plt.show()
     pass

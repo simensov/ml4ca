@@ -2,7 +2,6 @@
 Utilities used for extracting states from the revolt simulator
 '''
 import random
-import math
 import numpy as np
 from specific.errorFrame import ErrorFrame 
 
@@ -20,15 +19,15 @@ def reset_sim(sim,**init):
     sim.step(50) #min 50 steps should do it
     sim.val('Hull', 'StateResetOn', 0)
     sim.val('THR1', 'MtcOn', 1) # bow
-    sim.val('THR1', 'AzmCmdMtc', 0.5*math.pi)
+    sim.val('THR1', 'AzmCmdMtc', 0.5*np.pi)
     sim.val('THR1', 'ThrustOrTorqueCmdMtc', 0.0) 
     sim.step(50) #min 50 steps should do it
     sim.val('THR2', 'MtcOn', 1) # stern, portside
     sim.val('THR2', 'ThrustOrTorqueCmdMtc', -30) 
-    sim.val('THR2', 'AzmCmdMtc', 0*math.pi)
+    sim.val('THR2', 'AzmCmdMtc', 0*np.pi)
     sim.val('THR3', 'MtcOn', 1) # stern, starboard
     sim.val('THR3', 'ThrustOrTorqueCmdMtc', 30) 
-    sim.val('THR3', 'AzmCmdMtc', 0*math.pi)
+    sim.val('THR3', 'AzmCmdMtc', 0*np.pi)
     return
 
 def simulate_episode(sim, **init):
@@ -73,52 +72,53 @@ def get_average_GPS_measurements(sim):
     return gpsvals
 
 def get_random_pose():
-    N = (random.random()-0.5)*20.0
-    E = (random.random()-0.5)*20.0
-    Y = (random.random()-0.5)*2*(math.pi)
+    N = (np.random.random()-0.5)*20.0
+    E = (np.random.random()-0.5)*20.0
+    Y = (np.random.random()-0.5)*2*(np.pi)
     return N, E, Y
 
 def get_random_pose_on_radius(r=5, angle=5*np.pi/180):
     # use polar coords to always get a position of radius r away from setpoint
     # nice for testing average rewards from each run after training, but not so nice for training due to bad exploration
-    theta = random.random()*2*math.pi # random angle between origin and the place on the circle to put the vessel. NOT the same as yaw angle
-    E = r * math.cos(theta)
-    N = r * math.sin(theta) # y-coord -> North
-    Y = random.uniform(-angle,angle)
+    theta = np.random.random()*2*np.pi # random angle between origin and the place on the circle to put the vessel. NOT the same as yaw angle
+    E = r * np.cos(theta)
+    N = r * np.sin(theta) # y-coord -> North
+    Y = np.random.uniform(-angle,angle)
     return N, E, Y
 
 
 def get_fixed_pose_on_radius(n, r=5, angle=5*np.pi/180):
     # use polar coords to always get a position of radius r away from setpoint
     # nice for testing average rewards from each run after training, but not so nice for training due to bad exploration
-    thetas = [0.0, math.pi/4, math.pi/2, math.pi, 5*math.pi/4, 3*math.pi/2]
+    thetas = [0.0, np.pi/4, np.pi/2, np.pi, 5*np.pi/4, 3*np.pi/2]
     angles = [0.0,   5.0,      0.0,        5.0,       0.0,       -5.0]
     
     if len(thetas) <= n: # Avoid n accessing unaccesable element, warn user about it
         print('n larger than 5 passed to fixed_points: starting on element 0')
         n = n % len(thetas) 
 
-    NED_angle_to_unit_circle_angle = math.pi/2 - thetas[n]
-    E = r * math.cos(NED_angle_to_unit_circle_angle)
-    N = r * math.sin(NED_angle_to_unit_circle_angle) # y-coord -> North
-    Y = angles[n] * math.pi / 180
+    # The angle output of np.cos() and sin() follows the unit circle definition, which starts skewed relative to the NED frame, and rotates the opposite way:
+    ang = np.pi/2 - thetas[n]
+    E = r * np.cos(ang)
+    N = r * np.sin(ang) # y-coord -> North
+    Y = angles[n] * np.pi / 180
     print('Fixed pose returns:', N, E, Y)
     return N, E, Y
 
 def get_pose_on_state_space(bounds = [5,5,np.pi/18], fraction = 1.0):
     assert len(bounds) == 3, 'get_pose_on_state_space only sets 3dof eta'
     n, e, y = bounds[0] * fraction, bounds[1] * fraction, bounds[2] * fraction
-    N = random.uniform(-n,n)
-    E = random.uniform(-e,e)
-    Y = random.uniform(-y,y)
+    N = np.random.uniform(-n,n)
+    E = np.random.uniform(-e,e)
+    Y = np.random.uniform(-y,y)
     return N, E, Y
 
 def get_vel_on_state_space(bounds = [2.2, 0.35, 0.60], fraction = 1.0):
     assert len(bounds) == 3, 'get_vel_on_state_space only sets 3dof nu'
     u, v, r = bounds[0] * fraction, bounds[1] * fraction, bounds[2] * fraction
-    U = random.uniform(-u,u)
-    V = random.uniform(-v,v)
-    R = random.uniform(-r,r)
+    U = np.random.uniform(-u,u)
+    V = np.random.uniform(-v,v)
+    R = np.random.uniform(-r,r)
     return U,V,R
 
 

@@ -1,7 +1,6 @@
 import gym 
 from gym import spaces
 import numpy as np
-import math
 from specific.misc.simtools import get_pose_3DOF, get_vel_3DOF, get_pose_on_state_space, get_random_pose_on_radius, get_vel_on_state_space, get_fixed_pose_on_radius
 from specific.misc.mathematics import gaussian, gaussian_like
 from specific.errorFrame import ErrorFrame
@@ -53,7 +52,7 @@ class Revolt(gym.Env):
         self.act_2_act_map_inv    = self.act_2_act_map
         self.valid_action_indices = list(range(6))[0:self.num_actions] # NOTE  Only works this way for full env and simple: a list of all idx in self.actions that is allowed for this environment.
         self.action_space         = spaces.Box(low=bnds['action']['low'], high=bnds['action']['high'], dtype=np.float64) # action space bound in environment
-        self.real_action_bounds   = [100] * 3 + [math.pi] * 3 # action space IRL
+        self.real_action_bounds   = [100] * 3 + [np.pi] * 3 # action space IRL
         self.observation_space    = spaces.Box(low=bnds['spaces']['low'], high=bnds['spaces']['high'], dtype=np.float64) # state space bound in environment # TODO not used
         self.real_ss_bounds       = real_ss_bounds # state space bound IRL
         self.EF                   = ErrorFrame()
@@ -205,7 +204,7 @@ class Revolt(gym.Env):
         '''
         # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) # BEST, but probably only since the penalty avoids thrusters being on MAX, but doesnt necessary minimize the usage
 
-        rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1], torque_based=True) # 0 # Test improved thrust size penalty - make note of initial behavior!
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1], torque_based=True) # 0 # Test improved thrust size penalty - make note of initial behavior!
         # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.3,0.3], torque_based=True) # 1 # Test improved thrust size penalty - make note of initial behavior!
 
         # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty([0.05,0.05,0.05], angular = False) # 2 test thrust fluctiations - dont use angular derivatives yet
@@ -213,6 +212,8 @@ class Revolt(gym.Env):
 
         # rew = self.vel_reward(coeffs=[0.5,0.5,1.0]) + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) # 4 to test stabilizing the yaw movement - doubling r penalty
         # rew = self.vel_reward(coeffs=[0.5,0.5,5.0]) + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) # 5 to test stabilizing the yaw movement - tenfolding r penalty
+
+        rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty([0.05,0.05,0.05], thrust = False, angular = True) # 6 test with ONLY angular derivs to observe how it handles penalty on something that is not states
         
         return rew  
 
@@ -222,7 +223,7 @@ class Revolt(gym.Env):
             coeffs = self.vel_rew_coeffs
         assert len(coeffs) == 3 and isinstance(coeffs,list), 'Vel coeffs must be a list of length 3'
 
-        return -math.sqrt(sum( [e**2 * c for e,c in zip(get_vel_3DOF(self.dTwin), coeffs)] ))
+        return -np.sqrt(sum( [e**2 * c for e,c in zip(get_vel_3DOF(self.dTwin), coeffs)] ))
 
     def smaller_yaw_dist(self):
         ''' First reward function that fixed the steady state error in yaw by sharpening the yaw gaussian '''
@@ -234,17 +235,17 @@ class Revolt(gym.Env):
     def multivariate_gaussian(self):
         ''' Using a multivariate gaussian distribution without normalizing area to 1, with a diagonal covariance matrix and a linear "sparsity-regularizer" '''
         surge, sway, yaw = self.EF.get_pose()
-        r = math.sqrt(surge**2 + sway**2) # meters
-        yaw = yaw * 180 / math.pi # Use degrees since that was the standard when creating the reward function - easier visualized than radians
-        special_measurement = math.sqrt(r**2 + (yaw * 0.25)**2) 
+        r = np.sqrt(surge**2 + sway**2) # meters
+        yaw = yaw * 180 / np.pi # Use degrees since that was the standard when creating the reward function - easier visualized than radians
+        special_measurement = np.sqrt(r**2 + (yaw * 0.25)**2) 
         x = np.array([[r, yaw]]).T
         return 2 * np.exp(-0.5 * (x.T).dot(self.covar_inv).dot(x)) + 1 * max(0.0, (1-0.1*special_measurement)) + 0.5 # can be viewed in reward_plots.py
         
     def multivar(self):
         surge, sway, yaw = self.EF.get_pose()
-        r = math.sqrt(surge**2 + sway**2)
+        r = np.sqrt(surge**2 + sway**2)
         yaw_vs_r_factor = 0.25 # how much one degree is weighted vs a meter
-        r3d = math.sqrt(r**2 + (yaw * 180 / np.pi * 0.25)**2)
+        r3d = np.sqrt(r**2 + (yaw * 180 / np.pi * 0.25)**2)
         return gaussian_like(val = [r3d], mean = [0], var = [2.0**2]) + max(0.0, (1-0.05*r3d))
 
     def thrust_penalty(self, pen_coeff = [0.1, 0.1, 0.1], torque_based = False):
@@ -260,18 +261,20 @@ class Revolt(gym.Env):
 
         return pen # maximum penalty is 1 per time step if coeffs are <= 0.33
 
-    def action_derivative_penalty(self,pen_coeff=[0.2,0.2,0.2], angular = False):
+    def action_derivative_penalty(self,pen_coeff=[0.2,0.2,0.2], thrust = True, angular = False):
         if not self.extended_state:
             return 0
 
         # assert np.all(np.array(pen_coeff) >= 0.0) and np.all(np.array(pen_coeff) <= 0.33), 'Action penalty coefficients must be in range 0.0 - 0.33'
         pen = 0
-        derr = ( np.array(self.prev_thrust)-self.state_ext[-3:] * 100.0) / self.dt # prev_thrust stores the current thrust in (-100,100), while the last three elements of the extended state stores the prev thrust in (-1,1)
 
-        for dT,c in zip(derr, pen_coeff):
-            pen -= np.abs(dT / 100.0) * c # 200 is the maximum change from one second to another
+        if thrust:
+            derr = ( np.array(self.prev_thrust)-self.state_ext[-3:] * 100.0) / self.dt # prev_thrust stores the current thrust in (-100,100), while the last three elements of the extended state stores the prev thrust in (-1,1)
 
-        pen = max(-1.0, pen)
+            for dT,c in zip(derr, pen_coeff):
+                pen -= np.abs(dT / 100.0) * c # 200 is the maximum change from one second to another
+
+            pen = max(-1.0, pen)
 
         if angular:
             angpen = 0
@@ -301,9 +304,9 @@ class RevoltSimple(Revolt):
         self.default_actions = {0: 0,
                                 1: 0,
                                 2: 0,
-                                3: math.pi / 2,
-                                4: -3 * math.pi / 4, # +- 135 degrees
-                                5: 3 * math.pi / 4}
+                                3: np.pi / 2,
+                                4: -3 * np.pi / 4, # +- 135 degrees
+                                5: 3 * np.pi / 4}
 
         self.act_2_act_map = {0: 0, 1: 1, 2: 2}
         self.act_2_act_map_inv = self.act_2_act_map
@@ -319,13 +322,13 @@ class RevoltLimited(Revolt):
         # Not choosing the bow angle means (1) one less action bound, (2) remove one valid index, (3) set bow angle default to pi/2
         self.name = 'revoltlimited'
         self.real_ss_bounds       = [8.0, 8.0, 30 * np.pi / 180, 2.2, 0.35, 0.60] 
-        self.real_action_bounds   = [100] * 3 + [math.pi / 2 ] * 2
+        self.real_action_bounds   = [100] * 3 + [np.pi / 2 ] * 2
         self.valid_action_indices = [0,    1,      2,      4,      5]
         self.act_2_act_map        = {0:0,  1:1,    2:2,    4:3,    5:4} # {index in self.actions : index in action vector outputed by this actor for this env}
         self.act_2_act_map_inv    = {0:0,  1:1,    2:2,    3:4,    4:5} # {index in action vector outputed by this actor for this env : index self.actions}
         self.default_actions      = {0: 0, 
                                      1: 0, 
                                      2: 0, 
-                                     3: math.pi / 2, 
+                                     3: np.pi / 2, 
                                      4: 0, 
                                      5: 0}

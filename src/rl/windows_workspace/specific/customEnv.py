@@ -2,7 +2,7 @@ import gym
 from gym import spaces
 import numpy as np
 import math
-from specific.misc.simtools import get_pose_3DOF, get_vel_3DOF, get_pose_on_state_space, get_pose_on_radius, get_vel_on_state_space
+from specific.misc.simtools import get_pose_3DOF, get_vel_3DOF, get_pose_on_state_space, get_random_pose_on_radius, get_vel_on_state_space, get_fixed_pose_on_radius
 from specific.misc.mathematics import gaussian, gaussian_like
 from specific.errorFrame import ErrorFrame
 
@@ -61,7 +61,7 @@ class Revolt(gym.Env):
         ''' +++++++++++++++++++++++++++++++ '''
         '''     REWARD AND TEST PARAMS      '''
         ''' +++++++++++++++++++++++++++++++ '''
-        self.vel_rew_coeffs = [0.5,0.5,0.5] # weighting between surge, sway and heading deviations used in reward function
+        self.vel_rew_coeffs = [0.5,0.5,0.5] # weighting between surge, sway and heading deviations used in reward function. Punish one rad/s twice as much as one m/s
         self.n_steps    = 1 if (testing and realtime) else 10 # I dont want to step at 100 Hz ever, really
         self.dt         = 0.01 * self.n_steps
         self.testing    = testing # stores if the environment is being used while testing policy, or is being used for training
@@ -74,6 +74,8 @@ class Revolt(gym.Env):
 
         ''' Storage of previous thrust '''
         self.prev_thrust = [0, 0, 0]
+        self.prev_angles = [0, 0, 0]
+        self.current_angles = []
 
     def __str__(self):
         return str(self.dTwin.name)
@@ -88,17 +90,20 @@ class Revolt(gym.Env):
             done (bool): whether the episode has ended, in which case further step() calls will return undefined results
             info (dict): contains auxiliary diagnostic information (helpful for debugging, and sometimes learning)
         """'''
+        self.prev_angles = self.current_angles[:]
 
         action = self.scale_and_clip(action)
         for a in self.actions:
             if a['idx'] in self.valid_action_indices:
-                # self.dTwin.val(a['module'], a['feature'], action[a['idx']]) # original, working with revoltsimple, but once the action vector couldnt be followed chronologically as for limited, it broke
                 idx = self.act_2_act_map[a['idx']]
                 self.dTwin.val(a['module'], a['feature'], action[idx])
+                if a['idx'] in [3,4,5]: # it is an angle, and in the valid action indices meaning that it has been changed
+                    self.current_angles[a['idx'] - 3] = action[idx]
 
         self.dTwin.step(self.n_steps) # ReVolt is operating at 10 Hz. Input to step() is number of steps at 100 Hz
-        s = self.state() if not self.extended_state else self.state_extended() # this uses previous time step thrust
-        self.prev_thrust = [action[0], action[1], action[2]]
+        s = self.state() if not self.extended_state else self.state_extended() # this uses previous time step thrust, so that the reward function can penalize it!
+        self.prev_thrust = [action[0], action[1], action[2]] # These three will always be the first elements of the action vector...
+
         r = self.reward()
         d = self.is_terminal()
 
@@ -118,7 +123,7 @@ class Revolt(gym.Env):
         action = np.clip(action,-bnds,bnds) # ... but the std_dev in the stochastic policy means that we have to clip
         return action.tolist()
 
-    def reset(self, new_ref = None, fraction = 0.8, **init):
+    def reset(self, new_ref = None, fraction = 0.8, fixed_point = None, **init):
         """ Resets the state of the environment and returns an initial observation.
         :returns:
             observation (object): the initial observation.
@@ -132,7 +137,10 @@ class Revolt(gym.Env):
                     N, E, Y = get_pose_on_state_space(self.real_ss_bounds[0:3], fraction = fraction)
                     u, v, r = get_vel_on_state_space(self.real_ss_bounds[3:], fraction = 0.25 * fraction)
             else: 
-                N, E, Y = get_pose_on_radius()
+                if fixed_point is None:
+                    N, E, Y = get_random_pose_on_radius()
+                else:
+                    N, E, Y = get_fixed_pose_on_radius(n = fixed_point)
 
             init = {'Hull.PosNED':[N,E],'Hull.PosAttitude':[0,0,Y], 'Hull.VelocityNu':[u,v,0,0,0,r]}
 
@@ -153,8 +161,12 @@ class Revolt(gym.Env):
             self.dTwin.val('THR'+str(i+1), 'MtcOn', 1) # turn on the motor control for all three thrusters
 
         for a in self.actions:
-            self.dTwin.val(a['module'], a['feature'], self.default_actions[a['idx']]) # set all default thruster states
+            default = self.default_actions[a['idx']]
+            self.dTwin.val(a['module'], a['feature'], default) # set all default thruster states
+            if a['idx'] in [3,4,5]: # It is an angle
+                self.prev_angles[a['idx'] - 3] = default
 
+        self.current_angles = self.prev_angles[:]
         self.prev_thrust = [0,0,0]
         s = self.state() if not self.extended_state else self.state_extended()
         return s
@@ -168,9 +180,13 @@ class Revolt(gym.Env):
 
     def is_terminal(self):
         ''' Returns true if the vessel has travelled too far from the set point.'''
+        # if self.testing: # when testing, only episode length should terminate
+        #     return False # can actually be a good indicator for bad performance though
+        
         for s, bound in zip(self.state(),self.real_ss_bounds):
             if np.abs(s) > bound:
                 return True
+
         return False
 
     def render(self):
@@ -185,21 +201,26 @@ class Revolt(gym.Env):
         :returns:
             - A float representing the scalar reward of the agent being in the current state
         '''
-        # rew = self.vel_reward() + self.smaller_yaw_dist()
-        rew = self.vel_reward() + self.multivariate_gaussian() + self.action_penalty([0.1,0.1,0.1])
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.action_penalty([0.3,0.3,0.3])
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.action_penalty([0.1,0.1,0.1], torque_based=True)
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.action_penalty([0.3,0.3,0.3], torque_based=True)
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.action_penalty([0.2,0.2,0.2])
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.action_penalty([0.2,0.2,0.2], torque_based = True)
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.action_penalty([0.2,0.2,0.2])
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.action_penalty([0.2,0.2,0.2]) + self.action_derivative_penalty([0.1,0.1,0.1])
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.action_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty([0.3,0.3,0.3])
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.action_penalty([0.1,0.1,0.1]) # BEST
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.action_penalty([0.1,0.1,0.1], torque_based=True) # 0
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.action_penalty([0.3,0.3,0.3], torque_based=True) # 1
+
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.action_penalty([0.2,0.2,0.2]) + self.action_derivative_penalty([0.1,0.1,0.1]) # 2
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.action_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty([0.3,0.3,0.3]) # 3
+
+        rew = self.vel_reward(coeffs=[0.5,0.5,1.0]) + self.multivariate_gaussian() + self.action_penalty([0.1,0.1,0.1]) # 4
+        rew = self.vel_reward(coeffs=[0.5,0.5,1.0]) + self.multivariate_gaussian() + self.action_penalty([0.1,0.1,0.1]) # 5
+        
+
         return rew  
 
-    def vel_reward(self):
+    def vel_reward(self, coeffs = None):
         ''' Penalizes high velocities. Maximum penalty with real_bounds and all coeffs = 1 : -2.37. All coeffs = 0.5 : -1.675'''
-        return -math.sqrt(sum( [e**2 * c for e,c in zip(get_vel_3DOF(self.dTwin), self.vel_rew_coeffs)] ))
+        if coeffs is None:
+            coeffs = self.vel_rew_coeffs
+        assert len(coeffs) == 3 and isinstance(coeffs,list), 'Vel coeffs must be a list of length 3'
+
+        return -math.sqrt(sum( [e**2 * c for e,c in zip(get_vel_3DOF(self.dTwin), coeffs)] ))
 
     def smaller_yaw_dist(self):
         ''' First reward function that fixed the steady state error in yaw by sharpening the yaw gaussian '''
@@ -229,13 +250,14 @@ class Revolt(gym.Env):
         pen = 0
         if torque_based: # The penalty is based on torque, meaning that 
             for n,c in zip(self.prev_thrust, pen_coeff):
-                pen -= np.abs(n / 100.0)**1.5 * c
+                # pen -= np.abs(n / 100.0)**1.5 * c # NBNB the power is lower than regular penalty between 0.0 and 1.0!!!
+                pen -= np.abs(n)**1.5 / 400.0 * c # This allows for the max action penalty to become 2.5 - as large as max vel penalty
         else:
             for n,c in zip(self.prev_thrust, pen_coeff):
                 pen -= np.abs(n) / 100.0 * c
         return pen # maximum penalty is 1 per time step if coeffs are <= 0.33
 
-    def action_derivative_penalty(self,pen_coeff=[0.2,0.2,0.2]):
+    def action_derivative_penalty(self,pen_coeff=[0.2,0.2,0.2], angular = False):
         if not self.extended_state:
             return 0
 
@@ -245,6 +267,13 @@ class Revolt(gym.Env):
         derr = (np.array(self.prev_thrust) - self.state_extended()[-3:]*100 )/ self.dt 
         for dT,c in zip(derr, pen_coeff):
             pen -= np.abs(dT / 100.0) * c # 200 is the maximum change from one second to another
+
+        if angular:
+            derr = (np.array(self.current_angles) - np.array(self.prev_thrust)) / self.dt
+            for dA, c in zip(derr,pen_coeff):
+                bnd = self.real_action_bounds[4] # 4 is always an angle, being the last action
+                pen - = np.abs(dA / bnd) * c # 2 * bnd is the maximum change
+
         return pen # maximum penalty is 1 per time step if coeffs are <= 0.33 and division is done by 200.0
 
 class RevoltSimple(Revolt):

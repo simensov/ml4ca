@@ -65,9 +65,9 @@ def plot_NED_data(args,data):
     '''
     f1, (ax1, ax2, ax3) = plt.subplots(3, sharex=True)
     plt.xlabel('Time [s]')
-    ax1.set_ylabel('North pos')
-    ax2.set_ylabel('East pos')
-    ax3.set_ylabel('Heading [rad]')
+    ax1.set_ylabel('North pos [m]')
+    ax2.set_ylabel('East pos [m]')
+    ax3.set_ylabel('Heading [deg]')
 
     f2, ax4 = plt.subplots()
     ax4.set_xlabel('NED East')
@@ -84,12 +84,12 @@ def plot_NED_data(args,data):
             state, reference = step
             pos['north'].append(state[0]);      ref['north'].append(reference[0])
             pos['east'].append(state[1]);       ref['east'].append(reference[1])
-            pos['heading'].append(state[1]);    ref['heading'].append(reference[2])
+            pos['heading'].append(state[2]*180/np.pi );    ref['heading'].append(reference[2] * 180 / np.pi)
         
         print('Plotting ep', ep_no, 'in ned_data')
-        ax1.plot(steps,         pos['north'],   steps, ref['north'],    label='Run {}'.format(ep_no+1))
-        ax2.plot(steps,         pos['east'],    steps, ref['east'],     label='Run {}'.format(ep_no+1))
-        ax3.plot(steps,         pos['heading'], steps, ref['heading'],  label='Run {}'.format(ep_no+1))
+        ax1.plot(steps,         pos['north'],   label='Run {}'.format(ep_no+1))
+        ax2.plot(steps,         pos['east'],    label='Run {}'.format(ep_no+1))
+        ax3.plot(steps,         pos['heading'], label='Run {}'.format(ep_no+1))
         ax4.plot(pos['east'],   pos['north'],   label='Run {}'.format(ep_no+1))
         ep_no += 1
 
@@ -152,7 +152,7 @@ def plot_action_data(args,data,env):
             ax.grid(True)
             ax.legend(loc='best').set_draggable(True)
     
-    fig.tight_layout()
+    # fig.tight_layout()
 
 
 if __name__ == '__main__':

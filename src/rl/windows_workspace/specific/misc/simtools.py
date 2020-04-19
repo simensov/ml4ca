@@ -78,13 +78,31 @@ def get_random_pose():
     Y = (random.random()-0.5)*2*(math.pi)
     return N, E, Y
 
-def get_pose_on_radius(r=5, angle=5*np.pi/180):
+def get_random_pose_on_radius(r=5, angle=5*np.pi/180):
     # use polar coords to always get a position of radius r away from setpoint
     # nice for testing average rewards from each run after training, but not so nice for training due to bad exploration
     theta = random.random()*2*math.pi # random angle between origin and the place on the circle to put the vessel. NOT the same as yaw angle
     E = r * math.cos(theta)
     N = r * math.sin(theta) # y-coord -> North
     Y = random.uniform(-angle,angle)
+    return N, E, Y
+
+
+def get_fixed_pose_on_radius(n, r=5, angle=5*np.pi/180):
+    # use polar coords to always get a position of radius r away from setpoint
+    # nice for testing average rewards from each run after training, but not so nice for training due to bad exploration
+    thetas = [0.0, math.pi/4, math.pi/2, math.pi, 5*math.pi/4, 3*math.pi/2]
+    angles = [0.0,   5.0,      0.0,        5.0,       0.0,       -5.0]
+    
+    if len(thetas) <= n: # Avoid n accessing unaccesable element, warn user about it
+        print('n larger than 5 passed to fixed_points: starting on element 0')
+        n = n % len(thetas) 
+
+    NED_angle_to_unit_circle_angle = math.pi/2 - thetas[n]
+    E = r * math.cos(NED_angle_to_unit_circle_angle)
+    N = r * math.sin(NED_angle_to_unit_circle_angle) # y-coord -> North
+    Y = angles[n] * math.pi / 180
+    print('Fixed pose returns:', N, E, Y)
     return N, E, Y
 
 def get_pose_on_state_space(bounds = [5,5,np.pi/18], fraction = 1.0):

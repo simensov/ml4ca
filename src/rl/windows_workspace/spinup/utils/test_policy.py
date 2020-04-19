@@ -109,7 +109,7 @@ def run_RL_policy(env, get_action, max_ep_len=None, num_episodes=100, render=Tru
     actidx = 0
 
     logger = EpochLogger()
-    o, r, d, ep_ret, ep_len, n = env.reset(), 0, False, 0, 0, 0
+    o, r, d, ep_ret, ep_len, n = env.reset(fixed_point = 0), 0, False, 0, 0, 0
     
     data[dataidx].append((o,r))
     ned_pos[nedidx].append((env.EF.get_NED_pos(), env.EF.get_NED_ref()))
@@ -158,8 +158,8 @@ def run_RL_policy(env, get_action, max_ep_len=None, num_episodes=100, render=Tru
             print('Episode %d \t EpRet %.3f \t EpLen %d'%(n, ep_ret, ep_len))
 
             none_ref = [0,0,0] if test_setpoint_changes else None
-            o, r, d, ep_ret, ep_len = env.reset(new_ref=none_ref), 0, False, 0, 0
             n += 1
+            o, r, d, ep_ret, ep_len = env.reset(fixed_point = n, new_ref=none_ref), 0, False, 0, 0
 
             if not n == num_episodes:
                 data.append([]) # Add a new episode-list

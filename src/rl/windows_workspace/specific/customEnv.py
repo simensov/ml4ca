@@ -75,7 +75,8 @@ class Revolt(gym.Env):
         ''' Storage of previous thrust '''
         self.prev_thrust = [0, 0, 0]
         self.prev_angles = [0, 0, 0]
-        self.current_angles = []
+        self.current_angles = [0, 0, 0]
+        self.state_ext = np.zeros((9,))
 
     def __str__(self):
         return str(self.dTwin.name)
@@ -166,7 +167,7 @@ class Revolt(gym.Env):
             if a['idx'] in [3,4,5]: # It is an angle
                 self.prev_angles[a['idx'] - 3] = default
 
-        self.current_angles = self.prev_angles[:]
+        self.current_angles = self.prev_angles.copy()
         self.prev_thrust = [0,0,0]
         s = self.state() if not self.extended_state else self.state_extended()
         return s
@@ -176,7 +177,8 @@ class Revolt(gym.Env):
         return np.array( self.EF.get_pose() + get_vel_3DOF(self.dTwin) ) # (x,) numpy array
 
     def state_extended(self):
-        return np.hstack((self.state(),np.array(self.prev_thrust) / 100.0)) # (x,) numpy array
+        self.state_ext = np.hstack((self.state(),np.array(self.prev_thrust.copy()) / 100.0)) # (x,) numpy array
+        return self.state_ext
 
     def is_terminal(self):
         ''' Returns true if the vessel has travelled too far from the set point.'''
@@ -201,17 +203,17 @@ class Revolt(gym.Env):
         :returns:
             - A float representing the scalar reward of the agent being in the current state
         '''
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.action_penalty([0.1,0.1,0.1]) # BEST
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.action_penalty([0.1,0.1,0.1], torque_based=True) # 0
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.action_penalty([0.3,0.3,0.3], torque_based=True) # 1
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) # BEST, but probably only since the penalty avoids thrusters being on MAX, but doesnt necessary minimize the usage
 
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.action_penalty([0.2,0.2,0.2]) + self.action_derivative_penalty([0.1,0.1,0.1]) # 2
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.action_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty([0.3,0.3,0.3]) # 3
+        rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1], torque_based=True) # 0 # Test improved thrust size penalty - make note of initial behavior!
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.3,0.3], torque_based=True) # 1 # Test improved thrust size penalty - make note of initial behavior!
 
-        rew = self.vel_reward(coeffs=[0.5,0.5,1.0]) + self.multivariate_gaussian() + self.action_penalty([0.1,0.1,0.1]) # 4
-        rew = self.vel_reward(coeffs=[0.5,0.5,1.0]) + self.multivariate_gaussian() + self.action_penalty([0.1,0.1,0.1]) # 5
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty([0.05,0.05,0.05], angular = False) # 2 test thrust fluctiations - dont use angular derivatives yet
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty([0.10,0.10,0.10], angular = False) # 3 test thrust fluctuations - dont use angular derivatives yet
+
+        # rew = self.vel_reward(coeffs=[0.5,0.5,1.0]) + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) # 4 to test stabilizing the yaw movement - doubling r penalty
+        # rew = self.vel_reward(coeffs=[0.5,0.5,5.0]) + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) # 5 to test stabilizing the yaw movement - tenfolding r penalty
         
-
         return rew  
 
     def vel_reward(self, coeffs = None):
@@ -245,8 +247,8 @@ class Revolt(gym.Env):
         r3d = math.sqrt(r**2 + (yaw * 180 / np.pi * 0.25)**2)
         return gaussian_like(val = [r3d], mean = [0], var = [2.0**2]) + max(0.0, (1-0.05*r3d))
 
-    def action_penalty(self, pen_coeff = [0.1, 0.1, 0.1], torque_based = False):
-        assert np.all(np.array(pen_coeff) >= 0.0) and np.all(np.array(pen_coeff) <= 0.33), 'Action penalty coefficients must be in range 0.0 - 0.33'
+    def thrust_penalty(self, pen_coeff = [0.1, 0.1, 0.1], torque_based = False):
+        # assert np.all(np.array(pen_coeff) >= 0.0) and np.all(np.array(pen_coeff) <= 0.33), 'Action penalty coefficients must be in range 0.0 - 0.33'
         pen = 0
         if torque_based: # The penalty is based on torque, meaning that 
             for n,c in zip(self.prev_thrust, pen_coeff):
@@ -255,24 +257,31 @@ class Revolt(gym.Env):
         else:
             for n,c in zip(self.prev_thrust, pen_coeff):
                 pen -= np.abs(n) / 100.0 * c
+
         return pen # maximum penalty is 1 per time step if coeffs are <= 0.33
 
     def action_derivative_penalty(self,pen_coeff=[0.2,0.2,0.2], angular = False):
         if not self.extended_state:
             return 0
 
-        assert np.all(np.array(pen_coeff) >= 0.0) and np.all(np.array(pen_coeff) <= 0.33), 'Action penalty coefficients must be in range 0.0 - 0.33'
+        # assert np.all(np.array(pen_coeff) >= 0.0) and np.all(np.array(pen_coeff) <= 0.33), 'Action penalty coefficients must be in range 0.0 - 0.33'
         pen = 0
-        # prev_thrust stores the current thrust in (-100,100), while the last three elements of the extended state stores the prev thrust in (-1,1)
-        derr = (np.array(self.prev_thrust) - self.state_extended()[-3:]*100 )/ self.dt 
+        derr = ( np.array(self.prev_thrust)-self.state_ext[-3:] * 100.0) / self.dt # prev_thrust stores the current thrust in (-100,100), while the last three elements of the extended state stores the prev thrust in (-1,1)
+
         for dT,c in zip(derr, pen_coeff):
             pen -= np.abs(dT / 100.0) * c # 200 is the maximum change from one second to another
 
+        pen = max(-1.0, pen)
+
         if angular:
-            derr = (np.array(self.current_angles) - np.array(self.prev_thrust)) / self.dt
+            angpen = 0
+            derr = (np.array(self.current_angles) - np.array(self.prev_angles)) / self.dt
             for dA, c in zip(derr,pen_coeff):
                 bnd = self.real_action_bounds[4] # 4 is always an angle, being the last action
-                pen - = np.abs(dA / bnd) * c # 2 * bnd is the maximum change
+                angpen -= np.abs(dA / bnd) * c # 2 * bnd is the maximum change
+
+            angpen = max(-1.0, angpen)
+            pen += angpen        
 
         return pen # maximum penalty is 1 per time step if coeffs are <= 0.33 and division is done by 200.0
 

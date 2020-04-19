@@ -13,17 +13,17 @@ if __name__ == '__main__':
 
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('fpath',            type = str,           default = '')
-    parser.add_argument('--len',            type = int,           default = 800) # EPISODE LENGTH
-    parser.add_argument('--episodes',       type = int,           default = 6)
-    parser.add_argument('--itr',            type = int,           default = -1) # this allows for loading models from earlier epochs than the last one!
-    parser.add_argument('--realtime',       type = bool,          default = False) # doesnt really do anything since env.step() overwrites digitwin.setRealTimeMode(), so the sim speed is decided from how fast the cpu can loop the python code
-    parser.add_argument('--env',            type = str,           default = 'limited')
-    parser.add_argument('--sim',            type = int,           default = 0)
-    parser.add_argument('--ext',            type = bool,          default = True)
-    parser.add_argument('--plot',           type = bool,          default = True)
-    parser.add_argument('--setpoints',      type = bool,          default = False) # Params for testing set point changes during policy
-    parser.add_argument('--deterministic',  action='store_true')
+    parser.add_argument('fpath',           type = str,     default = '')
+    parser.add_argument('--len',           type = int,     default = 800) # EPISODE LENGTH
+    parser.add_argument('--episodes',      type = int,     default = 6)
+    parser.add_argument('--itr',           type = int,     default = -1) # this allows for loading models from earlier epochs than the last one!
+    parser.add_argument('--realtime',      type = bool,    default = False) # doesnt really do anything since env.step() overwrites digitwin.setRealTimeMode(), so the sim speed is decided from how fast the cpu can loop the python code
+    parser.add_argument('--env',           type = str,     default = 'limited')
+    parser.add_argument('--sim',           type = int,     default = 0)
+    parser.add_argument('--ext',           type = bool,    default = True)
+    parser.add_argument('--plot',          type = bool,    default = True)
+    parser.add_argument('--setpoints',     type = bool,    default = False) # Params for testing set point changes during policy
+    parser.add_argument('--deterministic', action='store_true')
     args = parser.parse_args()
 
     ''' +++++++++++++++++++++++++++++++ '''

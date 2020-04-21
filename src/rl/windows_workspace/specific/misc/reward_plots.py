@@ -99,10 +99,10 @@ def summed_gaussian_vs_2D():
             for j in range(len(yaws)):
                 measure = np.sqrt((rads[i])**2 + (yaws[j]/4)**2)
                 # Z1[i,j] = gaussian_like([rads[i]]) + gaussian_like([yaws[j]], var = [(180/np.pi*0.1)**2]) # + max(0.0, (1-0.1*measure))'
-                Z1[i,j] = 2 * unitary_multivar_normal( [rads[i], yaws[j]], mu = [0,0], var=[1**2, 5.7**2]) + max(0.0,(1-0.1*measure)) + 0.5
-                Z2[i,j] = unitary_multivar_normal( [rads[i], yaws[j]], mu = [0,0], var=[1**2, 5.7**2])
+                Z1[i,j] = 2 * unitary_multivar_normal( [rads[i], yaws[j]], mu = [0,0], var=[1.5**2, 4.0**2]) + max(0.0,(1-0.1*measure)) + 0.5
+                Z2[i,j] = unitary_multivar_normal( [rads[i], yaws[j]], mu = [0,0], var=[1.5**2, 4.0**2])
                 Z3[i,j] = max(0.0,(1-0.1*measure))
-                Z4[i,j] = 0.5
+                Z4[i,j] = unitary_multivar_normal( [rads[i], yaws[j]], mu = [0,0], var=[1**2, 3.0**2])
 
         f1 = plt.figure()
         ax1 = f1.add_subplot(2,2,1,projection='3d')

@@ -10,6 +10,9 @@ class Revolt(gym.Env):
         Max velocities measured with no thrust losses activated. Full means rotating stern azimuths only.
             Full:   surge, sway, yaw = (+2.20, -1.60) m/s, +-0.35 m/s, +-0.60 rad/s
             Simple: surge, sway, yaw = (+1.75, -1.40) m/s, +-0.30 m/s, +-0.51 rad/s
+        With thrust losses:
+            Full:   surge, sway, yaw = (+1.4, -1.1) m/s, +-0.30 m/s, +-0.52 rad/s
+            Simple: surge, sway, yaw = (+1.1, -1.2) m/s, +-0.26 m/s, +-0.43 rad/s LOL The thrusters should never have been set to -135 and 135, but rather 45 and -45 degrees (then speed became +1.3, -1.0)
     """
     metadata = {'render.modes': ['human']}
 
@@ -17,7 +20,7 @@ class Revolt(gym.Env):
                  digitwin       = None,
                  num_actions    = 6,
                  num_states     = 6,
-                 real_ss_bounds = [8.0, 8.0, np.pi/2, 2.2, 0.35, 0.60],
+                 real_ss_bounds = [8.0, 8.0, np.pi/2, 1.4, 0.30, 0.52],
                  testing        = False,
                  realtime       = False,
                  max_ep_len     = 800,
@@ -60,15 +63,15 @@ class Revolt(gym.Env):
         ''' +++++++++++++++++++++++++++++++ '''
         '''     REWARD AND TEST PARAMS      '''
         ''' +++++++++++++++++++++++++++++++ '''
-        self.vel_rew_coeffs = [0.5,0.5,0.5] # weighting between surge, sway and heading deviations used in reward function. Punish one rad/s twice as much as one m/s
+        self.vel_rew_coeffs = [0.5,0.5,1.0] # weighting between surge, sway and heading deviations used in reward function. Punish one rad/s twice as much as one m/s
         self.n_steps    = 1 if (testing and realtime) else 10 # I dont want to step at 100 Hz ever, really
         self.dt         = 0.01 * self.n_steps
         self.testing    = testing # stores if the environment is being used while testing policy, or is being used for training
         self.max_ep_len = max_ep_len * int(10/self.n_steps)
 
         ''' Unitary multivariate gaussian reward parameters '''
-        self.covar = np.array([ [1**2,     0   ],  # meters
-                                [0,     (5)**2]])  # degrees
+        self.covar = np.array([ [1.0**2,      0   ],  # meters
+                                [0,         5.0**2]])  # degrees
         self.covar_inv = np.linalg.inv(self.covar)
 
         ''' Storage of previous thrust '''
@@ -76,9 +79,6 @@ class Revolt(gym.Env):
         self.prev_angles = [0, 0, 0]
         self.current_angles = [0, 0, 0]
         self.state_ext = np.zeros((9,))
-
-    def __str__(self):
-        return str(self.dTwin.name)
 
     def step(self, action, new_ref=None):
         ''' Step a fixed number of steps in the Cybersea simulator 
@@ -110,18 +110,6 @@ class Revolt(gym.Env):
         if new_ref is not None: self.EF.update(ref=new_ref)
 
         return s,r,d, {'None': 0}
-
-    def scale_and_clip(self,action):
-        ''' Action from actor if close to being -1 and 1. Scale 100%, and clip.
-        :args:
-            - action (numpy array): an action provided by the agent
-        :returns:
-            A list of the scaled and clipped actions
-         '''
-        bnds = np.array(self.real_action_bounds[0:self.num_actions]) # select bounds according to environment specifications
-        action = np.multiply(action,bnds) # The action comes as choices between -1 and 1...
-        action = np.clip(action,-bnds,bnds) # ... but the std_dev in the stochastic policy means that we have to clip
-        return action.tolist()
 
     def reset(self, new_ref = None, fraction = 0.8, fixed_point = None, **init):
         """ Resets the state of the environment and returns an initial observation.
@@ -172,23 +160,36 @@ class Revolt(gym.Env):
         return s
 
     def state(self):
+        ''' Returns the standard state vector of body frame errors + body frame velocities'''
         self.EF.update(get_pose_3DOF(self.dTwin))
         return np.array( self.EF.get_pose() + get_vel_3DOF(self.dTwin) ) # (x,) numpy array
 
     def state_extended(self):
+        ''' Updates and returns the extended state formulation. 
+        NB: since this function uses prev_thrust, the state_ext must be used when calculating the thrust derivatives to avoid getting 0 derivatives at each time step'''
         self.state_ext = np.hstack((self.state(),np.array(self.prev_thrust.copy()) / 100.0)) # (x,) numpy array
         return self.state_ext
 
     def is_terminal(self):
         ''' Returns true if the vessel has travelled too far from the set point.'''
-        # if self.testing: # when testing, only episode length should terminate
-        #     return False # can actually be a good indicator for bad performance though
         
         for s, bound in zip(self.state(),self.real_ss_bounds):
             if np.abs(s) > bound:
                 return True
 
         return False
+
+    def scale_and_clip(self,action):
+        ''' Action from actor if close to being -1 and 1. Scale 100%, and clip.
+        :args:
+            - action (numpy array): an action provided by the agent
+        :returns:
+            A list of the scaled and clipped actions
+         '''
+        bnds = np.array(self.real_action_bounds[0:self.num_actions]) # select bounds according to environment specifications
+        action = np.multiply(action,bnds) # The action comes as choices between -1 and 1...
+        action = np.clip(action,-bnds,bnds) # ... but the std_dev in the stochastic policy means that we have to clip
+        return action.tolist()
 
     def render(self):
         pass # The environment will always be rendered in Cybersea
@@ -204,17 +205,17 @@ class Revolt(gym.Env):
         '''
         # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) # BEST, but probably only since the penalty avoids thrusters being on MAX, but doesnt necessary minimize the usage
 
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1], torque_based=True) # 0 # Test improved thrust size penalty - make note of initial behavior!
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.3,0.3], torque_based=True) # 1 # Test improved thrust size penalty - make note of initial behavior!
-
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty([0.05,0.05,0.05], angular = False) # 2 test thrust fluctiations - dont use angular derivatives yet
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty([0.10,0.10,0.10], angular = False) # 3 test thrust fluctuations - dont use angular derivatives yet
-
-        # rew = self.vel_reward(coeffs=[0.5,0.5,1.0]) + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) # 4 to test stabilizing the yaw movement - doubling r penalty
-        # rew = self.vel_reward(coeffs=[0.5,0.5,5.0]) + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) # 5 to test stabilizing the yaw movement - tenfolding r penalty
-
-        rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty([0.05,0.05,0.05], thrust = False, angular = True) # 6 test with ONLY angular derivs to observe how it handles penalty on something that is not states
+        # experiences using action penalties:
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty([0.05,0.05,0.05], angular = False) # act_der_low - suggest 0.075 instead! 0.10 overfits
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.3,0.3], torque_based=True) # 1 # act_torque_high - gets better at using less thrust early
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty([0.05,0.05,0.05], thrust = False, angular = True) # actderangle - managed to get rid of angle flucts without having angles in the state vector, but stopped at 0 and 90 degs
         
+        # heading behavior is okay on small setpoint changes, but test more reasonable reward function
+        # rew = self.vel_reward_2([0.3, 0.1, 1.5]) + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) # 0 - new velocity func
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty([0.07,0.07,0.07], angular=False) # 1 - actdermid
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty([0.07,0.07,0.07], thrust=True, angular=True) # 2 - actderall
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.2,0.4,0.4], torque_based=True) # 3 - acttorlarge
+        rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) # 4 - narrowyaw - reduce yaw var and increase r var
         return rew  
 
     def vel_reward(self, coeffs = None):
@@ -224,6 +225,20 @@ class Revolt(gym.Env):
         assert len(coeffs) == 3 and isinstance(coeffs,list), 'Vel coeffs must be a list of length 3'
 
         return -np.sqrt(sum( [e**2 * c for e,c in zip(get_vel_3DOF(self.dTwin), coeffs)] ))
+
+    def vel_reward_2(self, coeffs = None):
+        ''' Penalizes high velocities. Maximum penalty with real_bounds and all coeffs = 1 : -2.37. All coeffs = 0.5 : -1.675'''
+        if coeffs is None:
+            coeffs = self.vel_rew_coeffs
+        assert len(coeffs) == 3 and isinstance(coeffs,list), 'Vel coeffs must be a list of length 3'
+
+        pen = 0
+        bnds = self.real_ss_bounds[-3:]
+        vels = get_vel_3DOF(self.dTwin)
+        for vel, bnd, cof in zip(vels,bnds,coeffs):
+            pen -= np.abs(vel) / bnd * cof
+
+        return pen
 
     def smaller_yaw_dist(self):
         ''' First reward function that fixed the steady state error in yaw by sharpening the yaw gaussian '''
@@ -321,7 +336,7 @@ class RevoltLimited(Revolt):
 
         # Not choosing the bow angle means (1) one less action bound, (2) remove one valid index, (3) set bow angle default to pi/2
         self.name = 'revoltlimited'
-        self.real_ss_bounds       = [8.0, 8.0, 30 * np.pi / 180, 2.2, 0.35, 0.60] 
+        self.real_ss_bounds[2]    = 25 * np.pi / 180 # Decrease heading 
         self.real_action_bounds   = [100] * 3 + [np.pi / 2 ] * 2
         self.valid_action_indices = [0,    1,      2,      4,      5]
         self.act_2_act_map        = {0:0,  1:1,    2:2,    4:3,    5:4} # {index in self.actions : index in action vector outputed by this actor for this env}

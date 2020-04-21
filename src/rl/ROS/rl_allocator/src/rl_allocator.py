@@ -2,6 +2,8 @@
 
 """
 NOTE that this node is using Python 3!!!
+NOTE remember to ensure that the simulator you are using has the linear actuator DOWN as a default. If not, go to (in the simulator):
+    - Explorer Window -> THR1 -> Input Signals -> LinearActuator and Override the value, setting it to 2.0
 
 ROS Node for using a neural network for solving the thrust allocation problem on the ReVolt model ship. #!/home/revolt/revolt_ws/src/rl_venv/bin/python
 The neural network was trained using the actor critic, policy gradient method PPO. It was trained during 24 hours of simulation on a Windows computer.
@@ -30,6 +32,8 @@ import time
 from errorFrame import ErrorFrame, wrap_angle
 from tf_utils import load_policy
 
+debug = False
+
 def createPublishableMessages(u):
     '''
     :params:
@@ -49,7 +53,7 @@ def createPublishableMessages(u):
     
     bow_control = bowControl()
     bow_control.throttle_bow = float(thruster_percentages[2]) # Bow throttle doesn't work at low inputs. (DC Motor)
-    bow_control.position_bow = np.rad2deg(thruster_angles[2])
+    bow_control.position_bow = int(np.rad2deg(thruster_angles[2]))
     bow_control.lin_act_bow = 2
 
     return pod_angle, stern_thruster_setpoints, bow_control
@@ -96,8 +100,6 @@ class RLTA(object):
         '''
 
         # Init ROS Node
-        print('Launching RLTA')
-
         rospy.init_node('rlAllocator', anonymous = True)
 
         '''
@@ -124,15 +126,15 @@ class RLTA(object):
                          'full': {'act_bnd': act_bnd['full'],    'act_map' : act_map['full'],    'default_actions': act_def['full'] }  
                       }
 
+        # Set environment type (see ml4TA/src/rl/windows_workspace/specific/customEnv for definitions)
         self.env = 'limited'
-        # path = '/home/revolt/revolt_ws/src/rl_allocator/src/simactpen' # TODO get a new simple env with ext state
         path = '/home/revolt/revolt_ws/src/rl_allocator/src/{}'.format(self.env)
-        
+        rospy.loginfo('Launching RLTA - it takes a few seconds to load...')
         try:
             self.actor = load_policy(fpath=path) # a FUNCTION which takes in a state, and outputs an action
-            rospy.loginfo("Loading of RL policy network for thrust allocation successful.")
+            rospy.loginfo("... loading of RL policy network for thrust allocation successful.")
         except:
-            rospy.logerr("Loading of RL policy network fir thrust allocation was not successful. Shutting down")
+            rospy.logerr("Loading of RL policy network fir thrust allocation was not successful. Shutting down node")
             sys.exit()
 
         self.rate = rospy.Rate(10) # time step of 0.1 s^1 = 10 Hz
@@ -144,18 +146,19 @@ class RLTA(object):
         self.backwards_K         = np.array([[0.0027,   0.0027, 0.0006172]]).T
 
         # Init variable for storing the previous state each time, so that it is possible to send the thrusters the right way using shortest path calculations
-        self.state = np.zeros((9,))
-        self.EF = ErrorFrame()
-        self.previous_thruster_state = np.zeros((6,))
-        self.time_prev = rospy.get_time()
-        self.h = 0.0
+        self.state               = np.zeros((9,)) # State vector contains [error_surge, error_sway, error_yaw, u, v, r, thr_bow/100, thr_port/100, thr_star/100]
+        self.prev_thrust_state   = np.zeros((6,))
+        self.integrator          = np.zeros((3,))
+        self.use_integral_effect = False
+        self.EF                  = ErrorFrame()
+        self.time_prev           = rospy.get_time()
+        self.error_time_prev     = rospy.get_time()
+        self.h                   = 0.0
 
         # Init Publishers TODO use neuralAllocator
-        self.pub_stern_angles             = rospy.Publisher('RLNN/thrusterAllocation/pod_angle_input', podAngle, queue_size=1)
-        self.pub_stern_thruster_setpoints = rospy.Publisher("RLNN/thrusterAllocation/stern_thruster_setpoints", SternThrusterSetpoints, queue_size=1)
-        self.pub_bow_control              = rospy.Publisher("RLNN/bow_control", bowControl, queue_size=1)
-        self.pub_tau_diff                 = rospy.Publisher("RLNN/tau_diff", Wrench, queue_size=1)
-        self.pub_thruster_forces          = rospy.Publisher("RLNN/F", Wrench, queue_size=1)
+        self.pub_stern_angles             = rospy.Publisher('thrusterAllocation/pod_angle_input', podAngle, queue_size=1)
+        self.pub_stern_thruster_setpoints = rospy.Publisher("thrusterAllocation/stern_thruster_setpoints", SternThrusterSetpoints, queue_size=1)
+        self.pub_bow_control              = rospy.Publisher("bow_control", bowControl, queue_size=1)
         self.pub_thruster_forces          = rospy.Publisher("RLNN/F", Wrench, queue_size=1)
 
         # Init subscriber for control forces from either DP controller or RC remote (manual T.A.)
@@ -169,12 +172,12 @@ class RLTA(object):
             - eta (float): A Twist message containing the 6-dimensional NED position vector. Angles are in degrees.
             Twist
         ''' 
-        eta = np.array([eta.linear.x, eta.linear.y, eta.angular.z * np.pi / 180])
-        eta = wrap_angle(eta, deg=False)
+        eta = np.array([eta.linear.x, eta.linear.y, np.deg2rad(eta.angular.z)])
+        eta[2] = wrap_angle(eta[2], deg=False) # wrap yaw in (-pi,pi)
 
         # Update errorFrame with new position, and update state vector
         self.EF.update(pos=eta.tolist())
-        self.state[0:3] = np.array(self.EF.get_pose()) # (3,) shaped ndarray
+        self.state[0:3] = self.get_error_states() # (3,) shaped ndarray
 
     def nu_obs_callback(self, nu):
         ''' Callback function for velocity observed in body frame, nu_obs. Updates self.state.
@@ -183,20 +186,61 @@ class RLTA(object):
         '''
         self.state[3:6] = np.array([nu.linear.x,nu.linear.y,nu.angular.z])
 
-    def shortestPath(self,a_prev,a):
-        ''' Calculates the shortest angluar path between two angles.
+    def state_desired_callback(self, eta_des):
+        ''' Performs thrust allocation. Updates self.state and publishes stern_angles, stern_thruster_setpoints, bow_control
         :params:
-            a_prev  - a float of the previous TODO could just use self.previous_thruster_state[3:]
-            a       - a float of the desired angle
-        :returns:
-            a float of the shortest angular distance (in radians) between current azimuth angle and the desired one (could be positive or negative)
+            - eta_des (NorthEastHeading): Message containing desired state in 9 dimensions: 3 x pos, 3 x vel and 3 x acc.
         '''
-        pass
+
+        # Compute timestep h for finding thruster derivatives
+        self.h = (rospy.get_time() - self.time_prev)
+        self.time_prev = rospy.get_time()
+
+        # Extract eta_desired, update errorFrame with new reference, and update state vector
+        self.EF.update(ref = [eta_des.pos_north, eta_des.pos_east, np.deg2rad(eta_des.pos_heading)])
+        self.state[0:3] = self.get_error_states(step = self.h)
+
+        # Select action
+        u = self.get_action() # [n1,n2,n3,a1,a2,a3] (6,) shaped array in ROS format
+
+        if rospy.get_time() - self.error_time_prev > 10000.0: #5.0:
+            print(['{:.2f}'.format(si) for si in self.state])
+            print(['{:.2f}'.format(ui) for ui in u])
+            self.error_time_prev = rospy.get_time()
+
+        # Publish action
+        pod_angle, stern_thruster_setpoints, bow_control = createPublishableMessages(u)
+        self.pub_stern_angles.publish(pod_angle)
+        self.pub_stern_thruster_setpoints.publish(stern_thruster_setpoints)
+        self.pub_bow_control.publish(bow_control)
+
+        # Update state vector with previous thrust
+        self.prev_thrust_state       = np.copy(u) # USE REAL THRUSTER VALUES HERE?
+        self.state[-3:] = np.array([u[2], u[0], u[1]]) / 100.0 # Updating state using neural net input
+
+        '''
+        Messages used only for plotting purposes
+        '''
+        # Constant K values F = K*|n|*n (see Alheim and Muggerud, 2016, for this empirical formula). The bow thruster is unsymmetrical, and this has lower coefficient for negative directioned thrust.
+        K = self.forwards_K if u[2] >0 else self.backwards_K
+        F = K * np.abs(u[:3]) * u[:3] # ELEMENTWISE multiplication, using thruster percentages
 
     def scale_and_clip(self,action):
         bnds = np.array(self.params[self.env]['act_bnd'])
         action = np.multiply(action,bnds) # scale
-        return np.clip(action,-bnds,bnds) # clip
+
+        '''       
+        # TODO find shortest angle, add the shortest angle, and map to -pi,pi before clipping
+        actor_angles = ??? # TODO need a mapping
+        angles = self.prev_thrust_state[3:]
+        for i in range(len(angles)):
+            angles[i] = angles[i] + self.shortestPath(a_prev = angles[i], a = actor_angles[i], deg = False)
+
+        action = something_dependend_on_angles # TODO
+        '''
+   
+        action = np.clip(action,-bnds,bnds) # clip
+        return action
 
     def get_action(self):
         # Get action selection from the policy network and scale according to environment
@@ -217,40 +261,34 @@ class RLTA(object):
 
         return arr # [nport,nstar,nbow,aport,astar,abow]
 
-    def state_desired_callback(self, eta_des):
-        ''' Performs thrust allocation. Updates self.state and publishes stern_angles, stern_thruster_setpoints, bow_control
+    def get_error_states(self, step = 0.1):
+        # TODO store previous eta_ref, and if new, then reset the integral effect!
+        current_state = np.array(self.EF.get_pose())
+        if self.use_integral_effect:
+            self.integrator = self.integrator + step * 0.001 * current_state
+            bnds = np.array([8.0, 8.0, np.pi/2])
+            self.integrator = np.clip(self.integrator, -bnds, bnds)
+            # print('curr_state:', current_state)
+            # print('integrator:', self.integrator)
+            # print('stateretur:', current_state + self.integrator)
+            return current_state + self.integrator
+        else:
+            return current_state
+
+    def shortestPath(self,a_prev,a,deg = False):
+        ''' Calculates the shortest angluar path BETWEEN two angles. This does NOT return the new angle, but should be used for adding.
         :params:
-            - eta_des (NorthEastHeading): Message containing desired state in 9 dimensions: 3 x pos, 3 x vel and 3 x acc.
+            a_prev  - a float of the previous TODO could just use self.prev_thrust_state [3:]
+            a       - a float of the desired angle
+        :returns:
+            a float of the shortest angular distance (in radians) between current azimuth angle and the desired one (could be positive or negative)
         '''
-
-        # Compute timestep h for finding thruster derivatives
-        self.h = (rospy.get_time() - self.time_prev)
-        self.time_prev = rospy.get_time()
-
-        # Extract eta_desired, update errorFrame with new reference, and update state vector
-        self.EF.update(ref = [eta_des.pos_north, eta_des.pos_east, np.deg2rad(eta_des.pos_heading)])
-        self.state[0:3] = np.array(self.EF.get_pose())
-
-        # Select action
-        u = self.get_action() # [n1,n2,n3,a1,a2,a3] in (6,) shaped array in ROS format
-        print(u)
-
-        # Publish action
-        pod_angle, stern_thruster_setpoints, bow_control = createPublishableMessages(u)
-        self.pub_stern_angles.publish(pod_angle)
-        self.pub_stern_thruster_setpoints.publish(stern_thruster_setpoints)
-        self.pub_bow_control.publish(bow_control)
-
-        # Update state vector with previous thrust
-        self.previous_thruster_state = np.copy(u)
-        self.state[-3:] = np.array([u[1], u[2], u[0]]) # Updating the state must be done according to the mapping between windows setup and ros setup
-
-        '''
-        Messages used only for plotting purposes
-        '''
-        # Constant K values F = K*|n|*n (see Alheim and Muggerud, 2016, for this empirical formula). The bow thruster is unsymmetrical, and this has lower coefficient for negative directioned thrust.
-        K = self.forwards_K if u[2] >0 else self.backwards_K
-        F = K * np.abs(u[:3]) * u[:3] # ELEMENTWISE multiplication, using thruster percentages
+        # TODO this function needs to be used with the scale_and_clip function in order to get the shortest angle BEFORE clipping
+        ref = 180.0 if deg else np.pi
+        temp = np.mod((a-a_prev), 2 * ref) # get REMAINDER from division with 2pi in case the difference is larger than 2pi
+        shortest = np.mod( (temp + 2 * ref), 2 * ref) # map the remainder into being positive in region [0, 2pi)
+        addition = shortest - 2 * ref if shortest > ref else shortest # if it is larger than pi, return the equivalent on the other side of 0 instead
+        return addition
 
 
 if __name__ == '__main__':

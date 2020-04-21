@@ -1,7 +1,9 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
-'''
-ROS Node for using a neural network for solving the thrust allocation problem on the ReVolt model ship.
+"""
+NOTE that this node is using Python 3!!!
+
+ROS Node for using a neural network for solving the thrust allocation problem on the ReVolt model ship. #!/home/revolt/revolt_ws/src/rl_venv/bin/python
 The neural network was trained using the actor critic, policy gradient method PPO. It was trained during 24 hours of simulation on a Windows computer.
 The model was not given any information about the vessel or the environment, and is therefore based 100% on "self play".
 The node was created as a part of an MSc thesis, named "Solving thrust allocation for surface vessels using deep reinforcement learning". 
@@ -10,8 +12,12 @@ The output of the policy network (the part that decides which action to take) is
 This varies with if we are looking at %RPM or angles, in which the %RPM is in scaled with a factor of 100, and the angles are scaled according to the environment, 
 usually pi/2 since the network picks angles between -pi/2 and pi/2.
 
+Requirements:
+    - Tensorflow 1.x - NOTE that the system pip (for python2.7) uses tensorflow 2. It is wanted to keep tf.__version__ >= 2.0.0 as basis as that is by far the best documented modules for now.
+                       neural allocator uses Keras, which is based on using tf2 as backend. Therefore, this node (and the other supportive files in this package) runs with the system's Python 3.
+
 @author: Simen Sem Oevereng, simensem@gmail.com. June 2020.
-'''
+"""
 
 from __future__ import division
 import rospy
@@ -21,8 +27,8 @@ from geometry_msgs.msg import Wrench, Twist
 import numpy as np 
 import sys # for sys.exit()
 import time
-from rl_allocator.src.errorFrame import ErrorFrame, wrap_angle
-from rl_allocator.src.tf_utils import load_tf_policy
+from errorFrame import ErrorFrame, wrap_angle
+from tf_utils import load_policy
 
 def createPublishableMessages(u):
     '''
@@ -90,6 +96,8 @@ class RLTA(object):
         '''
 
         # Init ROS Node
+        print('Launching RLTA')
+
         rospy.init_node('rlAllocator', anonymous = True)
 
         '''
@@ -116,12 +124,12 @@ class RLTA(object):
                          'full': {'act_bnd': act_bnd['full'],    'act_map' : act_map['full'],    'default_actions': act_def['full'] }  
                       }
 
-        self.env = 'simple'
-        path = '/home/revolt/revolt_ws/src/rl_allocator/src/simactpen'
-        # path='/home/revolt/revolt_ws/src/rl_allocator/src/model_{}'.format(self.env) # TODO this should be the format in the future - easy to fix using current functions with 
-
+        self.env = 'limited'
+        # path = '/home/revolt/revolt_ws/src/rl_allocator/src/simactpen' # TODO get a new simple env with ext state
+        path = '/home/revolt/revolt_ws/src/rl_allocator/src/{}'.format(self.env)
+        
         try:
-            self.actor = load_tf_policy(fpath=path) # a FUNCTION which takes in a state, and outputs an action
+            self.actor = load_policy(fpath=path) # a FUNCTION which takes in a state, and outputs an action
             rospy.loginfo("Loading of RL policy network for thrust allocation successful.")
         except:
             rospy.logerr("Loading of RL policy network fir thrust allocation was not successful. Shutting down")
@@ -200,11 +208,11 @@ class RLTA(object):
         arr = np.zeros((6,))
 
         # First, set all default actions in the ROS format using the current format's default values with the full format action map
-        for i, default in self.params[self.env]['default_actions']: # [nbow,nport,nstar,abow,aport,astar]
+        for i, default in enumerate(self.params[self.env]['default_actions']): # [nbow,nport,nstar,abow,aport,astar]
             arr[full_act_map[i]] = default
 
         # Then fill the chosen action values into the ROS format using the current environment's action map
-        for i,act in action:
+        for i,act in enumerate(action):
             arr[curr_act_map[i]] = act
 
         return arr # [nport,nstar,nbow,aport,astar,abow]
@@ -225,6 +233,7 @@ class RLTA(object):
 
         # Select action
         u = self.get_action() # [n1,n2,n3,a1,a2,a3] in (6,) shaped array in ROS format
+        print(u)
 
         # Publish action
         pod_angle, stern_thruster_setpoints, bow_control = createPublishableMessages(u)
@@ -247,7 +256,7 @@ class RLTA(object):
 if __name__ == '__main__':
     
     try:
-        nn = RLTA()
+        node = RLTA()
         rospy.spin()
     except rospy.ROSInterruptException:
         # TODO implement

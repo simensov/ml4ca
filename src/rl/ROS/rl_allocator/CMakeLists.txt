@@ -9,7 +9,7 @@ project(rl_allocator)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   custom_msgs
-  dynamics_reconfigure
+  dynamic_reconfigure
   geometry_msgs
   roscpp
   rospy
@@ -108,7 +108,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES rl_allocator
-#  CATKIN_DEPENDS custom_msgs dynamics_reconfigure geometry_msgs roscpp rospy std_msgs
+#  CATKIN_DEPENDS custom_msgs dynamic_reconfigure geometry_msgs roscpp rospy std_msgs
 #  DEPENDS system_lib
 )
 

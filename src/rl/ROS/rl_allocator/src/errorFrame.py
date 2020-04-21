@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 import numpy as np
 
 def rotation_matrix(a):
@@ -9,7 +11,8 @@ def wrap_angle(angle, deg = False):
     ''' Wrap angle between -180 and 180 deg. deg == True means degrees, == False means radians
         Handles if angle is a vector or list of angles. In both cases, a (x,) shaped numpy array is returned '''
     ref = 180.0 if deg else np.pi
-    if isinstance(angle,np.array): # handle arrays
+
+    if isinstance(angle,np.ndarray): # handle arrays
         ref = np.ones_like(angle) * ref
     elif isinstance(angle,list):
         angle = np.array(angle)

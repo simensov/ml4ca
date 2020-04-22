@@ -60,6 +60,13 @@ class Revolt(gym.Env):
         self.real_ss_bounds       = real_ss_bounds # state space bound IRL
         self.EF                   = ErrorFrame()
 
+        # Parameters used for the extended state vector
+        self.prev_thrust = [0, 0, 0]
+        self.prev_angles = [0, 0, 0]
+        self.current_angles = [0, 0, 0]
+        self.state_ext = np.zeros((9,))
+        self.reset_actions = True
+
         ''' +++++++++++++++++++++++++++++++ '''
         '''     REWARD AND TEST PARAMS      '''
         ''' +++++++++++++++++++++++++++++++ '''
@@ -70,15 +77,9 @@ class Revolt(gym.Env):
         self.max_ep_len = max_ep_len * int(10/self.n_steps)
 
         ''' Unitary multivariate gaussian reward parameters '''
-        self.covar = np.array([ [1.0**2,      0   ],  # meters
+        self.covar = np.array([ [1**2,      0   ],  # meters
                                 [0,         5.0**2]])  # degrees
         self.covar_inv = np.linalg.inv(self.covar)
-
-        ''' Storage of previous thrust '''
-        self.prev_thrust = [0, 0, 0]
-        self.prev_angles = [0, 0, 0]
-        self.current_angles = [0, 0, 0]
-        self.state_ext = np.zeros((9,))
 
     def step(self, action, new_ref=None):
         ''' Step a fixed number of steps in the Cybersea simulator 
@@ -148,11 +149,14 @@ class Revolt(gym.Env):
         for i in range(3):
             self.dTwin.val('THR'+str(i+1), 'MtcOn', 1) # turn on the motor control for all three thrusters
 
-        for a in self.actions:
-            default = self.default_actions[a['idx']]
-            self.dTwin.val(a['module'], a['feature'], default) # set all default thruster states
-            if a['idx'] in [3,4,5]: # It is an angle
-                self.prev_angles[a['idx'] - 3] = default
+        # Notify simulator of all default thruster states
+        # TODO
+        if not self.reset_actions:
+            for a in self.actions:
+                default = self.default_actions[a['idx']]
+                self.dTwin.val(a['module'], a['feature'], default) # set all default thruster states
+                if a['idx'] in [3,4,5]: # It is an angle
+                    self.prev_angles[a['idx'] - 3] = default
 
         self.current_angles = self.prev_angles.copy()
         self.prev_thrust = [0,0,0]
@@ -203,19 +207,17 @@ class Revolt(gym.Env):
         :returns:
             - A float representing the scalar reward of the agent being in the current state
         '''
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) # BEST, but probably only since the penalty avoids thrusters being on MAX, but doesnt necessary minimize the usage
+        rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) # BEST, but probably only since the penalty avoids thrusters being on MAX, but doesnt necessary minimize the usage
 
         # experiences using action penalties:
         # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty([0.05,0.05,0.05], angular = False) # act_der_low - suggest 0.075 instead! 0.10 overfits
         # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.3,0.3], torque_based=True) # 1 # act_torque_high - gets better at using less thrust early
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty([0.05,0.05,0.05], thrust = False, angular = True) # actderangle - managed to get rid of angle flucts without having angles in the state vector, but stopped at 0 and 90 degs
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty([0.05,0.05,0.05], thrust = False, angular = True) # actderangle - managed to get rid of angle flucts without having angles in the state vector, but stopped at 0 and 90 degs, which is actually OK as it does not lock in singular configuration
         
         # heading behavior is okay on small setpoint changes, but test more reasonable reward function
-        # rew = self.vel_reward_2([0.3, 0.1, 1.5]) + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) # 0 - new velocity func
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty([0.07,0.07,0.07], angular=False) # 1 - actdermid
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty([0.07,0.07,0.07], thrust=True, angular=True) # 2 - actderall
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.2,0.4,0.4], torque_based=True) # 3 - acttorlarge
-        rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) # 4 - narrowyaw - reduce yaw var and increase r var
+        # rew = self.vel_reward_2([1.0, 0.5, 1.5]) + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) # 0 - new velocity func with larger surge and sway coeffs
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.2,0.3,0.3], torque_based=True) # 1 - acttorlarge with smaller coeffs
+
         return rew  
 
     def vel_reward(self, coeffs = None):

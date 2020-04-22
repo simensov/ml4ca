@@ -4,6 +4,7 @@ import numpy as np
 from specific.misc.simtools import get_pose_3DOF, get_vel_3DOF, get_pose_on_state_space, get_random_pose_on_radius, get_vel_on_state_space, get_fixed_pose_on_radius
 from specific.misc.mathematics import gaussian, gaussian_like
 from specific.errorFrame import ErrorFrame
+import time
 
 class Revolt(gym.Env):
     """ Custom Environment that follows OpenAI's gym API.
@@ -24,7 +25,8 @@ class Revolt(gym.Env):
                  testing        = False,
                  realtime       = False,
                  max_ep_len     = 800,
-                 extended_state = False):
+                 extended_state = False,
+                 reset_acts = False):
 
         super(Revolt, self).__init__()
         assert digitwin is not None, 'No digitwin was passed to Revolt environment'
@@ -65,7 +67,7 @@ class Revolt(gym.Env):
         self.prev_angles = [0, 0, 0]
         self.current_angles = [0, 0, 0]
         self.state_ext = np.zeros((9,))
-        self.reset_actions = True
+        self.reset_actions = reset_acts
 
         ''' +++++++++++++++++++++++++++++++ '''
         '''     REWARD AND TEST PARAMS      '''
@@ -150,16 +152,28 @@ class Revolt(gym.Env):
             self.dTwin.val('THR'+str(i+1), 'MtcOn', 1) # turn on the motor control for all three thrusters
 
         # Notify simulator of all default thruster states
-        # TODO
-        if not self.reset_actions:
-            for a in self.actions:
-                default = self.default_actions[a['idx']]
-                self.dTwin.val(a['module'], a['feature'], default) # set all default thruster states
-                if a['idx'] in [3,4,5]: # It is an angle
-                    self.prev_angles[a['idx'] - 3] = default
+        # TODO this more pretty, change between using default and random vals based on self.reset_actions!
+        for a in self.actions:
+            default = self.default_actions[a['idx']]
+            self.dTwin.val(a['module'], a['feature'], default) # set all default thruster states
+            if a['idx'] in [3,4,5]: # It is an angle
+                self.prev_angles[a['idx'] - 3] = default # TODO the simulator does not have time to get the angles back to zero - only the command of zero is being sent
+        
+        if self.reset_actions:
+            action = np.zeros((len(self.valid_action_indices),))
+            action[0:3] = np.random.normal(loc = 0.0, scale = 0.1, size=3)
+            action = self.scale_and_clip(action)
+            for a in self.actions:        
+                if a['idx'] in self.valid_action_indices and a['idx'] in [0,1,2]: # This only affects thrust at the moment
+                    idx = self.act_2_act_map[a['idx']]
+                    self.dTwin.val(a['module'], a['feature'], action[idx])
+                    # TODO reset angles if adding them to state vector also
+
+            self.prev_thrust = action[0:3].copy()
+        else:
+            self.prev_thrust = [0,0,0]
 
         self.current_angles = self.prev_angles.copy()
-        self.prev_thrust = [0,0,0]
         s = self.state() if not self.extended_state else self.state_extended()
         return s
 
@@ -188,7 +202,7 @@ class Revolt(gym.Env):
         :args:
             - action (numpy array): an action provided by the agent
         :returns:
-            A list of the scaled and clipped actions
+            A list of the scaled and clipped actions NB not a numpy array
          '''
         bnds = np.array(self.real_action_bounds[0:self.num_actions]) # select bounds according to environment specifications
         action = np.multiply(action,bnds) # The action comes as choices between -1 and 1...
@@ -207,7 +221,7 @@ class Revolt(gym.Env):
         :returns:
             - A float representing the scalar reward of the agent being in the current state
         '''
-        rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) # BEST, but probably only since the penalty avoids thrusters being on MAX, but doesnt necessary minimize the usage
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) # BEST, but probably only since the penalty avoids thrusters being on MAX, but doesnt necessary minimize the usage
 
         # experiences using action penalties:
         # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty([0.05,0.05,0.05], angular = False) # act_der_low - suggest 0.075 instead! 0.10 overfits
@@ -218,6 +232,9 @@ class Revolt(gym.Env):
         # rew = self.vel_reward_2([1.0, 0.5, 1.5]) + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) # 0 - new velocity func with larger surge and sway coeffs
         # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.2,0.3,0.3], torque_based=True) # 1 - acttorlarge with smaller coeffs
 
+        # 22.04 - test vel_rew_2 with small coefficients + resetting thrust to random values
+        # rew = self.vel_reward_2(self.vel_rew_coeffs) + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) # 0 - new velocity func with even coeffs
+        rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) # Just for testing performance with the action resetting
         return rew  
 
     def vel_reward(self, coeffs = None):
@@ -309,9 +326,9 @@ class RevoltSimple(Revolt):
     ''' +++++++++++++++++++++++++++++++ '''
     '''      FIXED THRUSTER SETUP       '''
     ''' +++++++++++++++++++++++++++++++ '''
-    def __init__(self,digitwin, testing = False, realtime = False, max_ep_len = 800, extended_state=False):
+    def __init__(self,digitwin, testing = False, realtime = False, max_ep_len = 800, extended_state=False, reset_acts = False):
         super().__init__(digitwin = digitwin, num_actions = 3, num_states = 6, testing = testing, 
-                         realtime = realtime, max_ep_len = max_ep_len, extended_state = extended_state)
+                         realtime = realtime, max_ep_len = max_ep_len, extended_state = extended_state, reset_acts=reset_acts)
 
         self.name = 'revoltsimple'
         # Overwrite environment bounds according to measured max velocity for this specific setup
@@ -332,9 +349,9 @@ class RevoltLimited(Revolt):
     ''' +++++++++++++++++++++++++++++++ '''
     '''      LIMITED AZIMUTH ANGLES     '''
     ''' +++++++++++++++++++++++++++++++ '''
-    def __init__(self, digitwin, testing = False, realtime = False, max_ep_len = 800, extended_state = False):
+    def __init__(self, digitwin, testing = False, realtime = False, max_ep_len = 800, extended_state = False, reset_acts = False):
         super().__init__(digitwin = digitwin, num_actions = 5, num_states = 6, testing = testing,
-                         realtime = realtime, max_ep_len = max_ep_len, extended_state = extended_state)
+                         realtime = realtime, max_ep_len = max_ep_len, extended_state = extended_state, reset_acts = reset_acts)
 
         # Not choosing the bow angle means (1) one less action bound, (2) remove one valid index, (3) set bow angle default to pi/2
         self.name = 'revoltlimited'

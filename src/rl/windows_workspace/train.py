@@ -38,15 +38,16 @@ if __name__ == '__main__':
     parser.add_argument('--env',        type=str,   default='limited')  # Name of the algorithm used
     parser.add_argument('--algo',       type=str,   default='ppo')  # Name of the algorithm used
     parser.add_argument('--sim',        type=int,   default=0)      # Simulator copy used. Requires a certain number of copies of the simulator available
-    parser.add_argument('--lw',         type=bool,  default=True)  # To use the lightweight simulator or not - True can be an advantage when training for longer
+    parser.add_argument('--lw',         type=bool,  default=False)  # To use the lightweight simulator or not - True can be an advantage when training for longer
     parser.add_argument('--note',       type=str,   default='')     # Add a comment
     parser.add_argument('--ext',        type=bool,  default=True)  # To use an extended state vector
+    parser.add_argument('--reset_acts', type=bool,  default=False)  # To use an extended state vector
     args = parser.parse_args()
 
     print('Training {} with {} core(s)'.format(args.algo.upper(), args.cpu))
     assert args.cpu == 1 or int(args.steps / args.cpu) > args.max_ep_len, 'If n_cpu > 1: The number of steps (interations between the agent and environment per epoch) per process must be larger than the largest episode to avoid empty episodal returns'
     
-    t = Trainer(n_sims = args.cpu, start = True, simulator_no = args.sim, lw = args.lw, env_type = args.env, extended_state = args.ext)
+    t = Trainer(n_sims = args.cpu, start = True, simulator_no = args.sim, lw = args.lw, env_type = args.env, extended_state = args.ext, reset_acts = args.reset_acts)
     mpi_fork(args.cpu)  # run parallel code with mpi 
 
     logger_kwargs = setup_logger_kwargs(args.exp_name, args.seed, datestamp = False) 

@@ -18,7 +18,8 @@ class Trainer(object):
                  simulator_no = 0,
                  lw           = False,
                  env_type     = 'simple',
-                 extended_state = False):
+                 extended_state = False,
+                 reset_acts = False):
 
         assert isinstance(n_sims,int) and n_sims > 0, 'Number of simulators must be an integer'
         self._n_sims      = n_sims
@@ -27,7 +28,8 @@ class Trainer(object):
         self._sim_no      = simulator_no # used for running the simulator from different directories
         self._realtime    = realtime
         self._lw          = lw
-        self._ext = extended_state
+        self._ext         = extended_state
+        self._reset_acts  = reset_acts
 
         if start:
             self.start_simulators()
@@ -63,7 +65,7 @@ class Trainer(object):
     def set_environments(self,env_type='simple',testing=False):
         n_envs = self._n_sims if num_procs() == 1 else 1 # If multiprocessing, each process only gets one environment
         Env = ENVIRONMENTS[env_type.lower()]
-        self._envs = [Env(self._digitwins[i], testing=testing, extended_state=self._ext) for i in range(n_envs)]
+        self._envs = [Env(self._digitwins[i], testing=testing, extended_state=self._ext, reset_acts = self._reset_acts) for i in range(n_envs)]
 
     def get_environments(self):
         return self._envs

@@ -32,7 +32,7 @@ def plot_data(data, xaxis='Epoch', value="AverageEpRet", condition="Condition1",
     if isinstance(data, list):
         data = pd.concat(data, ignore_index=True)
 
-    sns.set(style="darkgrid", font_scale=1.5)
+    sns.set(style="whitegrid", font_scale=1.5)
     sns.tsplot(data=data, time=xaxis, value=value, unit="Unit", condition=condition, ci='sd', **kwargs)
     """
     If you upgrade to any version of Seaborn greater than 0.8.1, switch from 
@@ -56,12 +56,19 @@ def plot_data(data, xaxis='Epoch', value="AverageEpRet", condition="Condition1",
 
     plt.tight_layout(pad=0.5)
 
-    # TODO check if improving labels work:
+    # Add my own likings to the plots
+    
     if value in label_equivs:
         plt.ylabel(label_equivs[value])
 
     if xaxis == 'TotalEnvInteracts':
         plt.xlabel(label_equivs[xaxis])
+
+    plt.grid(False)
+    plt.grid(axis='y', linestyle='--', color='grey', alpha=0.5)
+    ax = plt.gca()
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
 
 def get_datasets(logdir, condition=None):
     """

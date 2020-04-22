@@ -38,7 +38,7 @@ if __name__ == '__main__':
     parser.add_argument('--env',        type=str,   default='limited')  # Name of the algorithm used
     parser.add_argument('--algo',       type=str,   default='ppo')  # Name of the algorithm used
     parser.add_argument('--sim',        type=int,   default=0)      # Simulator copy used. Requires a certain number of copies of the simulator available
-    parser.add_argument('--lw',         type=bool,  default=False)  # To use the lightweight simulator or not - True can be an advantage when training for longer
+    parser.add_argument('--lw',         type=bool,  default=True)  # To use the lightweight simulator or not - True can be an advantage when training for longer
     parser.add_argument('--note',       type=str,   default='')     # Add a comment
     parser.add_argument('--ext',        type=bool,  default=True)  # To use an extended state vector
     parser.add_argument('--reset_acts', type=bool,  default=False)  # To use an extended state vector

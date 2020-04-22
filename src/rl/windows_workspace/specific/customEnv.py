@@ -228,13 +228,13 @@ class Revolt(gym.Env):
         # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.3,0.3], torque_based=True) # 1 # act_torque_high - gets better at using less thrust early
         # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty([0.05,0.05,0.05], thrust = False, angular = True) # actderangle - managed to get rid of angle flucts without having angles in the state vector, but stopped at 0 and 90 degs, which is actually OK as it does not lock in singular configuration
         
-        # heading behavior is okay on small setpoint changes, but test more reasonable reward function
+        # 21.04 - heading behavior is okay on small setpoint changes, but test more reasonable reward function
         # rew = self.vel_reward_2([1.0, 0.5, 1.5]) + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) # 0 - new velocity func with larger surge and sway coeffs
         # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.2,0.3,0.3], torque_based=True) # 1 - acttorlarge with smaller coeffs
 
         # 22.04 - test vel_rew_2 with small coefficients + resetting thrust to random values
-        # rew = self.vel_reward_2(self.vel_rew_coeffs) + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) # 0 - new velocity func with even coeffs
-        rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) # Just for testing performance with the action resetting
+        rew = self.vel_reward_2(self.vel_rew_coeffs) + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) # 0 - new velocity func with even coeffs
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) # Just for testing performance with the action resetting
         return rew  
 
     def vel_reward(self, coeffs = None):

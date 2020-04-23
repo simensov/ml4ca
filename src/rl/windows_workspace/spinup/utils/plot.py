@@ -5,6 +5,7 @@ import json
 import os
 import os.path as osp
 import numpy as np
+import copy
 
 DIV_LINE_WIDTH = 50
 
@@ -16,6 +17,7 @@ label_equivs = {'AverageEpRet': 'Average Episodal Return', 'AverageVVals': 'Aver
 
 def plot_data(data, xaxis='Epoch', value="AverageEpRet", condition="Condition1", smooth=1, **kwargs):
     if smooth > 1:
+        data_smoothed = copy.deepcopy(data)
         """
         smooth data with moving window average.
         that is,
@@ -23,7 +25,7 @@ def plot_data(data, xaxis='Epoch', value="AverageEpRet", condition="Condition1",
         where the "smooth" param is width of that window (2k+1)
         """
         y = np.ones(smooth)
-        for datum in data:
+        for datum in data_smoothed:
             x = np.asarray(datum[value])
             z = np.ones(len(x))
             smoothed_x = np.convolve(x,y,'same') / np.convolve(z,y,'same')
@@ -32,8 +34,17 @@ def plot_data(data, xaxis='Epoch', value="AverageEpRet", condition="Condition1",
     if isinstance(data, list):
         data = pd.concat(data, ignore_index=True)
 
+    if smooth > 1 and isinstance(data_smoothed, list):
+        data_smoothed = pd.concat(data_smoothed, ignore_index=True)
+
     sns.set(style="whitegrid", font_scale=1.5)
-    sns.tsplot(data=data, time=xaxis, value=value, unit="Unit", condition=condition, ci='sd', **kwargs)
+    a = 1.0
+    if smooth > 1:
+        sns.tsplot(data=data_smoothed, time=xaxis, value=value, unit="Unit", condition=condition, ci='sd', legend=False, **kwargs)
+        a = 0.6
+    
+    sns.tsplot(data=data, time=xaxis, value=value, unit="Unit", condition=condition, ci='sd', alpha=a,**kwargs)
+    
     """
     If you upgrade to any version of Seaborn greater than 0.8.1, switch from 
     tsplot to lineplot replacing L29 with:

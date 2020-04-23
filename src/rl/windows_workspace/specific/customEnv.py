@@ -227,14 +227,9 @@ class Revolt(gym.Env):
         # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty([0.05,0.05,0.05], angular = False) # act_der_low - suggest 0.075 instead! 0.10 overfits
         # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.3,0.3], torque_based=True) # 1 # act_torque_high - gets better at using less thrust early
         # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty([0.05,0.05,0.05], thrust = False, angular = True) # actderangle - managed to get rid of angle flucts without having angles in the state vector, but stopped at 0 and 90 degs, which is actually OK as it does not lock in singular configuration
-        
-        # 21.04 - heading behavior is okay on small setpoint changes, but test more reasonable reward function
-        # rew = self.vel_reward_2([1.0, 0.5, 1.5]) + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) # 0 - new velocity func with larger surge and sway coeffs
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.2,0.3,0.3], torque_based=True) # 1 - acttorlarge with smaller coeffs
 
-        # 22.04 - test vel_rew_2 with small coefficients + resetting thrust to random values
-        rew = self.vel_reward_2(self.vel_rew_coeffs) + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) # 0 - new velocity func with even coeffs
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) # Just for testing performance with the action resetting
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) # best with long training
+        rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1], torque_based=True) # realtorque
         return rew  
 
     def vel_reward(self, coeffs = None):
@@ -288,7 +283,8 @@ class Revolt(gym.Env):
         if torque_based: # The penalty is based on torque, meaning that 
             for n,c in zip(self.prev_thrust, pen_coeff):
                 # pen -= np.abs(n / 100.0)**1.5 * c # NBNB the power is lower than regular penalty between 0.0 and 1.0!!!
-                pen -= np.abs(n)**1.5 / 400.0 * c # This allows for the max action penalty to become 2.5 - as large as max vel penalty
+                # pen -= np.abs(n)**1.5 / 400.0 * c # This allows for the max action penalty to become 2.5 - as large as max vel penalty
+                pen -= np.abs(n)**3 / 10**5 * c # actually penalize like torque!
         else:
             for n,c in zip(self.prev_thrust, pen_coeff):
                 pen -= np.abs(n) / 100.0 * c
@@ -355,7 +351,7 @@ class RevoltLimited(Revolt):
 
         # Not choosing the bow angle means (1) one less action bound, (2) remove one valid index, (3) set bow angle default to pi/2
         self.name = 'revoltlimited'
-        self.real_ss_bounds[2]    = 25 * np.pi / 180 # Decrease heading 
+        self.real_ss_bounds[2]    = 30 * np.pi / 180
         self.real_action_bounds   = [100] * 3 + [np.pi / 2 ] * 2
         self.valid_action_indices = [0,    1,      2,      4,      5]
         self.act_2_act_map        = {0:0,  1:1,    2:2,    4:3,    5:4} # {index in self.actions : index in action vector outputed by this actor for this env}

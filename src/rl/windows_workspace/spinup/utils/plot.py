@@ -15,7 +15,7 @@ units = dict()
 
 label_equivs = {'AverageEpRet': 'Average Episodal Return', 'AverageVVals': 'Average $\hat{V}(s)$', 'TotalEnvInteracts': 'Simulator Time Steps', 'LossV': 'Critic Loss'}
 
-def plot_data(data, xaxis='Epoch', value="AverageEpRet", condition="Condition1", smooth=1, **kwargs):
+def plot_data(data, xaxis='Epoch', value="AverageEpRet", condition="Condition1", smooth=1, add=False, **kwargs):
     if smooth > 1:
         data_smoothed = copy.deepcopy(data)
         """
@@ -40,10 +40,14 @@ def plot_data(data, xaxis='Epoch', value="AverageEpRet", condition="Condition1",
     sns.set(style="whitegrid", font_scale=1.5)
     a = 1.0
     if smooth > 1:
-        sns.tsplot(data=data_smoothed, time=xaxis, value=value, unit="Unit", condition=condition, ci='sd', legend=False, **kwargs)
+        if add:
+            sns.tsplot(data=data_smoothed, time=xaxis, value=value, unit="Unit", condition=condition, ci='sd', legend=False, **kwargs)
+        else:
+            sns.tsplot(data=data_smoothed, time=xaxis, value=value, unit="Unit", condition=condition, ci='sd', **kwargs)
         a = 0.6
     
-    sns.tsplot(data=data, time=xaxis, value=value, unit="Unit", condition=condition, ci='sd', alpha=a,**kwargs)
+    if add:
+        sns.tsplot(data=data, time=xaxis, value=value, unit="Unit", condition=condition, ci='sd', alpha=a,**kwargs)
     
     """
     If you upgrade to any version of Seaborn greater than 0.8.1, switch from 
@@ -68,7 +72,7 @@ def plot_data(data, xaxis='Epoch', value="AverageEpRet", condition="Condition1",
     plt.tight_layout(pad=0.5)
 
     # Add my own likings to the plots
-    
+
     if value in label_equivs:
         plt.ylabel(label_equivs[value])
 
@@ -175,14 +179,14 @@ def get_all_datasets(all_logdirs, legend=None, select=None, exclude=None):
 
 
 def make_plots(all_logdirs, legend=None, xaxis=None, values=None, count=False,  
-               font_scale=1.5, smooth=1, select=None, exclude=None, estimator='mean'):
+               font_scale=1.5, smooth=1, select=None, exclude=None, estimator='mean',add=False):
     data = get_all_datasets(all_logdirs, legend, select, exclude)
     values = values if isinstance(values, list) else [values]
     condition = 'Condition2' if count else 'Condition1'
     estimator = getattr(np, estimator)      # choose what to show on main curve: mean? max? min?
     for value in values:
         plt.figure()
-        plot_data(data, xaxis=xaxis, value=value, condition=condition, smooth=smooth, estimator=estimator)
+        plot_data(data, xaxis=xaxis, value=value, condition=condition, smooth=smooth, estimator=estimator, add = add)
     plt.show()
 
 

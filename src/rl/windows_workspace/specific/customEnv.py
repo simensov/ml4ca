@@ -229,7 +229,8 @@ class Revolt(gym.Env):
         # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty([0.05,0.05,0.05], thrust = False, angular = True) # actderangle - managed to get rid of angle flucts without having angles in the state vector, but stopped at 0 and 90 degs, which is actually OK as it does not lock in singular configuration
 
         # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) # best with long training
-        rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1], torque_based=True) # realtorque
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1], torque_based=True) # realtorque TOO HIGH
+        rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty(pen_coeff=[0.05,0.05,0.05], thrust=True, angular=True,ang_coeff=[0.03,0.03,0.03])  # realtorque TOO HIGH
         return rew  
 
     def vel_reward(self, coeffs = None):
@@ -291,7 +292,7 @@ class Revolt(gym.Env):
 
         return pen # maximum penalty is 1 per time step if coeffs are <= 0.33
 
-    def action_derivative_penalty(self,pen_coeff=[0.2,0.2,0.2], thrust = True, angular = False):
+    def action_derivative_penalty(self,pen_coeff=[0.2,0.2,0.2], thrust = True, angular = False, ang_coeff = [0.03, 0.03, 0.03]):
         if not self.extended_state:
             return 0
 
@@ -309,7 +310,7 @@ class Revolt(gym.Env):
         if angular:
             angpen = 0
             derr = (np.array(self.current_angles) - np.array(self.prev_angles)) / self.dt
-            for dA, c in zip(derr,pen_coeff):
+            for dA, c in zip(derr,ang_coeff):
                 bnd = self.real_action_bounds[4] # 4 is always an angle, being the last action
                 angpen -= np.abs(dA / bnd) * c # 2 * bnd is the maximum change
 

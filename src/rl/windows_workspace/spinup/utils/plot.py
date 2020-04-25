@@ -38,32 +38,22 @@ def plot_data(data, xaxis='Epoch', value="AverageEpRet", condition="Condition1",
         data_smoothed = pd.concat(data_smoothed, ignore_index=True)
 
     sns.set(style="whitegrid", font_scale=1.5)
-    a = 1.0
-    if smooth > 1:
-        if add:
-            sns.tsplot(data=data_smoothed, time=xaxis, value=value, unit="Unit", condition=condition, ci='sd', legend=False, **kwargs)
-        else:
+
+    if (not add):
+        sns.tsplot(data=data, time=xaxis, value=value, unit="Unit", condition=condition, ci='sd',**kwargs)
+    else:
+        if smooth == 1:
+            sns.tsplot(data=data, time=xaxis, value=value, unit="Unit", condition=condition, ci='sd',**kwargs)
+        elif smooth > 1:
+            sns.tsplot(data=data, time=xaxis, value=value, unit="Unit", condition=condition, ci='sd', alpha=0.5, legend=False,**kwargs)
             sns.tsplot(data=data_smoothed, time=xaxis, value=value, unit="Unit", condition=condition, ci='sd', **kwargs)
-        a = 0.6
-    
-    if add:
-        sns.tsplot(data=data, time=xaxis, value=value, unit="Unit", condition=condition, ci='sd', alpha=a,**kwargs)
-    
+
     """
     If you upgrade to any version of Seaborn greater than 0.8.1, switch from 
-    tsplot to lineplot replacing L29 with:
-
-        sns.lineplot(data=data, x=xaxis, y=value, hue=condition, ci='sd', **kwargs)
-
+    tsplot to lineplot replacing L29 with 'sns.lineplot(data=data, x=xaxis, y=value, hue=condition, ci='sd', **kwargs)'
     Changes the colorscheme and the default legend style, though.
     """
     plt.legend(loc='best').set_draggable(True)
-
-    """
-    For the version of the legend used in the Spinning Up benchmarking page, 
-    swap L38 with plt.legend(loc='upper center', ncol=6, handlelength=1, mode="expand", borderaxespad=0., prop={'size': 13})
-    """
-
     xscale = np.max(np.asarray(data[xaxis])) > 5e3
     if xscale:
         # Just some formatting niceness: x-axis scale in scientific notation if max x is large
@@ -72,7 +62,6 @@ def plot_data(data, xaxis='Epoch', value="AverageEpRet", condition="Condition1",
     plt.tight_layout(pad=0.5)
 
     # Add my own likings to the plots
-
     if value in label_equivs:
         plt.ylabel(label_equivs[value])
 

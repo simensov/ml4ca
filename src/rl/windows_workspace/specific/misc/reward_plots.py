@@ -36,34 +36,35 @@ def summed_gaussian_vs_2D():
     from mathematics import gaussian, gaussian_like
     from mpl_toolkits.mplot3d import Axes3D
 
-    x = np.linspace(-8,8,101)
-    y = np.linspace(-8,8,101)
-    yaw = np.linspace(-20, 20, 101) * np.pi/180
-    X, Y = np.meshgrid(x,y)
-    pos = np.empty(X.shape + (2,))
-    pos[:, :, 0] = X
-    pos[:, :, 1] = Y
-    Z1 = np.zeros((x.shape[0], y.shape[0]))
-    Z2 = np.zeros((x.shape[0], y.shape[0]))
+    if False:
+        x = np.linspace(-8,8,101)
+        y = np.linspace(-8,8,101)
+        yaw = np.linspace(-20, 20, 101) * np.pi/180
+        X, Y = np.meshgrid(x,y)
+        pos = np.empty(X.shape + (2,))
+        pos[:, :, 0] = X
+        pos[:, :, 1] = Y
+        Z1 = np.zeros((x.shape[0], y.shape[0]))
+        Z2 = np.zeros((x.shape[0], y.shape[0]))
 
-    x_vals = [gaussian_like([i]) for i in x]
-    y_vals = [gaussian_like([i]) for i in y]
-    for i, x_val in enumerate(x_vals):
-        for j, y_val in enumerate(y_vals):
-                Z1[i,j] = x_val + y_val  
+        x_vals = [gaussian_like([i]) for i in x]
+        y_vals = [gaussian_like([i]) for i in y]
+        for i, x_val in enumerate(x_vals):
+            for j, y_val in enumerate(y_vals):
+                    Z1[i,j] = x_val + y_val  
 
-    for i in range(len(x)):
-        for j in range(len(y)):
-            r = np.sqrt( x[i]**2 + y[j]**2 )
-            val = gaussian_like( [r], var=[(np.sqrt(2))**2] )
-            Z2[i,j] = val
+        for i in range(len(x)):
+            for j in range(len(y)):
+                r = np.sqrt( x[i]**2 + y[j]**2 )
+                val = gaussian_like( [r], var=[(np.sqrt(2))**2] )
+                Z2[i,j] = val
 
-    for i in range(len(x)):
-        for j in range(len(y)):
-            r = np.sqrt( x[i]**2 + y[j]**2 )
-            val1 = gaussian_like( [r], var=[(2)**2]) 
-            val2 = (1-0.1*r) # + x_vals[i] + y_vals[j]
-            Z2[i,j] = val1 + val2
+        for i in range(len(x)):
+            for j in range(len(y)):
+                r = np.sqrt( x[i]**2 + y[j]**2 )
+                val1 = gaussian_like( [r], var=[(2)**2]) 
+                val2 = (1-0.1*r) # + x_vals[i] + y_vals[j]
+                Z2[i,j] = val1 + val2
 
     if False:
         fig = plt.figure()
@@ -86,23 +87,25 @@ def summed_gaussian_vs_2D():
     if True:
         max_r = np.sqrt(2 * 8**2)
         rads = np.linspace(-max_r, max_r, 101)
-        yaws = np.linspace(-20, 20, 101)
+        yaws = np.linspace(-45, 45, 101)
         X, Y = np.meshgrid(rads,yaws)
         pos = np.empty(X.shape + (2,))
         pos[:, :, 0] = X
         pos[:, :, 1] = Y
-        Z1 = np.zeros((x.shape[0], y.shape[0]))
-        Z2 = np.zeros((x.shape[0], y.shape[0]))
-        Z3 = np.zeros((x.shape[0], y.shape[0]))
-        Z4 = np.zeros((x.shape[0], y.shape[0]))
+        Z1 = np.zeros((rads.shape[0], yaws.shape[0]))
+        Z2 = np.zeros((rads.shape[0], yaws.shape[0]))
+        Z3 = np.zeros((rads.shape[0], yaws.shape[0]))
+        Z4 = np.zeros((rads.shape[0], yaws.shape[0]))
         for i in range(len(rads)):
             for j in range(len(yaws)):
                 measure = np.sqrt((rads[i])**2 + (yaws[j]/4)**2)
-                # Z1[i,j] = gaussian_like([rads[i]]) + gaussian_like([yaws[j]], var = [(180/np.pi*0.1)**2]) # + max(0.0, (1-0.1*measure))'
-                Z1[i,j] = 2 * unitary_multivar_normal( [rads[i], yaws[j]], mu = [0,0], var=[1.5**2, 4.0**2]) + max(0.0,(1-0.1*measure)) + 0.5
-                Z2[i,j] = unitary_multivar_normal( [rads[i], yaws[j]], mu = [0,0], var=[1.5**2, 4.0**2])
-                Z3[i,j] = max(0.0,(1-0.1*measure))
-                Z4[i,j] = unitary_multivar_normal( [rads[i], yaws[j]], mu = [0,0], var=[1**2, 3.0**2])
+                yaw_pen = 0.5 # -np.abs(yaws[j])/45.0
+                anti_sparity = max(-1.0, ( 1 - 0.1 * measure ))
+                multivar = 2 * unitary_multivar_normal( [rads[i], yaws[j]], mu = [0,0], var=[1.0**2, 5.0**2])
+                Z1[i,j] = multivar + anti_sparity + yaw_pen
+                Z2[i,j] = multivar
+                Z3[i,j] = anti_sparity
+                Z4[i,j] = yaw_pen + 10 * yaws[i] # TODO WTFWTF IS UP WITH THE AXIS?!?! ENSURE LARGER YAW PEN
 
         f1 = plt.figure()
         ax1 = f1.add_subplot(2,2,1,projection='3d')

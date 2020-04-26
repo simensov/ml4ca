@@ -91,7 +91,7 @@ def get_fixed_pose_on_radius(n, r=5, angle=5*np.pi/180):
     # use polar coords to always get a position of radius r away from setpoint
     # nice for testing average rewards from each run after training, but not so nice for training due to bad exploration
     thetas = [0.0, np.pi/4, np.pi/2, np.pi, 5*np.pi/4, 3*np.pi/2]
-    angles = [0.0,   0.0,      -20.0,        10.0,       0.0,       -20.0]
+    angles = [0.0,   0.0,      -15.0,        15.0,       0.0,       -15.0] # NOTE Beware of these wrt. the real_ss_bounds in the customEnv which terminates if large yaw angles
     
     if len(thetas) <= n: # Avoid n accessing unaccesable element, warn user about it
         print('n larger than 5 passed to fixed_points: starting on element 0')

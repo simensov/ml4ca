@@ -221,7 +221,7 @@ class Revolt(gym.Env):
         :returns:
             - A float representing the scalar reward of the agent being in the current state
         '''
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) # BEST, but probably only since the penalty avoids thrusters being on MAX, but doesnt necessary minimize the usage
+        rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) # BEST, but probably only since the penalty avoids thrusters being on MAX, but doesnt necessary minimize the usage
 
         # experiences using action penalties:
         # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty([0.05,0.05,0.05], angular = False) # act_der_low - suggest 0.075 instead! 0.10 overfits
@@ -230,7 +230,10 @@ class Revolt(gym.Env):
 
         # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) # best with long training
         # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.03,0.03], torque_based=True) # realtorquelow
-        rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty(pen_coeff=[0.05,0.05,0.05], thrust=True, angular=True,ang_coeff=[0.03,0.03,0.03])  # realtorque TOO HIGH
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty(pen_coeff=[0.05,0.05,0.05], thrust=False, angular=True,ang_coeff=[0.03,0.03,0.03]) 
+        # rew = self.vel_reward() + self.multivariate_gaussian(yaw_penalty=True) + self.thrust_penalty([0.1,0.1,0.1]) # Test strict heading by adding a penalty on heading
+        # rew = self.vel_reward() + self.smaller_yaw_dist() + self.thrust_penalty([0.1,0.1,0.1]) # Test old gaussian to see if it actually works going for the yaw first
+
         return rew  
 
     def vel_reward(self, coeffs = None):
@@ -258,18 +261,30 @@ class Revolt(gym.Env):
     def smaller_yaw_dist(self):
         ''' First reward function that fixed the steady state error in yaw by sharpening the yaw gaussian '''
         surge, sway, yaw = self.EF.get_pose()
-        rews = gaussian([surge,sway]) # mean 0 and var == 1
-        yawrew = gaussian([yaw], var=[0.1**2]) # Before, using var = 1, there wasnt any real difference between surge and sway and yaw
-        return sum(rews) + yawrew
+        rews = gaussian_like([surge,sway]) # mean 0 and var == 1
+        yawrew = gaussian_like([yaw], var=[0.1**2]) # Before, using var = 1, there wasnt any real difference between surge and sway and yaw
+        r = np.sqrt(surge**2 + sway**2) # meters
+        special_measurement = np.sqrt(r**2 + (yaw * 0.25)**2) 
+        anti_sparity = max(0.0, (1-0.1*special_measurement))
+        return sum(rews) / 2 + 2 * yawrew + anti_sparity
 
-    def multivariate_gaussian(self):
+    def multivariate_gaussian(self,yaw_penalty=False):
         ''' Using a multivariate gaussian distribution without normalizing area to 1, with a diagonal covariance matrix and a linear "sparsity-regularizer" '''
         surge, sway, yaw = self.EF.get_pose()
         r = np.sqrt(surge**2 + sway**2) # meters
         yaw = yaw * 180 / np.pi # Use degrees since that was the standard when creating the reward function - easier visualized than radians
         special_measurement = np.sqrt(r**2 + (yaw * 0.25)**2) 
         x = np.array([[r, yaw]]).T
-        return 2 * np.exp(-0.5 * (x.T).dot(self.covar_inv).dot(x)) + 1 * max(0.0, (1-0.1*special_measurement)) + 0.5 # can be viewed in reward_plots.py
+
+        yaw_pen = 0 
+        # if yaw_penalty: # TODO this seems to penalize radius more...
+        #     yaw_pen = max(-1,0 - np.abs(yaw)/45.0)
+        if yaw_penalty:
+            low = -1.0
+        else:
+            low = 0.0
+
+        return 2 * np.exp(-0.5 * (x.T).dot(self.covar_inv).dot(x)) + 1 * max(low, (1-0.1*special_measurement)) + 0.5 + yaw_pen # can be viewed in reward_plots.py
         
     def multivar(self):
         surge, sway, yaw = self.EF.get_pose()
@@ -352,7 +367,7 @@ class RevoltLimited(Revolt):
 
         # Not choosing the bow angle means (1) one less action bound, (2) remove one valid index, (3) set bow angle default to pi/2
         self.name = 'revoltlimited'
-        self.real_ss_bounds[2]    = 30 * np.pi / 180
+        self.real_ss_bounds[2]    = 45 * np.pi / 180 # TODO increased
         self.real_action_bounds   = [100] * 3 + [np.pi / 2 ] * 2
         self.valid_action_indices = [0,    1,      2,      4,      5]
         self.act_2_act_map        = {0:0,  1:1,    2:2,    4:3,    5:4} # {index in self.actions : index in action vector outputed by this actor for this env}

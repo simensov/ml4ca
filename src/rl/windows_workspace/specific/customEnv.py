@@ -222,7 +222,7 @@ class Revolt(gym.Env):
         :returns:
             - A float representing the scalar reward of the agent being in the current state
         '''
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) # BEST, but probably only since the penalty avoids thrusters being on MAX, but doesnt necessary minimize the usage
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) # best in Windows, but probably only since the penalty avoids thrusters being on MAX, but doesnt necessary minimize the usage
 
         # experiences using action penalties:
         # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty([0.05,0.05,0.05], angular = False) # act_der_low - suggest 0.075 instead! 0.10 overfits
@@ -237,7 +237,9 @@ class Revolt(gym.Env):
         # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty(pen_coeff=[0.01,0.01,0.01], thrust=True, angular=True, ang_coeff=[0.02,0.02,0.02]) # actderallsmall
         
         # rew = self.vel_reward() + self.summed_gaussian_like() + self.thrust_penalty([0.1,0.1,0.1]) # antisparitized gaussian trained for longer
-        rew = self.vel_reward() + self.summed_gaussian_with_multivariate() + self.thrust_penalty([0.1,0.1,0.1]) # Old gaussian summed with multivar for best of both worlds
+        # rew = self.vel_reward() + self.summed_gaussian_with_multivariate() + self.thrust_penalty([0.1,0.1,0.1]) # Old gaussian summed with multivar for best of both worlds
+
+        rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty([0.05,0.075,0.075], angular = False) # actderros # changed derivatives according to what seems nice in ROS. high used 0.1, 0.1, 0.1
 
         return rew  
 
@@ -330,7 +332,7 @@ class Revolt(gym.Env):
 
         return pen # maximum penalty is 1 per time step if coeffs are <= 0.33
 
-    def action_derivative_penalty(self,pen_coeff=[0.2,0.2,0.2], thrust = True, angular = False, ang_coeff = [0.03, 0.03, 0.03]):
+    def action_derivative_penalty(self,pen_coeff=[0.1,0.1,0.1], thrust = True, angular = False, ang_coeff = [0.03, 0.03, 0.03]):
         if not self.extended_state:
             return 0
 
@@ -343,7 +345,7 @@ class Revolt(gym.Env):
             for dT,c in zip(derr, pen_coeff):
                 pen -= np.abs(dT / 100.0) * c # 200 is the maximum change from one second to another
 
-            pen = max(-1.0, pen)
+            # pen = max(-1.0, pen)
 
         if angular:
             angpen = 0

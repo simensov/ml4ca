@@ -232,8 +232,9 @@ class Revolt(gym.Env):
         # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.03,0.03], torque_based=True) # realtorquelow
         # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty(thrust=False, angular=True,ang_coeff=[0.03,0.03,0.03]) 
         # rew = self.vel_reward() + self.multivariate_gaussian(yaw_penalty=True) + self.thrust_penalty([0.1,0.1,0.1]) # Test strict heading by adding a penalty on heading
-        # rew = self.vel_reward() + self.smaller_yaw_dist() + self.thrust_penalty([0.1,0.1,0.1]) # Test old gaussian to see if it actually works going for the yaw first
-        rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty(pen_coeff=[0.01,0.01,0.01], thrust=True, angular=True, ang_coeff=[0.02,0.02,0.02]) # actderallsmall
+        # rew = self.vel_reward() + self.smaller_yaw_dist() + self.thrust_penalty([0.1,0.1,0.1]) # regularized old summed gaussian trained for longer
+        rew = self.vel_reward() + self.smaller_yaw_dist() + self.thrust_penalty([0.1,0.1,0.1]) #Old gaussian trained for longer
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty(pen_coeff=[0.01,0.01,0.01], thrust=True, angular=True, ang_coeff=[0.02,0.02,0.02]) # actderallsmall
 
         return rew  
 
@@ -266,8 +267,26 @@ class Revolt(gym.Env):
         yawrew = gaussian_like([yaw], var=[0.1**2]) # Before, using var = 1, there wasnt any real difference between surge and sway and yaw
         r = np.sqrt(surge**2 + sway**2) # meters
         special_measurement = np.sqrt(r**2 + (yaw * 0.25)**2) 
-        anti_sparity = max(0.0, (1-0.1*special_measurement))
+        anti_sparity = max(-1.0, (1-0.1*special_measurement))
         return sum(rews) / 2 + 2 * yawrew + anti_sparity
+
+    def summed_gaussian_with_multivariate(self):
+        ''' First reward function that fixed the steady state error in yaw by sharpening the yaw gaussian '''
+        surge, sway, yaw = self.EF.get_pose()
+
+        yaw = yaw * 180 / np.pi # Use degrees since that was the standard when creating the reward function - easier visualized than radians
+        yawrew = gaussian_like([yaw], var=[5.0**2]) # Before, using var = 1, there wasnt any real difference between surge and sway and yaw
+        
+        r = np.sqrt(surge**2 + sway**2) # meters
+        radrew = gaussian_like([r]) # mean 0 and var 1
+
+        special_measurement = np.sqrt(r**2 + (yaw * 0.25)**2) 
+        anti_sparity = max(-1.0, (1-0.1*special_measurement))
+
+        x = np.array([[r, yaw]]).T
+        multi_rew = np.exp(-0.5 * (x.T).dot(self.covar_inv).dot(x))
+        
+        return radrew + yawrew + anti_sparity + multi_rew
 
     def multivariate_gaussian(self,yaw_penalty=False):
         ''' Using a multivariate gaussian distribution without normalizing area to 1, with a diagonal covariance matrix and a linear "sparsity-regularizer" '''

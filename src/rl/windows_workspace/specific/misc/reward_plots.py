@@ -55,12 +55,12 @@ def summed_gaussian_vs_2D(pltno = 0):
 
 
         if False: # was used initially for finding out how to avoid sparsity
-        # for i in range(len(x)):
-        #     for j in range(len(y)):
-        #         r = np.sqrt( x[i]**2 + y[j]**2 )
-        #         val1 = gaussian_like( [r], var=[(2)**2]) 
-        #         val2 = (1-0.1*r) # + x_vals[i] + y_vals[j]
-        #         Z2[i,j] = val1 + val2
+            for i in range(len(x)):
+                for j in range(len(y)):
+                    r = np.sqrt( x[i]**2 + y[j]**2 )
+                    val1 = gaussian_like( [r], var=[(2)**2]) 
+                    val2 = (1-0.1*r) # + x_vals[i] + y_vals[j]
+                    Z2[i,j] = val1 + val2
 
         fig = plt.figure()
         ax1 = fig.add_subplot(2,2,1,projection='3d')
@@ -130,21 +130,26 @@ def summed_gaussian_vs_2D(pltno = 0):
 
 
     elif pltno == 2:
-        x = np.linspace(-8,8,101)
-        y = np.linspace(-8,8,101)
-        yaw = np.linspace(-20, 20, 101) * np.pi/180
-        X, Y = np.meshgrid(x,yaw)
+        # x = np.linspace(-8,8,101)
+        # y = np.linspace(-8,8,101)
+        max_r = np.sqrt(2 * 8**2)
+        rads = np.linspace(-max_r, max_r, 101)
+        yaws = np.linspace(-20, 20, 101)
+        X, Y = np.meshgrid(rads,yaws)
         pos = np.empty(X.shape + (2,))
         pos[:, :, 0] = X
         pos[:, :, 1] = Y
-        Z1 = np.zeros((x.shape[0], y.shape[0]))
-        Z2 = np.zeros((x.shape[0], y.shape[0]))
+        Z1 = np.zeros((rads.shape[0], yaws.shape[0]))
+        Z2 = np.zeros((rads.shape[0], yaws.shape[0]))
 
-        x_vals = [gaussian_like([i]) for i in x]
-        y_vals = [gaussian_like([i]) for i in y]
-        for i, x_val in enumerate(x_vals):
-            for j, y_val in enumerate(y_vals):
-                    Z1[i,j] = x_val + y_val  
+        r_vals = [gaussian_like([i]) for i in rads]
+        yaw_vals = [gaussian_like([i], var=[5.0**2]) for i in yaws]
+        for i, r_val in enumerate(r_vals):
+            for j, yaw_val in enumerate(yaw_vals):
+                    Z1[i,j] = r_val + yaw_val  
+                    special_measurement = np.sqrt(rads[i]**2 + (yaws[j] * 0.25)**2) 
+                    anti_sparity = max(-1.0, (1-0.1*special_measurement))
+                    Z2[i,j] = Z1[i,j] + anti_sparity + unitary_multivar_normal( [rads[i], yaws[j]], mu = [0,0], var=[1.0**2, 5.0**2])
 
         fig = plt.figure()
         ax1 = fig.add_subplot(2,2,1,projection='3d')
@@ -158,7 +163,7 @@ def summed_gaussian_vs_2D(pltno = 0):
 
         for ax, plot in [(ax1,plt1) ,(ax2,plt2)]:
             ax.set_xlabel('$\~{x}$', size=12)
-            ax.set_ylabel('$\~{y}$', size=12)
+            ax.set_ylabel('$\~{\psi}$', size=12)
             ax.set_zlabel('$Reward$', size=12)
             # bar = plt.colorbar(plot, orientation='horizontal',pad=0.2)
             # bar.set_label('Reward ',  size = 12)    
@@ -238,10 +243,10 @@ if __name__ == '__main__':
     # plot_unitary()
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--plotno', '-n', type=int, default=0)
+    parser.add_argument('--pltno', '-n', type=int, default=0)
     args = parser.parse_args()
 
 
-    summed_gaussian_vs_2D(plotno = args.plotno)
+    summed_gaussian_vs_2D(pltno = args.pltno)
     plt.show()
     pass

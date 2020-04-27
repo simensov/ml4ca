@@ -73,10 +73,11 @@ class Revolt(gym.Env):
         '''     REWARD AND TEST PARAMS      '''
         ''' +++++++++++++++++++++++++++++++ '''
         self.vel_rew_coeffs = [0.5,0.5,1.0] # weighting between surge, sway and heading deviations used in reward function. Punish one rad/s twice as much as one m/s
-        self.n_steps    = 1 if (testing and realtime) else 10 # I dont want to step at 100 Hz ever, really
+        timesteps = 20
+        self.n_steps    = 1 if (testing and realtime) else timesteps # I dont want to step at 100 Hz ever, really
         self.dt         = 0.01 * self.n_steps
         self.testing    = testing # stores if the environment is being used while testing policy, or is being used for training
-        self.max_ep_len = max_ep_len * int(10/self.n_steps)
+        self.max_ep_len = max_ep_len * int(timesteps/self.n_steps)
 
         ''' Unitary multivariate gaussian reward parameters '''
         self.covar = np.array([ [1**2,      0   ],  # meters

@@ -227,14 +227,16 @@ class Revolt(gym.Env):
         # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty([0.05,0.05,0.05], angular = False) # act_der_low - suggest 0.075 instead! 0.10 overfits
         # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.3,0.3], torque_based=True) # 1 # act_torque_high - gets better at using less thrust early
         # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty([0.05,0.05,0.05], thrust = False, angular = True) # actderangle - managed to get rid of angle flucts without having angles in the state vector, but stopped at 0 and 90 degs, which is actually OK as it does not lock in singular configuration
-
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) # best with long training
+        
+        # rew = self.vel_reward() + self.multivariate_gaussian(yaw_penalty=True) + self.thrust_penalty([0.1,0.1,0.1]) # Test strict heading by adding a penalty on heading, yawstdpen
+        
         # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.03,0.03], torque_based=True) # realtorquelow
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty(thrust=False, angular=True,ang_coeff=[0.03,0.03,0.03]) 
-        # rew = self.vel_reward() + self.multivariate_gaussian(yaw_penalty=True) + self.thrust_penalty([0.1,0.1,0.1]) # Test strict heading by adding a penalty on heading
-        # rew = self.vel_reward() + self.smaller_yaw_dist() + self.thrust_penalty([0.1,0.1,0.1]) # regularized old summed gaussian trained for longer
-        rew = self.vel_reward() + self.smaller_yaw_dist() + self.thrust_penalty([0.1,0.1,0.1]) #Old gaussian trained for longer
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty(thrust=False, angular=True,ang_coeff=[0.03,0.03,0.03]) #acrderanglelow
+        
         # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty(pen_coeff=[0.01,0.01,0.01], thrust=True, angular=True, ang_coeff=[0.02,0.02,0.02]) # actderallsmall
+        
+        # rew = self.vel_reward() + self.summed_gaussian_like() + self.thrust_penalty([0.1,0.1,0.1]) # antisparitized gaussian trained for longer
+        rew = self.vel_reward() + self.summed_gaussian_with_multivariate() + self.thrust_penalty([0.1,0.1,0.1]) # Old gaussian summed with multivar for best of both worlds
 
         return rew  
 
@@ -247,7 +249,7 @@ class Revolt(gym.Env):
         return -np.sqrt(sum( [e**2 * c for e,c in zip(get_vel_3DOF(self.dTwin), coeffs)] ))
 
     def vel_reward_2(self, coeffs = None):
-        ''' Penalizes high velocities. Maximum penalty with real_bounds and all coeffs = 1 : -2.37. All coeffs = 0.5 : -1.675'''
+        ''' Penalizes high velocities as a sum instead of sqrt'''
         if coeffs is None:
             coeffs = self.vel_rew_coeffs
         assert len(coeffs) == 3 and isinstance(coeffs,list), 'Vel coeffs must be a list of length 3'
@@ -260,7 +262,7 @@ class Revolt(gym.Env):
 
         return pen
 
-    def smaller_yaw_dist(self):
+    def summed_gaussian_like(self):
         ''' First reward function that fixed the steady state error in yaw by sharpening the yaw gaussian '''
         surge, sway, yaw = self.EF.get_pose()
         rews = gaussian_like([surge,sway]) # mean 0 and var == 1

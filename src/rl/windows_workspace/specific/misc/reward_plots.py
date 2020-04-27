@@ -32,11 +32,11 @@ def grid():
     bar.set_label('Reward ', rotation = 90, size = 12)
     plt.show()
 
-def summed_gaussian_vs_2D():
+def summed_gaussian_vs_2D(pltno = 0):
     from mathematics import gaussian, gaussian_like
     from mpl_toolkits.mplot3d import Axes3D
 
-    if False:
+    if pltno == 0:
         x = np.linspace(-8,8,101)
         y = np.linspace(-8,8,101)
         yaw = np.linspace(-20, 20, 101) * np.pi/180
@@ -53,20 +53,15 @@ def summed_gaussian_vs_2D():
             for j, y_val in enumerate(y_vals):
                     Z1[i,j] = x_val + y_val  
 
-        for i in range(len(x)):
-            for j in range(len(y)):
-                r = np.sqrt( x[i]**2 + y[j]**2 )
-                val = gaussian_like( [r], var=[(np.sqrt(2))**2] )
-                Z2[i,j] = val
 
-        for i in range(len(x)):
-            for j in range(len(y)):
-                r = np.sqrt( x[i]**2 + y[j]**2 )
-                val1 = gaussian_like( [r], var=[(2)**2]) 
-                val2 = (1-0.1*r) # + x_vals[i] + y_vals[j]
-                Z2[i,j] = val1 + val2
+        if False: # was used initially for finding out how to avoid sparsity
+        # for i in range(len(x)):
+        #     for j in range(len(y)):
+        #         r = np.sqrt( x[i]**2 + y[j]**2 )
+        #         val1 = gaussian_like( [r], var=[(2)**2]) 
+        #         val2 = (1-0.1*r) # + x_vals[i] + y_vals[j]
+        #         Z2[i,j] = val1 + val2
 
-    if False:
         fig = plt.figure()
         ax1 = fig.add_subplot(2,2,1,projection='3d')
         ax2 = fig.add_subplot(2,2,2,projection='3d')
@@ -84,7 +79,7 @@ def summed_gaussian_vs_2D():
             # bar = plt.colorbar(plot, orientation='horizontal',pad=0.2)
             # bar.set_label('Reward ',  size = 12)    
 
-    if True:
+    elif pltno == 1:
         max_r = np.sqrt(2 * 8**2)
         rads = np.linspace(-max_r, max_r, 101)
         yaws = np.linspace(-45, 45, 101)
@@ -133,6 +128,44 @@ def summed_gaussian_vs_2D():
         ax4.set_xlabel('$\~{r}$',size=12)
         ax4.set_ylabel('$\~{\psi}$',size=12)
 
+
+    elif pltno == 2:
+        x = np.linspace(-8,8,101)
+        y = np.linspace(-8,8,101)
+        yaw = np.linspace(-20, 20, 101) * np.pi/180
+        X, Y = np.meshgrid(x,yaw)
+        pos = np.empty(X.shape + (2,))
+        pos[:, :, 0] = X
+        pos[:, :, 1] = Y
+        Z1 = np.zeros((x.shape[0], y.shape[0]))
+        Z2 = np.zeros((x.shape[0], y.shape[0]))
+
+        x_vals = [gaussian_like([i]) for i in x]
+        y_vals = [gaussian_like([i]) for i in y]
+        for i, x_val in enumerate(x_vals):
+            for j, y_val in enumerate(y_vals):
+                    Z1[i,j] = x_val + y_val  
+
+        fig = plt.figure()
+        ax1 = fig.add_subplot(2,2,1,projection='3d')
+        ax2 = fig.add_subplot(2,2,2,projection='3d')
+        ax3 = fig.add_subplot(2,2,3)
+        ax4 = fig.add_subplot(2,2,4)
+        plt1 = ax1.plot_surface(X, Y, Z1, cmap='viridis',linewidth=0)
+        plt2 = ax2.plot_surface(X, Y, Z2, cmap='viridis',linewidth=0)
+        plt3 = ax3.contour(X,Y,Z1)
+        plt4 = ax4.contour(X,Y,Z2)
+
+        for ax, plot in [(ax1,plt1) ,(ax2,plt2)]:
+            ax.set_xlabel('$\~{x}$', size=12)
+            ax.set_ylabel('$\~{y}$', size=12)
+            ax.set_zlabel('$Reward$', size=12)
+            # bar = plt.colorbar(plot, orientation='horizontal',pad=0.2)
+            # bar.set_label('Reward ',  size = 12)    
+
+
+    else:
+        print('No valid pltno given')
 
 
 def contour():
@@ -203,6 +236,12 @@ def plot_unitary():
 
 if __name__ == '__main__':
     # plot_unitary()
-    summed_gaussian_vs_2D()
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--plotno', '-n', type=int, default=0)
+    args = parser.parse_args()
+
+
+    summed_gaussian_vs_2D(plotno = args.plotno)
     plt.show()
     pass

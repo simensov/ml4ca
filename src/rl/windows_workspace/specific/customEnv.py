@@ -77,7 +77,7 @@ class Revolt(gym.Env):
         self.n_steps    = 1 if (testing and realtime) else timesteps # I dont want to step at 100 Hz ever, really
         self.dt         = 0.01 * self.n_steps
         self.testing    = testing # stores if the environment is being used while testing policy, or is being used for training
-        self.max_ep_len = max_ep_len * int(timesteps/self.n_steps)
+        self.max_ep_len = int(max_ep_len * 10.0/self.n_steps) # 800 was specialized for 10 Hz - 5Hz needs less
 
         ''' Unitary multivariate gaussian reward parameters '''
         self.covar = np.array([ [1**2,      0   ],  # meters
@@ -222,7 +222,7 @@ class Revolt(gym.Env):
         :returns:
             - A float representing the scalar reward of the agent being in the current state
         '''
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) # best in Windows, but probably only since the penalty avoids thrusters being on MAX, but doesnt necessary minimize the usage
+        rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) # best in Windows, but probably only since the penalty avoids thrusters being on MAX, but doesnt necessary minimize the usage
 
         # experiences using action penalties:
         # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty([0.05,0.05,0.05], angular = False) # act_der_low - suggest 0.075 instead! 0.10 overfits
@@ -239,7 +239,7 @@ class Revolt(gym.Env):
         # rew = self.vel_reward() + self.summed_gaussian_like() + self.thrust_penalty([0.1,0.1,0.1]) # antisparitized gaussian trained for longer
         # rew = self.vel_reward() + self.summed_gaussian_with_multivariate() + self.thrust_penalty([0.1,0.1,0.1]) # Old gaussian summed with multivar for best of both worlds
 
-        rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty([0.05,0.075,0.075], angular = False) # actderros # changed derivatives according to what seems nice in ROS. high used 0.1, 0.1, 0.1
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty([0.05,0.075,0.075], angular = False) # actderros # changed derivatives according to what seems nice in ROS. high used 0.1, 0.1, 0.1
 
         return rew  
 

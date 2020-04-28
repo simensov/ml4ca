@@ -44,7 +44,7 @@ if __name__ == '__main__':
     data, ned_data, action_data = run_RL_policy(env, get_action, max_ep_len = env.max_ep_len, num_episodes = args.episodes, test_setpoint_changes = False)
 
     if args.plot:
-        plot_policytest_data(args,data)
-        plot_NED_data(args,ned_data)
+        plot_policytest_data(args,data,env)
+        plot_NED_data(args,ned_data,env)
         plot_action_data(args,action_data,env)
         plt.show()

@@ -19,7 +19,7 @@ params = {
 plt.rcParams.update(params)
 
     
-def plot_policytest_data(args,data):
+def plot_policytest_data(args,data,env):
     fig, (ax1, ax2, ax3) = plt.subplots(3, sharex=True)
     plt.xlabel('Time [s]')
     ax1.set_ylabel('$\sqrt{ {\~{x}}^2 + {\~{y}}^2 }$ [m]')
@@ -32,7 +32,7 @@ def plot_policytest_data(args,data):
 
     axes = [ax1, ax2, ax3, ax4]
     
-    step_len = 0.001 if args.realtime else 0.1
+    step_len = env.dt
     ep_no, ep_len = 0, 0
     for episode in data:
         ep_len = len(episode)
@@ -71,7 +71,7 @@ def plot_policytest_data(args,data):
     fig.tight_layout()
 
 
-def plot_NED_data(args,data):
+def plot_NED_data(args,data,env):
     '''
     :args:
         - data (list): a list of lists, giving all NED_pos, NED_ref lists of all time steps of all episodes
@@ -89,7 +89,7 @@ def plot_NED_data(args,data):
 
     axes = [ax1, ax2, ax3, ax4]
     
-    step_len = 0.001 if args.realtime else 0.1
+    step_len = env.dt
     ep_no, ep_len = 0, 0
     for episode in data:
         ep_len = len(episode)
@@ -140,7 +140,7 @@ def plot_action_data(args,data,env):
                 ax.set_ylabel('Angle {}'.format(idx+1))
         idx += 1
 
-    step_len = 0.001 if args.realtime else 0.1
+    step_len = env.dt
     ep_no, ep_len = 0, 0
 
     for episode in data:

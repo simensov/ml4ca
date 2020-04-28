@@ -1,0 +1,35 @@
+template:	r-trajectories: good
+		y-trajectories: sloppy
+		thrust-usage:	sensible
+		thrust-derivs:	okay
+		angle-derivs:	okay
+
+actderhigh: 	r-trajectories: good, except NW-SW
+		y-trajectories: okay
+		thrust-usage:	okay
+		thrust-derivs:	okay
+		angle-derivs:	okay
+
+actpentorhigh:  r-trajectories: good
+		y-trajectories: sloppy
+		thrust-usage:	good
+		thrust-derivs:	okay
+		angle-derivs:	okay
+
+newveleven:	r-trajectories: good, except NW-SW
+		y-trajectories: good, but oscillating
+		thrust-usage:	a bit high
+		thrust-derivs:	slowly varying
+		angle-derivs:	VERY high, oscillating
+
+newvelstd:	r-trajectories: stalls on NE-NW setpt due to stern thruster locks. But otherwise OK
+		y-trajectories: --||--
+		thrust-usage:	--||--
+		thrust-derivs:	--||--
+		angle-derivs:	--||--
+
+resetact:	r-trajectories: OK, except NW-SW
+		y-trajectories: bad
+		thrust-usage:	high
+		thrust-derivs:	high
+		angle-derivs:	locks on 90 degrees

@@ -1,22 +1,28 @@
 #!/usr/bin/python3
 
 """
+NOTE: This node ONLY acts in the case of controlmode being DP. If changing away to other controlmode, e.g. sysID, there
+      In order for this node to ensure that the system works as intended, only a few functions needs to be added.
+      See dp_controller/nodesThruster_allocation.py for how callbacks from sysID etc. is handled.
+      
 NOTE that this node is using Python 3!!!
-NOTE remember to ensure that the simulator you are using has the linear actuator DOWN as a default. If not, go to (in the simulator):
-    - Explorer Window -> THR1 -> Input Signals -> LinearActuator and Override the value, setting it to 2.0
+NOTE remember to ensure that the simulator you are using has the linear actuator of the bow thruster down.
+     This can be changed to be the default, or preferably by the message /bow_control (member bow_lin_act).
+     If not, go to (in the simulator): Explorer Window -> THR1 -> Input Signals -> LinearActuator and Override the value, setting it to 2.0
 
 ROS Node for using a neural network for solving the thrust allocation problem on the ReVolt model ship. #!/home/revolt/revolt_ws/src/rl_venv/bin/python
 The neural network was trained using the actor critic, policy gradient method PPO. It was trained during 24 hours of simulation on a Windows computer.
 The model was not given any information about the vessel or the environment, and is therefore based 100% on "self play".
-The node was created as a part of an MSc thesis, named "Solving thrust allocation for surface vessels using deep reinforcement learning". 
+This node was created as a part of an MSc thesis, named TODO "Solving thrust allocation for surface vessels using deep reinforcement learning". 
 
 The output of the policy network (the part that decides which action to take) is in the area (-1,1), and therefore has to be scaled up to (-100%, 100%).
 This varies with if we are looking at %RPM or angles, in which the %RPM is in scaled with a factor of 100, and the angles are scaled according to the environment, 
 usually pi/2 since the network picks angles between -pi/2 and pi/2.
 
 Requirements:
-    - Tensorflow 1.x - NOTE that the system pip (for python2.7) uses tensorflow 2. It is wanted to keep tf.__version__ >= 2.0.0 as basis as that is by far the best documented modules for now.
-                       neural allocator uses Keras, which is based on using tf2 as backend. Therefore, this node (and the other supportive files in this package) runs with the system's Python 3.
+    - Tensorflow 1.x - NOTE that the system pip (for python2.7) uses tensorflow 2. It is wanted to keep tf.__version__ >= 2.0.0 as basis as that is by far the best documented module for now.
+                       neural allocator uses Keras, which is based on using tf2 as backend. Therefore, this node (and the other supportive files in this package) runs with the system's Python 3,
+                       in order to access tensorflow 1
 
 @author: Simen Sem Oevereng, simensem@gmail.com. June 2020.
 """
@@ -24,40 +30,15 @@ Requirements:
 from __future__ import division
 import rospy
 from std_msgs.msg import Float64
-from custom_msgs.msg import podAngle, SternThrusterSetpoints, bowControl, NorthEastHeading
+from custom_msgs.msg import podAngle, SternThrusterSetpoints, bowControl, NorthEastHeading, diffThrottleStern
 from geometry_msgs.msg import Wrench, Twist
 import numpy as np 
 import sys # for sys.exit()
 import time
 from errorFrame import ErrorFrame, wrap_angle
-from tf_utils import load_policy
+from utils import load_policy, create_publishable_messages, shutdown_handler
 
-debug = False
-
-def createPublishableMessages(u):
-    '''
-    :params:
-        - u (ndarray): a (6,) shaped array containing [n1,n2,n3,a1,a2,a3] in percentages and degrees
-    '''
-    thruster_percentages = u[:3]
-    thruster_angles = u[3:]
-
-    # Set messages as angles in degrees, and thruster inputs in RPM percentages
-    pod_angle = podAngle()        
-    pod_angle.port = float(np.rad2deg(thruster_angles[0]))
-    pod_angle.star = float(np.rad2deg(thruster_angles[1]))
-
-    stern_thruster_setpoints = SternThrusterSetpoints()
-    stern_thruster_setpoints.port_effort = float(thruster_percentages[0])
-    stern_thruster_setpoints.star_effort = float(thruster_percentages[1])
-    
-    bow_control = bowControl()
-    bow_control.throttle_bow = float(thruster_percentages[2]) # Bow throttle doesn't work at low inputs. (DC Motor)
-    bow_control.position_bow = int(np.rad2deg(thruster_angles[2]))
-    bow_control.lin_act_bow = 2
-
-    return pod_angle, stern_thruster_setpoints, bow_control
-
+DEBUG = False
 
 class RLTA(object):
     '''
@@ -126,18 +107,20 @@ class RLTA(object):
                          'full': {'act_bnd': act_bnd['full'],    'act_map' : act_map['full'],    'default_actions': act_def['full'] }  
                       }
 
-        # Set environment type (see ml4TA/src/rl/windows_workspace/specific/customEnv for definitions)
+        # Set environment type (see ml4ta/src/rl/windows_workspace/specific/customEnv for definitions)
         self.env = 'limited'
-        path = '/home/revolt/revolt_ws/src/rl_allocator/src/{}'.format(self.env)
+        if self.env == 'simple': raise Exception('No simple enviroments has been trained using previous thrust in the state vector - sorry')
+
+        path = '/home/revolt/revolt_ws/src/rl_allocator/src/models/{}'.format(self.env)
         rospy.loginfo('Launching RLTA - it takes a few seconds to load...')
         try:
-            self.actor = load_policy(fpath=path) # a FUNCTION which takes in a state, and outputs an action
-            rospy.loginfo("... loading of RL policy network for thrust allocation successful.")
+            self.actor = load_policy(fpath = path) # a FUNCTION which takes in a state, and outputs an action
+            rospy.loginfo('... loading RL policy network using {} thruster setup for thrust allocation successful.'.format(self.env))
         except:
-            rospy.logerr("Loading of RL policy network fir thrust allocation was not successful. Shutting down node")
+            rospy.logerr('... loading RL policy network for thrust allocation was not successful. Shutting down node')
             sys.exit()
 
-        self.rate = rospy.Rate(10) # time step of 0.1 s^1 = 10 Hz
+        self.rate = rospy.Rate(5) # time step of 0.1 s^1 = 10 Hz or 0.2 s^1 = 5 Hz
 
         # Scaling factor for the forces and moments used when training the neural network
         self.max_forces_forward  = np.array([[25,       25,     14]]).T         # In Newton
@@ -159,12 +142,16 @@ class RLTA(object):
         self.pub_stern_angles             = rospy.Publisher('thrusterAllocation/pod_angle_input', podAngle, queue_size=1)
         self.pub_stern_thruster_setpoints = rospy.Publisher("thrusterAllocation/stern_thruster_setpoints", SternThrusterSetpoints, queue_size=1)
         self.pub_bow_control              = rospy.Publisher("bow_control", bowControl, queue_size=1)
-        self.pub_thruster_forces          = rospy.Publisher("RLNN/F", Wrench, queue_size=1)
+        self.pub_thruster_forces          = rospy.Publisher("RLallocation/F", Wrench, queue_size=1)
+        self.pub_state                    = rospy.Publisher("RLallocation/state", NorthEastHeading, queue_size=1)
 
         # Init subscriber for control forces from either DP controller or RC remote (manual T.A.)
-        rospy.Subscriber("reference_filter/state_desired", NorthEastHeading, self.state_desired_callback)
+        rospy.Subscriber("reference_filter/state_desired", NorthEastHeading, self.state_desired_callback,queue_size=1)
         rospy.Subscriber("observer/eta/ned", Twist, self.eta_obs_callback)
         rospy.Subscriber('observer/nu/body', Twist, self.nu_obs_callback)
+
+        # for sysID
+        rospy.Subscriber("CME/diff_throttle_stern", diffThrottleStern, self.diff_throttle_stern_callback)
 
     def eta_obs_callback(self, eta):
         ''' Callback function for pose. Updates self.state.
@@ -203,20 +190,35 @@ class RLTA(object):
         # Select action
         u = self.get_action() # [n1,n2,n3,a1,a2,a3] (6,) shaped array in ROS format
 
-        if rospy.get_time() - self.error_time_prev > 10000.0: #5.0:
+        if DEBUG and rospy.get_time() - self.error_time_prev > 5.0: # pretty print state and action
             print(['{:.2f}'.format(si) for si in self.state])
             print(['{:.2f}'.format(ui) for ui in u])
             self.error_time_prev = rospy.get_time()
 
         # Publish action
-        pod_angle, stern_thruster_setpoints, bow_control = createPublishableMessages(u)
+        pod_angle, stern_thruster_setpoints, bow_control = create_publishable_messages(u)
         self.pub_stern_angles.publish(pod_angle)
         self.pub_stern_thruster_setpoints.publish(stern_thruster_setpoints)
         self.pub_bow_control.publish(bow_control)
 
         # Update state vector with previous thrust
-        self.prev_thrust_state       = np.copy(u) # USE REAL THRUSTER VALUES HERE?
+        self.prev_thrust_state = np.copy(u) # TODO USE REAL THRUSTER VALUES HERE?
         self.state[-3:] = np.array([u[2], u[0], u[1]]) / 100.0 # Updating state using neural net input
+
+        if True or DEBUG:
+            msg = NorthEastHeading()
+            msg.pos_north   = float(self.state[0])
+            msg.pos_east    = float(self.state[1])
+            msg.pos_heading = float(self.state[2])
+            msg.vel_north   = float(self.state[3])
+            msg.vel_east    = float(self.state[4])
+            msg.vel_heading = float(self.state[5])
+            msg.acc_north   = float(self.state[6])
+            msg.acc_east    = float(self.state[7])
+            msg.acc_heading = float(self.state[8])
+            self.pub_state.publish(msg)
+
+        self.rate.sleep() # Ensure that the published messages doesn't exceed given rate
 
         '''
         Messages used only for plotting purposes
@@ -229,7 +231,7 @@ class RLTA(object):
         bnds = np.array(self.params[self.env]['act_bnd'])
         action = np.multiply(action,bnds) # scale
 
-        '''       
+        ''' 
         # TODO find shortest angle, add the shortest angle, and map to -pi,pi before clipping
         actor_angles = ??? # TODO need a mapping
         angles = self.prev_thrust_state[3:]
@@ -238,7 +240,6 @@ class RLTA(object):
 
         action = something_dependend_on_angles # TODO
         '''
-   
         action = np.clip(action,-bnds,bnds) # clip
         return action
 
@@ -290,11 +291,44 @@ class RLTA(object):
         addition = shortest - 2 * ref if shortest > ref else shortest # if it is larger than pi, return the equivalent on the other side of 0 instead
         return addition
 
+    def diff_throttle_stern_callback(self, diff_throttle_input):
+        '''Callback for system identification control mode. Publishes stern thruster setpoints.
+        :params:
+            - diff_throttle_input (SternThrusterSetpoints message): 
+                a message which controls the vessel by using a virtual rudder angle to control the vessel by
+                lowering and increasing thrust on port/starboard side oppositely of each other
+        '''
+
+        stern_thruster_setpoints = SternThrusterSetpoints()
+        throttle_in = self.clip_scalar(diff_throttle_input.throttle) # Not self
+        rudder_in = self.clip_scalar(diff_throttle_input.rudder)
+        # Mixing of throttle and rudder inputs
+        stern_thruster_setpoints.port_effort = float(throttle_in) + float(rudder_in)
+        stern_thruster_setpoints.star_effort = float(throttle_in) - float(rudder_in)
+        # Note: Port propeller is mirrored physically and needs to rotate the other way
+        self.pub_stern_thruster_setpoints.publish(stern_thruster_setpoints)
+
+    def clip_scalar(self, input_check, bound=(-100.0,100.0)):
+        ''' Checks if throttle is in valid area.
+        :params:
+            - input_check (float): input to clip
+            - bound (tuple of floats): lower and upper bound of clipping region
+        :returns:
+            - a float being the clipped scalar value
+        '''
+        if not (isinstance(input_check,float) or isinstance(input_check, int)): raise Exception('Clipping function received an object which is not a float or an integer!')
+        return np.clip(input_check,bound[0],bound[1])
+
+    def shutdown_handler(self):
+        # shutdown_handler() # this does not do the job as the node is still publishing other messages
+        pass
+
 
 if __name__ == '__main__':
-    
+
     try:
         node = RLTA()
+        rospy.on_shutdown(node.shutdown_handler)
         rospy.spin()
     except rospy.ROSInterruptException:
         # TODO implement

@@ -140,7 +140,7 @@ class DigiTwin:
                     if False and num_procs() > 1:
                         user_dir_spec = datetime.now().strftime("%Y-%m-%d_--nproc={}_--p={}".format(num_procs(), proc_id()))
                     else:
-                        user_dir_spec = datetime.now().strftime("%Y-%m-%d") + '_sim' + self.usertag
+                        user_dir_spec = '_sim' + self.usertag
 
                     user_dir = USER_DIR + user_dir_spec
                     subprocess.Popen([sim_path, "--pythonPort="+str(python_port), "--userdir", user_dir] )

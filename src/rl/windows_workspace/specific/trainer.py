@@ -1,11 +1,11 @@
 from specific.digitwin import DigiTwin
-from specific.customEnv import Revolt,RevoltSimple, RevoltLimited
+from specific.customEnv import Revolt,RevoltSimple, RevoltLimited, RevoltFinal
 from spinup.utils.mpi_tools import proc_id, num_procs
 
 from specific.local_paths import SIM_CONFIG_PATH, SIM_PATH, PYTHON_PORT_INITIAL
 # sim path must be a string like 'C:\\Users\\local\\Documents\\GTK\\{}\\bin\\revoltsim64.exe' so that it can be formatted
 
-ENVIRONMENTS = {'simple': RevoltSimple, 'limited': RevoltLimited, 'full': Revolt}
+ENVIRONMENTS = {'simple': RevoltSimple, 'limited': RevoltLimited, 'full': Revolt, 'final': RevoltFinal}
 class Trainer(object):
     '''
     Keeps track of all digitwins and its simulators + environments for a training session
@@ -19,7 +19,8 @@ class Trainer(object):
                  lw           = False,
                  env_type     = 'simple',
                  extended_state = False,
-                 reset_acts = False):
+                 reset_acts = False,
+                 cont_ang = False):
 
         assert isinstance(n_sims,int) and n_sims > 0, 'Number of simulators must be an integer'
         self._n_sims      = n_sims
@@ -30,6 +31,7 @@ class Trainer(object):
         self._lw          = lw
         self._ext         = extended_state
         self._reset_acts  = reset_acts
+        self._cont_ang = cont_ang
 
         if start:
             self.start_simulators()
@@ -62,10 +64,10 @@ class Trainer(object):
     def get_digitwins(self):
         return self._digitwins
 
-    def set_environments(self,env_type='simple',testing=False):
+    def set_environments(self,env_type='limited',testing=False):
         n_envs = self._n_sims if num_procs() == 1 else 1 # If multiprocessing, each process only gets one environment
         Env = ENVIRONMENTS[env_type.lower()]
-        self._envs = [Env(self._digitwins[i], testing=testing, extended_state=self._ext, reset_acts = self._reset_acts) for i in range(n_envs)]
+        self._envs = [Env(self._digitwins[i], testing=testing, extended_state=self._ext, reset_acts = self._reset_acts, cont_ang = self._cont_ang) for i in range(n_envs)]
 
     def get_environments(self):
         return self._envs

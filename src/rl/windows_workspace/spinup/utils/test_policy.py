@@ -130,8 +130,11 @@ def run_RL_policy(env, get_action, max_ep_len=None, num_episodes=100, render=Tru
             env.render()
             time.sleep(1e-3)
 
-        a = get_action(o)
-        act = np.array(env.scale_and_clip(a))
+        a = get_action(o) # could be size 9 if cont angles
+
+        act = env.handle_continuous_angles(a) if env.cont_ang else a
+        act = np.array(env.scale_and_clip(act))
+
         for i in range(len(act)):
             action_vec[env.act_2_act_map_inv[i]] = act[i]
 

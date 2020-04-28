@@ -2,10 +2,8 @@
 if __name__ == '__main__':
     from spinup.utils.test_policy import load_policy_and_env, run_RL_policy
     from specific.trainer import Trainer
-    from specific.customEnv import RevoltSimple, RevoltLimited
     from specific.misc.plotters import plot_policytest_data, plot_NED_data, plot_action_data
     import matplotlib.pyplot as plt
-    import numpy as np
 
     ''' +++++++++++++++++++++++++++++++ '''
     '''       SETUP ALL ARGUMENTS       '''
@@ -21,6 +19,7 @@ if __name__ == '__main__':
     parser.add_argument('--env',           type = str,     default = 'limited')
     parser.add_argument('--sim',           type = int,     default = 0)
     parser.add_argument('--ext',           type = bool,    default = True)
+    parser.add_argument('--cont_ang',      type = bool,    default = False)
     parser.add_argument('--plot',          type = bool,    default = True)
     parser.add_argument('--setpoints',     type = bool,    default = False) # Params for testing set point changes during policy
     parser.add_argument('--deterministic', action='store_true')
@@ -34,7 +33,7 @@ if __name__ == '__main__':
     _, get_action = load_policy_and_env(args.fpath, args.itr if args.itr >=0 else 'last', args.deterministic) # Collect policy from saved tf_graph
 
     t = Trainer(n_sims = 1, start = True, testing = True, simulator_no = args.sim, 
-                env_type = args.env, realtime = args.realtime, extended_state = args.ext)
+                env_type = args.env, realtime = args.realtime, extended_state = args.ext, cont_ang=args.cont_ang)
     env = t.get_environments()[0]
 
     ''' +++++++++++++++++++++++++++++++ '''

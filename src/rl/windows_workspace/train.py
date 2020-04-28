@@ -24,7 +24,7 @@ import argparse
 if __name__ == '__main__':
     
     parser = argparse.ArgumentParser()
-    parser.add_argument('--hid',        type=int,   default=64)     # Number of nodes in hidden layers
+    parser.add_argument('--hid',        type=int,   default=80)     # Number of nodes in hidden layers
     parser.add_argument('--l',          type=int,   default=3)      # Number of hidden layers
     parser.add_argument('--gamma',      type=float, default=0.99)   # Discount factor (0.99) NOTE from author' mujoco experience, high dim robotics works better with lower gammas, e.g. < 0.99
     parser.add_argument('--lam',        type=float, default=0.97)   # Decay factor (0.97)
@@ -36,24 +36,26 @@ if __name__ == '__main__':
     parser.add_argument('--target_kl',  type=int,   default=0.01)   # Largest KL-divergence allowed for policy network updates per minibatch.  A rough estimate of what spinning up thinks is ok is (0.01-0.05)
     parser.add_argument('--seed',       type=int,   default=0)      # Random seed
     parser.add_argument('--cpu',        type=int,   default=1)      # Number of CPU's used during training
-    parser.add_argument('--steps',      type=int,   default=1600)   # Number of steps during an entire episode for all processes combined. Should be twice the size of ep_len TIMES n_cpu
-    parser.add_argument('--epochs',     type=int,   default=2000)   # Number of EPISODES
+    parser.add_argument('--steps',      type=int,   default=3200)   # Number of steps during an entire episode for all processes combined. Should be twice the size of ep_len TIMES n_cpu
+    parser.add_argument('--epochs',     type=int,   default=1500)   # Number of EPISODES
     parser.add_argument('--max_ep_len', type=int,   default=800)    # Number of steps per local episode # (1000 is upper bound for 10 Hz steps) only affects how long each episode can be - not how many that are rolled out
     parser.add_argument('--save_freq',  type=int,   default=10)     # Number of episodes between storage of actor-critic weights
     parser.add_argument('--exp_name',   type=str,   default='test') # Name of data storage area
     parser.add_argument('--env',        type=str,   default='limited')  # Environment type used
     parser.add_argument('--algo',       type=str,   default='ppo')  # Name of the algorithm used
     parser.add_argument('--sim',        type=int,   default=0)      # Simulator copy used. Requires a certain number of copies of the simulator available
-    parser.add_argument('--lw',         type=bool,  default=False)   # To use the lightweight simulator or not - True can be an advantage when training for longer
+    parser.add_argument('--lw',         type=bool,  default=True)   # To use the lightweight simulator or not - True can be an advantage when training for longer
     parser.add_argument('--note',       type=str,   default='')     # Add a comment
     parser.add_argument('--ext',        type=bool,  default=True)   # To use an extended state vector
     parser.add_argument('--reset_acts', type=bool,  default=False)  # To use reset actions in env.reset() to small random values in addition to states
+    parser.add_argument('--cont_ang',   type=bool,  default=False)  # To use continous representation of the angles chosen
     args = parser.parse_args()
 
     print('Training {} with {} core(s)'.format(args.algo.upper(), args.cpu))
     assert args.cpu == 1 or int(args.steps / args.cpu) > args.max_ep_len, 'If n_cpu > 1: The number of steps (interations between the agent and environment per epoch) per process must be larger than the largest episode to avoid empty episodal returns'
     
-    t = Trainer(n_sims = args.cpu, start = True, simulator_no = args.sim, lw = args.lw, env_type = args.env, extended_state = args.ext, reset_acts = args.reset_acts)
+    # TODO move all args into being the only argument. Trainer and CustomEnv can have arg as arguments = None as default
+    t = Trainer(n_sims = args.cpu, start = True, simulator_no = args.sim, lw = args.lw, env_type = args.env, extended_state = args.ext, reset_acts = args.reset_acts, cont_ang=args.cont_ang)
     mpi_fork(args.cpu)  # run parallel code with mpi (not used for anything right now)
 
     logger_kwargs = setup_logger_kwargs(args.exp_name, args.seed, datestamp = False) 

@@ -18,8 +18,9 @@ if __name__ == '__main__':
     parser.add_argument('--select', nargs='*')
     parser.add_argument('--exclude', nargs='*')
     parser.add_argument('--est', default='mean')
+    parser.add_argument('--add', default=False)
     args = parser.parse_args()
 
     make_plots(args.logdir, args.legend, args.xaxis, args.value, args.count, 
                smooth=args.smooth, select=args.select, exclude=args.exclude,
-               estimator=args.est)
+               estimator=args.est,add=args.add)

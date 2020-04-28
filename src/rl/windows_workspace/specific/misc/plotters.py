@@ -2,12 +2,22 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-def reward_to_go(rews):
-    n = len(rews)
-    rtgs = np.zeros_like(rews)
-    for i in reversed(range(n)):
-        rtgs[i] = rews[i] + (rtgs[i+1] if i+1 < n else 0)
-    return rtgs
+'''
+### FROM common in ROS
+'''
+# plt.rcParams['axes.labelweight'] = 'bold'
+params = {
+    'font.serif': 'Computer Modern Roman',
+    'axes.labelsize': 10,
+    'legend.fontsize': 10,
+    'xtick.labelsize': 8,
+    'ytick.labelsize': 8,
+    'text.usetex': False,
+    'figure.figsize': [12, 9]
+    }
+
+plt.rcParams.update(params)
+
     
 def plot_policytest_data(args,data):
     fig, (ax1, ax2, ax3) = plt.subplots(3, sharex=True)
@@ -19,6 +29,8 @@ def plot_policytest_data(args,data):
     fig, ax4 = plt.subplots()
     ax4.set_xlabel('Error sway')
     ax4.set_ylabel('Error surge')
+
+    axes = [ax1, ax2, ax3, ax4]
     
     step_len = 0.001 if args.realtime else 0.1
     ep_no, ep_len = 0, 0
@@ -42,18 +54,20 @@ def plot_policytest_data(args,data):
         ax4.plot(pos['sway'],  pos['surge'],    label='Run {}'.format(ep_no+1))
         ep_no += 1
 
-    ax1.grid(True)
-    ax1.legend(loc='best').set_draggable(True)
-    ax2.grid(True)
-    ax2.legend(loc='best').set_draggable(True)
-    ax3.grid(True)
-    ax3.legend(loc='best').set_draggable(True)
-    ax4.grid(True)
-    ax4.legend(loc='best').set_draggable(True)
+    for ax in axes:
+        ax.grid(False)
+        ax.yaxis.grid(color='grey', linestyle='--', alpha=0.5)
+        # ax.legend(loc='best').set_draggable(True)
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        # ax.xaxis.set_tick_params(which='both', labelbottom=True)
+
     circle = plt.Circle((0, 0), radius=5, color='grey', fill=False)
     ax4.add_artist(circle)
     ax4.set_xlim((-5, 5))
     ax4.set_ylim((-5, 5))
+
+    axes[0].legend(loc='best', facecolor='#FAD7A0', framealpha=0.3).set_draggable(True)
     fig.tight_layout()
 
 
@@ -72,6 +86,8 @@ def plot_NED_data(args,data):
     f2, ax4 = plt.subplots()
     ax4.set_xlabel('NED East')
     ax4.set_ylabel('NED North')
+
+    axes = [ax1, ax2, ax3, ax4]
     
     step_len = 0.001 if args.realtime else 0.1
     ep_no, ep_len = 0, 0
@@ -93,25 +109,28 @@ def plot_NED_data(args,data):
         ax4.plot(pos['east'],   pos['north'],   label='Run {}'.format(ep_no+1))
         ep_no += 1
 
-    ax1.grid(True)
-    ax1.legend(loc='best').set_draggable(True)
-    ax2.grid(True)
-    ax2.legend(loc='best').set_draggable(True)
-    ax3.grid(True)
-    ax3.legend(loc='best').set_draggable(True)
-    ax4.grid(True)
-    ax4.legend(loc='best').set_draggable(True)
+    for ax in axes:
+        ax.grid(False)
+        ax.yaxis.grid(color='grey', linestyle='--', alpha=0.5)
+        # ax.legend(loc='best').set_draggable(True)
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        # ax.xaxis.set_tick_params(which='both', labelbottom=True)
+
     circle = plt.Circle((0,0), radius = 0.2, color='red', fill=True)
     ax4.add_artist(circle)
     ax4.set_xlim(-5,5)
     ax4.set_ylim(-5,5)
+
+    axes[0].legend(loc='best', facecolor='#FAD7A0', framealpha=0.3).set_draggable(True)
     f2.tight_layout()
 
 
 def plot_action_data(args,data,env):
 
     fig, axes = plt.subplots(nrows=3,ncols=2,sharex=True)
-    plt.xlabel('Time [s]')
+    axes[2,0].set_xlabel('Time [s]')
+    axes[2,1].set_xlabel('Time [s]')
     idx = 0
     for r,row in enumerate(axes):
         for i, ax in enumerate(row):
@@ -149,21 +168,16 @@ def plot_action_data(args,data,env):
 
     for row in axes:
         for ax in row:
-            ax.grid(True)
-            ax.legend(loc='best').set_draggable(True)
-    
+            ax.grid(False)
+            ax.yaxis.grid(color='grey', linestyle='--', alpha=0.5)
+            # ax.legend(loc='best').set_draggable(True)
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+            # ax.xaxis.set_tick_params(which='both', labelbottom=True)
+
+    axes[0,0].legend(loc='best', facecolor='#FAD7A0', framealpha=0.3).set_draggable(True)
     # fig.tight_layout()
 
 
 if __name__ == '__main__':
-    # grid()
-    # summed_gaussian()
-    # plot_gaussian(0,5.7**2) 
-    # contour()
-    # rews = [-1,5,6,3,8,-6,3,4,-2,-9]
-    # print(np.array(rews))
-    # print(reward_to_go(rews))
-    # print(investigate_gaussian())
-    # view_distribution()
-
     pass

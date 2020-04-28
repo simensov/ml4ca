@@ -6,7 +6,7 @@ import sys
 # methods = ['pseudo','QP','QPold']
 # labels  = ['DNVGL pseudoinverse', 'Quadratic Programming', 'QP Old']
 
-methods = ['pseudo','QP','QPold']
+methods = ['pseudo','QP','RL']
 labels  = ['DNVGL pseudoinverse', 'Quadratic Programming', 'Reinforcement Learning']
 colors  = [            '#009e73',               '#0072b2',             '#CD5C5C',  '#000000']
 

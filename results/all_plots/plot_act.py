@@ -124,7 +124,7 @@ for i in range(len(methods)):
 	nbow[i][np.abs(nbow[i]) < 3.0] = 0.0
     
 rps_max = {'bow': 33.0, 'stern': 11.0}
-diameters = {'bow': 0.1, 'stern': 0.15}
+diameters = {'bow': 0.06, 'stern': 0.15}
 KQ_0 = {'bow': 0.035 * 0.001518 / 0.0027, 'stern':0.028}
 rho = 1025.0
 

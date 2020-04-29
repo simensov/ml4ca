@@ -14,6 +14,8 @@ set_params()
 Positional data
 '''
 path = 'bagfile__{}_observer_eta_ned.csv' # General path to eta
+path_ref = 'bagfile__reference_filter_state_desired_new.csv'
+
 north, east, psi, time = [np.zeros((1,1))]*len(methods), [np.zeros((1,1))]*len(methods), [np.zeros((1,1))]*len(methods), [np.zeros((1,1))]*len(methods)
 data = []
 for i in range(len(methods)):
@@ -34,6 +36,19 @@ for i in range(len(methods)):
     psi[i] = posdata[1:,6:7]
     time[i] = posdata[1:,7:]
     data.append([north[i], east[i], psi[i], time[i]] )
+
+
+refdata = np.genfromtxt(path_ref,delimiter=',')
+ref_north = refdata[1:,1:2]
+ref_east = refdata[1:,2:3]
+ref_yaw = refdata[1:,3:4]
+ref_time = refdata[1:,-1:]
+if False:
+    ref_time = ref_time - 2 *np.ones_like(ref_time)
+    ref_time[ref_time < 0] = 0.0
+    ref_time = ref_time[1:]
+    ref_time = np.vstack( (ref_time,np.array([240])))
+refdata = [ref_north, ref_east, ref_yaw]
 
 n_0, e_0, p_0 = north[0], east[0], psi[0]
 # Points for the different box test square. These are only the coords and not the changes relative to eachother. Very first elements are nan
@@ -77,6 +92,7 @@ axes[1].set_ylabel('East [m]')
 axes[2].set_ylabel('Yaw [deg]')
 
 for axn,ax in enumerate(axes):
+
     for i in range(len(methods)):
         local_data = north[i], east[i], psi[i], time[i]
         t = local_data[3]
@@ -88,7 +104,8 @@ for axn,ax in enumerate(axes):
     
     # Print reference lines
     targets = box_coords_over_time[axn]
-    ax.plot(setpointx,targets,'--',color=colors[3], label = 'Reference' if axn == 0 else None)
+    # ax.plot(setpointx,targets,'--',color=colors[3], label = 'Reference' if axn == 0 else None)
+    ax.plot(ref_time, refdata[axn], '--',color=colors[3], label = 'Reference' if axn == 0 else None)
 
 axes[0].legend(loc='best', facecolor='#FAD7A0', framealpha=0.3).set_draggable(True)
 f0.tight_layout()

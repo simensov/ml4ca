@@ -1,35 +1,65 @@
-template:	r-trajectories: good
-		y-trajectories: sloppy
-		thrust-usage:	sensible
-		thrust-derivs:	okay
-		angle-derivs:	okay
+template:		r-trajectories: good
+			y-trajectories: sloppy
+			thrust-usage:	sensible
+			thrust-derivs:	okay
+			angle-derivs:	okay
 
-actderhigh: 	r-trajectories: good, except NW-SW
-		y-trajectories: okay
-		thrust-usage:	okay
-		thrust-derivs:	okay
-		angle-derivs:	okay
+actderhigh: 		r-trajectories: good, except NW-SW
+			y-trajectories: okay
+			thrust-usage:	okay
+			thrust-derivs:	okay
+			angle-derivs:	okay
 
-actpentorhigh:  r-trajectories: good
-		y-trajectories: sloppy
-		thrust-usage:	good
-		thrust-derivs:	okay
-		angle-derivs:	okay
+actpentorhigh:  	r-trajectories: good
+			y-trajectories: sloppy
+			thrust-usage:	good
+			thrust-derivs:	okay
+			angle-derivs:	okay
 
-newveleven:	r-trajectories: good, except NW-SW
-		y-trajectories: good, but oscillating
-		thrust-usage:	a bit high
-		thrust-derivs:	slowly varying
-		angle-derivs:	VERY high, oscillating
+newveleven:		r-trajectories: good, except NW-SW
+			y-trajectories: good, but oscillating
+			thrust-usage:	a bit high
+			thrust-derivs:	slowly varying
+			angle-derivs:	VERY high, oscillating
+	
+newvelstd:		r-trajectories: stalls on NE-NW setpt due to stern thruster locks. otherwise OK
+			y-trajectories: --||--
+			thrust-usage:	--||--
+			thrust-derivs:	--||--
+			angle-derivs:	--||--
 
-newvelstd:	r-trajectories: stalls on NE-NW setpt due to stern thruster locks. But otherwise OK
-		y-trajectories: --||--
-		thrust-usage:	--||--
-		thrust-derivs:	--||--
-		angle-derivs:	--||--
+resetact:		r-trajectories: OK, except NW-SW
+			y-trajectories: bad
+			thrust-usage:	high
+			thrust-derivs:	high
+			angle-derivs:	locks on 90 degrees
 
-resetact:	r-trajectories: OK, except NW-SW
-		y-trajectories: bad
-		thrust-usage:	high
-		thrust-derivs:	high
-		angle-derivs:	locks on 90 degrees
+realtorquelowlong: 	r-trajectories: bendy wendy
+			y-trajectories: great!
+			thrust-usage:	low
+			thrust-derivs:	low
+			angle-derivs:	okay
+			note: just seems to be hindered by [0.1, 0.03, 0.03] coeffs - bad sway abilities
+
+oldgaussianlargebatch:	r-trajectories: OK, except NW45 and NW-SW
+			y-trajectories: great
+			thrust-usage:	med
+			thrust-derivs:	low
+			angle-derivs:	okay
+			note: seemed to have potential but drifted off twice before regaining pos
+
+largessandbatch:	r-trajectories: OK, except NW-SW
+			y-trajectories: good
+			thrust-usage:	good
+			thrust-derivs:	good
+			angle-derivs:	okay
+
+actdersmallall:		r-trajectories: like other QP except a bit slow and unstable SW-SE
+			y-trajectories: great
+			thrust-usage:	great
+			thrust-derivs:  good
+			angle-derivs:	okay
+			note: 	first RL that fixes NW-SW!! But uses a lot of energy getting there.
+			      	also becomes unstable at last transition
+
+

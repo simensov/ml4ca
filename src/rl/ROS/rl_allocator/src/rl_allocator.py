@@ -31,7 +31,7 @@ from __future__ import division
 import rospy
 from std_msgs.msg import Float64
 from custom_msgs.msg import podAngle, SternThrusterSetpoints, bowControl, NorthEastHeading, diffThrottleStern
-from geometry_msgs.msg import Wrench, Twist
+from geometry_msgs.msg import Wrench, Twist, Pose2D
 import numpy as np 
 import sys # for sys.exit()
 import time
@@ -146,7 +146,11 @@ class RLTA(object):
         self.pub_state                    = rospy.Publisher("RLallocation/state", NorthEastHeading, queue_size=1)
 
         # Init subscriber for control forces from either DP controller or RC remote (manual T.A.)
-        rospy.Subscriber("reference_filter/state_desired", NorthEastHeading, self.state_desired_callback,queue_size=1)
+        # rospy.Subscriber("reference_filter/state_desired", NorthEastHeading, self.state_desired_callback,queue_size=1) # TODO
+
+        rospy.Subscriber("reference_filter/state_desired_new", NorthEastHeading, self.state_desired_callback,queue_size=1) # TODO
+        # rospy.Subscriber("CME/pose_reference", Pose2D, self.pose_reference_callback,queue_size=1)
+
         rospy.Subscriber("observer/eta/ned", Twist, self.eta_obs_callback)
         rospy.Subscriber('observer/nu/body', Twist, self.nu_obs_callback)
 
@@ -173,6 +177,40 @@ class RLTA(object):
         '''
         self.state[3:6] = np.array([nu.linear.x,nu.linear.y,nu.angular.z])
 
+    ###
+    ### TODO testing
+    ###
+    def pose_reference_callback(self,pose):
+        ''' Performs thrust allocation. Updates self.state and publishes stern_angles, stern_thruster_setpoints, bow_control
+        '''
+
+        # Compute timestep h for finding thruster derivatives
+        self.h = (rospy.get_time() - self.time_prev)
+        self.time_prev = rospy.get_time()
+
+        # Extract eta_desired, update errorFrame with new reference, and update state vector
+        self.EF.update(ref = [pose.x, pose.y, np.deg2rad(pose.theta)])
+        self.state[0:3] = self.get_error_states(step = self.h)
+
+        # Select action
+        u = self.get_action() # [n1,n2,n3,a1,a2,a3] (6,) shaped array in ROS format
+
+        # Publish action
+        pod_angle, stern_thruster_setpoints, bow_control = create_publishable_messages(u)
+        self.pub_stern_angles.publish(pod_angle)
+        self.pub_stern_thruster_setpoints.publish(stern_thruster_setpoints)
+        self.pub_bow_control.publish(bow_control)
+
+        # Update state vector with previous thrust
+        self.prev_thrust_state = np.copy(u) # TODO USE REAL THRUSTER VALUES HERE?
+        self.state[-3:] = np.array([u[2], u[0], u[1]]) / 100.0 # Updating state using neural net input
+
+        self.rate.sleep() # Ensure that the published messages doesn't exceed given rate
+
+    ###
+    ### TODO testing
+    ###
+
     def state_desired_callback(self, eta_des):
         ''' Performs thrust allocation. Updates self.state and publishes stern_angles, stern_thruster_setpoints, bow_control
         :params:
@@ -189,11 +227,6 @@ class RLTA(object):
 
         # Select action
         u = self.get_action() # [n1,n2,n3,a1,a2,a3] (6,) shaped array in ROS format
-
-        if DEBUG and rospy.get_time() - self.error_time_prev > 5.0: # pretty print state and action
-            print(['{:.2f}'.format(si) for si in self.state])
-            print(['{:.2f}'.format(ui) for ui in u])
-            self.error_time_prev = rospy.get_time()
 
         # Publish action
         pod_angle, stern_thruster_setpoints, bow_control = create_publishable_messages(u)

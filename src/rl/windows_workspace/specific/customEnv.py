@@ -140,7 +140,12 @@ class Revolt(gym.Env):
             N, E, Y, u, v, r = 0, 0, 0, 0, 0, 0
             if not self.testing:
                     N, E, Y = get_pose_on_state_space(self.real_ss_bounds[0:3], fraction = fraction)
-                    u, v, r = get_vel_on_state_space(self.real_ss_bounds[3:], fraction = 0.25 * fraction) # velocities are going to be low, so dont sample too much of that
+                    u, v, r = get_vel_on_state_space(self.real_ss_bounds[3:], fraction = 0.25 * fraction) # velocities are going to be low during DP, so dont sample too much of that
+                    
+                    # TODO testing this thing
+                    if False:
+                        y_ref = Y if np.random.random() > 0.90 else np.random.uniform(-self.real_ss_bounds[2]*fraction,self.real_ss_bounds[2]*fraction)
+                        self.EF.update(ref = [0.0, 0.0, y_ref]) # avoid always having to correct heading towards zero! If not, the agent becomes good at all movement where heading needs to be corrected, but what about cases in which heading is to be held?
             else: 
                 if fixed_point is None:
                     N, E, Y = get_random_pose_on_radius()
@@ -266,9 +271,9 @@ class Revolt(gym.Env):
         # rew = self.vel_reward() + self.summed_gaussian_with_multivariate() + self.thrust_penalty([0.1,0.1,0.1]) # Old gaussian summed with multivar for best of both worlds
 
         # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty([0.05,0.075,0.075], angular = False) # actderros # changed derivatives according to what seems nice in ROS. high used 0.1, 0.1, 0.1
-        rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty(pen_coeff=[0.00,0.01,0.01], thrust=True, angular=True, ang_coeff=[0.00,0.01,0.01]) # actderallsmallest to see if it can become stable 
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty(pen_coeff=[0.00,0.01,0.01], thrust=True, angular=True, ang_coeff=[0.00,0.01,0.01]) # actderallsmallest to see if it can become stable 
 
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty(thrust=False, angular=True, ang_coeff=[0.02,0.02,0.02]) # used on both final baselines
+        rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty(thrust=False, angular=True, ang_coeff=[0.02,0.02,0.02]) # used on both final baselines
         return rew  
 
     def vel_reward(self, coeffs = None):
@@ -417,7 +422,7 @@ class RevoltFinal(Revolt):
         n_actions = 7 if cont_ang else 5
 
         super().__init__(digitwin = digitwin, num_actions = n_actions, num_states = 6, testing = testing,
-                         realtime = realtime, max_ep_len = max_ep_len, extended_state = extended_state, reset_acts = reset_acts, cont_ang=cont_ang)
+                         realtime = realtime, max_ep_len = max_ep_len, extended_state = extended_state, reset_acts = reset_acts, cont_ang = cont_ang)
 
         # Not choosing the bow angle means (1) one less action bound, (2) remove one valid index, (3) set bow angle default to pi/2
         self.name = 'revoltfinal'

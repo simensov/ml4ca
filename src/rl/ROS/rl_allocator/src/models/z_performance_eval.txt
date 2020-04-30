@@ -62,4 +62,20 @@ actdersmallall:		r-trajectories: like other QP except a bit slow and unstable SW
 			note: 	first RL that fixes NW-SW!! But uses a lot of energy getting there.
 			      	also becomes unstable at last transition
 
+acrderallsmallest:	r-trajectories: OK, except NW-SW
+			y-trajectories: great
+			thrust-usage:	good
+			thrust-derivs:	good
+			angle-derivs:	good
+			note: basically super close, but is bad at moves without heading corrections	
+
+actderros:		r-trajectories: OK, except NW-SW
+			y-trajectories: great
+			thrust-usage:	good
+			thrust-derivs:	good
+			angle-derivs:	good
+			note: also very close. manages mirrored box test good..... FIGURE OUT
+
+NOTES: The ErrorFramed used the angle error for coordinate rotations instead of NED angle... Fixed, and things are looking GREAT
+
 

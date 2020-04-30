@@ -3,7 +3,10 @@
 import numpy as np
 
 def rotation_matrix(a):
-    ''' a is an angle in radians'''
+    ''' a is an angle in radians - rotates FROM body coordinates to NED coordinates by dot product:
+        NED_coord = R dot BODY_coord
+        Remember: R^(-1) == R^T
+    '''
     return np.array([ [np.cos(a), -np.sin(a)],
                       [np.sin(a),  np.cos(a)]]) 
 
@@ -45,9 +48,9 @@ class ErrorFrame(object):
         if pos: self.update(pos=pos)
 
         err = np.array([ [a - b for a, b in zip(self._pos,self._ref)] ]).T # full shape column vector of errors
-        ang = wrap_angle(err[2,0]) # this is the same as smallest signed angle, see MSS Toolbox, ssa.m, by T.I.Fossen
-        pos_bod = rotation_matrix(ang).T.dot(err[0:2,:]) # a 2,1 column vector
-        self._error_coordinate = [pos_bod[0,0], pos_bod[1,0], ang] 
+        rotation_angle = wrap_angle(self._ref[2]) # this is the same as smallest signed angle, see MSS Toolbox, ssa.m, by T.I.Fossen
+        pos_bod = rotation_matrix(rotation_angle).T.dot(err[0:2,:]) # a 2,1 column vector of the body frame errors in [surge,sway], using the NED angle for coordinate shift
+        self._error_coordinate = [pos_bod[0,0], pos_bod[1,0], err[2,0]] # body frame errors [surge,sway,yaw]
 
     def update(self,pos=None,ref=None):
         ''' Use already set values if no arguments are passed '''

@@ -161,7 +161,6 @@ class RLTA(object):
         ''' Callback function for pose. Updates self.state.
         :params:
             - eta (float): A Twist message containing the 6-dimensional NED position vector. Angles are in degrees.
-            Twist
         ''' 
         eta = np.array([eta.linear.x, eta.linear.y, np.deg2rad(eta.angular.z)])
         eta[2] = wrap_angle(eta[2], deg=False) # wrap yaw in (-pi,pi)
@@ -178,7 +177,7 @@ class RLTA(object):
         self.state[3:6] = np.array([nu.linear.x,nu.linear.y,nu.angular.z])
 
     ###
-    ### TODO testing
+    ### TODO testing below
     ###
     def pose_reference_callback(self,pose):
         ''' Performs thrust allocation. Updates self.state and publishes stern_angles, stern_thruster_setpoints, bow_control
@@ -208,7 +207,7 @@ class RLTA(object):
         self.rate.sleep() # Ensure that the published messages doesn't exceed given rate
 
     ###
-    ### TODO testing
+    ### TODO testing above
     ###
 
     def state_desired_callback(self, eta_des):
@@ -226,7 +225,7 @@ class RLTA(object):
         self.state[0:3] = self.get_error_states(step = self.h)
 
         # Select action
-        u = self.get_action() # [n1,n2,n3,a1,a2,a3] (6,) shaped array in ROS format
+        u = self.get_action() # [n1,n2,n3,a1,a2,a3] (6,) shaped array according to ROS format
 
         # Publish action
         pod_angle, stern_thruster_setpoints, bow_control = create_publishable_messages(u)
@@ -242,10 +241,10 @@ class RLTA(object):
             msg = NorthEastHeading()
             msg.pos_north   = float(self.state[0])
             msg.pos_east    = float(self.state[1])
-            msg.pos_heading = float(self.state[2])
+            msg.pos_heading = float(np.rad2deg(self.state[2]))
             msg.vel_north   = float(self.state[3])
             msg.vel_east    = float(self.state[4])
-            msg.vel_heading = float(self.state[5])
+            msg.vel_heading = float(np.rad2deg(self.state[5]))
             msg.acc_north   = float(self.state[6])
             msg.acc_east    = float(self.state[7])
             msg.acc_heading = float(self.state[8])
@@ -253,12 +252,10 @@ class RLTA(object):
 
         self.rate.sleep() # Ensure that the published messages doesn't exceed given rate
 
-        '''
-        Messages used only for plotting purposes
-        '''
+        ''' Messages used only for plotting purposes '''
         # Constant K values F = K*|n|*n (see Alheim and Muggerud, 2016, for this empirical formula). The bow thruster is unsymmetrical, and this has lower coefficient for negative directioned thrust.
-        K = self.forwards_K if u[2] >0 else self.backwards_K
-        F = K * np.abs(u[:3]) * u[:3] # ELEMENTWISE multiplication, using thruster percentages
+        # K = self.forwards_K if u[2] >0 else self.backwards_K
+        # F = K * np.abs(u[:3]) * u[:3] # ELEMENTWISE multiplication, using thruster percentages
 
     def scale_and_clip(self,action):
         bnds = np.array(self.params[self.env]['act_bnd'])
@@ -307,6 +304,7 @@ class RLTA(object):
             # print('stateretur:', current_state + self.integrator)
             return current_state + self.integrator
         else:
+            self.integrator = np.zeros((3,)) # reset in case it has been turned on before
             return current_state
 
     def shortestPath(self,a_prev,a,deg = False):

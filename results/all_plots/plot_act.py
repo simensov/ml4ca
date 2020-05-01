@@ -120,8 +120,8 @@ f.tight_layout()
 '''
 
 # bow doesnt work under 3%
-for i in range(len(methods)):
-	nbow[i][np.abs(nbow[i]) < 3.0] = 0.0
+#for i in range(len(methods)):
+#	nbow[i][np.abs(nbow[i]) < 3.0] = 0.0
     
 rps_max = {'bow': 33.0, 'stern': 11.0}
 diameters = {'bow': 0.06, 'stern': 0.15}
@@ -129,7 +129,8 @@ KQ_0 = {'bow': 0.035 * 0.001518 / 0.0027, 'stern':0.028}
 rho = 1025.0
 
 def power(n,which):
-    return np.sign(n) * KQ_0[which] * 2 * np.pi * rho * diameters[which]**5 * (n * rps_max[which])**3
+	''' n comes as -100% to 100%, and must be divided on 100 for multiplication with rps to give fraction'''
+	return np.sign(n) * KQ_0[which] * 2 * np.pi * rho * diameters[which]**5 * (n /100.0 * rps_max[which])**3
 
 powers = [[[],[],[]], [[],[],[]], [[],[],[]]] # Contains power timeseries on [method0: [bow,port,star], method1: ...] for each method
 for i in range(len(methods)):
@@ -186,20 +187,29 @@ for i in range(len(methods)):
     for j in range(3):
         cumsums[i][j] = np.cumsum(powers[i][j])
 
-f, axes = plt.subplots(3,1,figsize=(12,9),sharex = True)
+f, axes = plt.subplots(4,1,figsize=(12,9),sharex = True)
 plt.xlabel('Time [s]')
 axes[0].set_ylabel('$P_{bow}$ cumulative')
 axes[1].set_ylabel('$P_{port}$ cumulative')
 axes[2].set_ylabel('$P_{starboard}$ cumulative')
+axes[3].set_ylabel('$P_{total}$ cumulative')
 
 for axn,ax in enumerate(axes):
     for i in range(len(methods)):
         if axn == 0:
             t = time_bow[i][:-1]
             relevant_data = cumsums[i][axn]
-        else:
+        elif axn in [1,2]:
             t = time_nstern[i][:-1]
             relevant_data = cumsums[i][axn]
+        else:
+        	vals = [cumsums[i][axn_loc] for axn_loc in range(3)]
+        	shortest = min([a for val in vals for a in val.shape ])
+        	new_vals = [cumsums[i][axn_loc][0:shortest] for axn_loc in range(3)]
+        	s = sum(new_vals)
+        	relevant_data = s
+
+        	t = time_nstern[i][:shortest]
 
         ax.plot(t,relevant_data, color=colors[i],label=labels[i],alpha=0.9)
         ax.spines['top'].set_visible(False)

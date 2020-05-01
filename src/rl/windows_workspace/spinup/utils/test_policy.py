@@ -131,7 +131,6 @@ def run_RL_policy(env, get_action, max_ep_len=None, num_episodes=100, render=Tru
             time.sleep(1e-3)
 
         a = get_action(o) # could be size 7 if cont angles
-        print(a)
 
         if env.cont_ang:
             act = env.handle_continuous_angles(a)

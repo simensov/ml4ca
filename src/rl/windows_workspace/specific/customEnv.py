@@ -2,7 +2,7 @@ import gym
 from gym import spaces
 import numpy as np
 from specific.misc.simtools import get_pose_3DOF, get_vel_3DOF, get_pose_on_state_space, get_random_pose_on_radius, get_vel_on_state_space, get_fixed_pose_on_radius
-from specific.misc.mathematics import gaussian, gaussian_like
+from specific.misc.mathematics import gaussian, gaussian_like, wrap_angle
 from specific.errorFrame import ErrorFrame
 import time
 
@@ -101,8 +101,11 @@ class Revolt(gym.Env):
         """'''
         self.prev_angles = self.current_angles[:] # TODO wrap this so that there is no occurence of losing control over number of rotations
 
-        if self.cont_ang: # transform sin(theta) and cos(theta) predictions into the action vector being passed on to Cybersea
-            action = self.handle_continuous_angles(action)
+        if self.name == 'revoltfinal':
+            if self.cont_ang: # transform sin(theta) and cos(theta) predictions into the action vector being passed on to Cybersea
+                action = self.handle_continuous_angles(action)
+            else:
+                action = self.wrap_stern_angles(action)
 
         action = self.scale_and_clip(action)
 
@@ -232,12 +235,21 @@ class Revolt(gym.Env):
         return action.tolist()
 
     def handle_continuous_angles(self,action):
-        assert self.name.lower() == 'revoltfinal', 'Using continuous angles is only made to work with the final environment fully rotating stern thrusters'
+        assert self.name.lower() == 'revoltfinal' and self.cont_ang is True, 'Using continuous angles is only made to work with the final environment fully rotating stern thrusters'
         sin_port, cos_port = action[3], action[4]
         sin_star, cos_star = action[5], action[6]
         a_port = np.arctan2(sin_port, cos_port) / self.real_action_bounds[3] # Since the scale and clip-function assumes an action between -1 and 1, the angle is scaled according to maximum
         a_star = np.arctan2(sin_star, cos_star) / self.real_action_bounds[3]
         new_action = np.hstack( (action[0:3], np.array([a_port, a_star])) )
+        action = new_action.copy()
+        return action
+
+    def wrap_stern_angles(self,action):
+        assert self.name.lower() == 'revoltfinal' and self.cont_ang is False, 'Using continuous angles is only made to work with the final environment fully rotating stern thrusters'
+        # Actor output comes in -1,1 -> upscale before wrapping, then downscale again
+        actor_port_angle = wrap_angle(action[3] * self.real_action_bounds[3],deg=False) / self.real_action_bounds[3]
+        actor_star_angle = wrap_angle(action[4] * self.real_action_bounds[3],deg=False) / self.real_action_bounds[3]
+        new_action = np.hstack( (action[0:3], np.array([actor_port_angle, actor_star_angle])) )
         action = new_action.copy()
         return action
 

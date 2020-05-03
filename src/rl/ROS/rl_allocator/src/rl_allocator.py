@@ -1,28 +1,26 @@
 #!/usr/bin/python3
 
 """
-NOTE: This node ONLY acts in the case of controlmode being DP. If changing away to other controlmode, e.g. sysID, there
-      In order for this node to ensure that the system works as intended, only a few functions needs to be added.
-      See dp_controller/nodesThruster_allocation.py for how callbacks from sysID etc. is handled.
-      
 NOTE that this node is using Python 3!!!
-NOTE remember to ensure that the simulator you are using has the linear actuator of the bow thruster down.
-     This can be changed to be the default, or preferably by the message /bow_control (member bow_lin_act).
-     If not, go to (in the simulator): Explorer Window -> THR1 -> Input Signals -> LinearActuator and Override the value, setting it to 2.0
 
-ROS Node for using a neural network for solving the thrust allocation problem on the ReVolt model ship. #!/home/revolt/revolt_ws/src/rl_venv/bin/python
-The neural network was trained using the actor critic, policy gradient method PPO. It was trained during 24 hours of simulation on a Windows computer.
+ROS Node for using a neural network for solving the thrust allocation problem on the ReVolt model ship.
+The neural network was trained using the policy gradient method PPO using an actor critic structure. It was trained during 48 hours of simulation on a Huawei Matebook Pro X computer running on Windows OS.
 The model was not given any information about the vessel or the environment, and is therefore based 100% on "self play".
 This node was created as a part of an MSc thesis, named TODO "Solving thrust allocation for surface vessels using deep reinforcement learning". 
 
 The output of the policy network (the part that decides which action to take) is in the area (-1,1), and therefore has to be scaled up to (-100%, 100%).
 This varies with if we are looking at %RPM or angles, in which the %RPM is in scaled with a factor of 100, and the angles are scaled according to the environment, 
-usually pi/2 since the network picks angles between -pi/2 and pi/2.
+usually pi/2 since the network picks angles between -pi/2 and pi/ for the stern angles. Note that the bow thruster is always fixed to 90 degrees, so the agent only chooses the %RPM for it.
 
 Requirements:
     - Tensorflow 1.x - NOTE that the system pip (for python2.7) uses tensorflow 2. It is wanted to keep tf.__version__ >= 2.0.0 as basis as that is by far the best documented module for now.
                        neural allocator uses Keras, which is based on using tf2 as backend. Therefore, this node (and the other supportive files in this package) runs with the system's Python 3,
                        in order to access tensorflow 1
+
+TODO by user:
+    - Decide the type of environment to setup
+        The "environment" describes the type of thruster setups used. Various were trained to evaluate progress, and the differences are explained in __init__()
+
 
 @author: Simen Sem Oevereng, simensem@gmail.com. June 2020.
 """
@@ -53,11 +51,11 @@ class RLTA(object):
                                           bodyframe_velocity_surge,
                                           bodyframe_velocity_sway,
                                           bodyframe_velocity_yaw,
-                                          previous_trust_bow [as a fraction of 100% in (-1,1)],
-                                          previous_trust_port [as a fraction of 100% in (-1,1)],
-                                          previous_trust_star [as a fraction of 100% in (-1,1)]
+                                          previous_thrust_bow [as a fraction of 100% in (-1,1)],
+                                          previous_thrust_port [as a fraction of 100% in (-1,1)],
+                                          previous_thrust_star [as a fraction of 100% in (-1,1)]
                                           ]
-                                          or
+                                          or in brief
                                           [x_tilde, y_tilde, psi_tilde, u, v, r, n_bow_prev, n_port_prev, n_star_prev]
 
         The output depends on the environment. Below is an overview of what each environment controls, and what is set to be constant.
@@ -68,7 +66,7 @@ class RLTA(object):
         limited (5 actions)     | (-1,1)        | (-1,1)        | (-1,1)        | pi/2      | (-1,1) scales to -pi/2 to pi/2    | (-1,1) scales to -pi/2 to pi/2
         full    (6 actions)     | (-1,1)        | (-1,1)        | (-1,1)        | pi/2      | (-1,1) scales to -pi to pi        | (-1,1) scales to -pi to pi
 
-        Not that the order in which the thrust is added to the state is not the same as the convention in the other allocator nodes.
+        NOTE that the order in which the thrust is added to the state is not the same as the convention in the other allocator nodes.
         This is due to that the enumeration of the thrusters are not the same in the ROS code as it is in the Revolt Simulator!
         
         Thruster setup in ROS                       Thruster setup in Cybersea where the actor was trained
@@ -88,28 +86,39 @@ class RLTA(object):
         Output of simple has actions  [0: n_bow,  1: n_port, 2: n_star]
         Output of limited has actions [0: n_bow,  1: n_port, 2: n_star, 3: a_port, 4: a_star]
         Output of full has actions    [0: n_bow,  1: n_port, 2: n_star, 3: a_bow,  4: a_port, 5: a_star]
+        Output of full with continous angle representation has actions    [0: n_bow,  1: n_port, 2: n_star, 3: a_bow,  4: sin(a_port), 5: cos(a_port), 6: sin(a_star), 7: cos(a_star)]
         Setup in ROS has actions      [0: n_port, 1: n_star, 2: n_bow,  3: a_port, 4: a_star, 5: a_bow]
         '''
         act_bnd = {'simple' : [100.0]*3,
                   'limited' : [100.0]*3 + [np.pi/2]*2, 
-                     'full' : [100.0]*3 + [np.pi]*3} # Real life action boundaries
+                    'final' : [100.0]*3 + [np.pi]*2,
+                     'full' : [100.0]*3 + [np.pi]*3} # Real life action boundaries - This must not be removed as it acts as the basis for all the other environments in terms of setting default actions etc
 
         act_map = {'simple' : {0:2, 1:0, 2:1}, 
                   'limited' : {0:2, 1:0, 2:1, 3:3, 4:4}, 
+                    'final' : {0:2, 1:0, 2:1, 3:3, 4:4}, 
                      'full' : {0:2, 1:0, 2:1, 3:5, 4:3, 5:4}} # Mapping from action output of network to corresponding message
 
         act_def = {'simple' : [0, 0, 0, np.pi/2, -3*np.pi/4, 3*np.pi/4], 
-                  'limited' : [0, 0, 0, np.pi/2, 0, 0], 
+                  'limited' : [0, 0, 0, np.pi/2, 0, 0],
+                    'final' : [0, 0, 0, np.pi/2, 0, 0], 
                      'full' : [0]*6 } # Action boundaries used
 
         self.params = {'simple': {'act_bnd': act_bnd['simple'],  'act_map' : act_map['simple'],  'default_actions': act_def['simple']},
                       'limited': {'act_bnd': act_bnd['limited'], 'act_map' : act_map['limited'], 'default_actions': act_def['limited']},
+                        'final': {'act_bnd': act_bnd['final'],   'act_map' : act_map['final'],   'default_actions': act_def['final']},
                          'full': {'act_bnd': act_bnd['full'],    'act_map' : act_map['full'],    'default_actions': act_def['full'] }  
                       }
 
-        # Set environment type (see ml4ta/src/rl/windows_workspace/specific/customEnv for definitions)
-        self.env = 'limited'
-        if self.env == 'simple': raise Exception('No simple enviroments has been trained using previous thrust in the state vector - sorry')
+        ### TODO
+        ### Set environment type (see ml4ta/src/rl/windows_workspace/specific/customEnv for definitions)
+        self.cont_ang = False
+        self.env = 'final'
+        
+        ###
+        ### ABOVE PARAMS MUST BE SET
+
+        if self.env == 'simple': raise Exception('No simple enviroments has been trained using previous thrust in the state vector / extended state space vector - sorry')
 
         path = '/home/revolt/revolt_ws/src/rl_allocator/src/models/{}'.format(self.env)
         rospy.loginfo('Launching RLTA - it takes a few seconds to load...')
@@ -276,6 +285,10 @@ class RLTA(object):
     def get_action(self):
         # Get action selection from the policy network and scale according to environment
         action = self.actor(self.state) # (x,) shaped array
+
+        if self.env == 'final' and self.cont_ang:
+            action = self.handle_continuous_angles(action)
+
         action = self.scale_and_clip(action)
 
         curr_act_map = self.params[self.env]['act_map'] # The action map from chosen action to the ROS format
@@ -306,6 +319,17 @@ class RLTA(object):
         else:
             self.integrator = np.zeros((3,)) # reset in case it has been turned on before
             return current_state
+
+    def handle_continuous_angles(self,action):
+        assert self.env.lower() == 'final', 'Using continuous angles is only made to work with the final environment using fully rotating stern thrusters'
+        sin_port, cos_port = action[3], action[4]
+        sin_star, cos_star = action[5], action[6]
+        a_port = np.arctan2(sin_port, cos_port) / self.params[self.env]['act_bnd'][-1] # Since the scale and clip-function assumes an action between -1 and 1, the angle is scaled according to maximum
+        a_star = np.arctan2(sin_star, cos_star) / self.params[self.env]['act_bnd'][-1]
+        new_action = np.hstack( (action[0:3], np.array([a_port, a_star])) )
+        action = new_action.copy()
+        return action
+
 
     def shortestPath(self,a_prev,a,deg = False):
         ''' Calculates the shortest angluar path BETWEEN two angles. This does NOT return the new angle, but should be used for adding.

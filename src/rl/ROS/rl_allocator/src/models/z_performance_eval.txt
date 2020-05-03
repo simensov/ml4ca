@@ -78,4 +78,21 @@ actderros:		r-trajectories: OK, except NW-SW
 
 NOTES: The ErrorFramed used the angle error for coordinate rotations instead of NED angle... Fixed, and things are looking GREAT
 
+finalcontanginit:	r-trajectories: PERFECT
+			y-trajectories: very good
+			thrust-usage:	high
+			thrust-derivs:	high
+			angle-derivs:	great
+			note: first test with full angle setup, using cont ang. NICE, but costly
+
+finabaseline:		r-trajectories: okay
+			y-trajectories: okay
+			thrust-usage:	high
+			thrust-derivs:	okay
+			angle-derivs:	locks a bit
+			note: first test with full angle setup, using non-cont ang. cont ang seems better
+
+
+
+
 

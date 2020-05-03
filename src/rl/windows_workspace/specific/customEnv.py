@@ -256,13 +256,12 @@ class Revolt(gym.Env):
         ### Limited env
         # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) # best in Windows, but probably only since the penalty avoids thrusters being on MAX, but doesnt necessary minimize the usage
         # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty([0.05,0.075,0.075], angular = False) # actderros # changed derivatives according to what seems nice in ROS. high used 0.1, 0.1, 0.1
-        
 
         ### Final Env
         # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty(thrust=False, angular=True, ang_coeff=[0.02,0.02,0.02]) # used for final inits
         # Attempt to reduce finals thrust fluctuations in two ways: (1) penalize thrust according to torque, and (2) penalize delta_n (ideally both shall be used in the end)
         rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.03,0.03,0.03], torque_based=True) + self.action_derivative_penalty(thrust=False,                            angular=True, ang_coeff=[0.02,0.02,0.02]) # finconttorque
-        rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1])                       + self.action_derivative_penalty(thrust=True, pen_coeff=[0.00,0.01,0.01], angular=True, ang_coeff=[0.00,0.01,0.01]) # fincontactderall
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1])                       + self.action_derivative_penalty(thrust=True, pen_coeff=[0.00,0.01,0.01], angular=True, ang_coeff=[0.00,0.01,0.01]) # fincontactderall
         return rew  
 
     def vel_reward(self, coeffs = None):

@@ -1,28 +1,31 @@
 import numpy as np 
 import matplotlib.pyplot as plt 
+from tabulate import tabulate
 
 angles = np.linspace(-np.pi, np.pi, 11)
-# sins = np.linspace(-1.0,1.0,5)
-# coss = np.linspace(-1.0,1.0,5)
+sins = np.linspace(-1.0,1.0,11)
+coss = np.linspace(-1.0,1.0,11)
 
-rad2deg = 180 / np.pi
+r2d = 180 / np.pi
 
-sins = [np.sin(a) for a in angles]
-coss = [np.cos(a) for a in angles]
+# sins = [np.sin(a) for a in angles]
+# coss = [np.cos(a) for a in angles]
 
-for i, (s, c) in enumerate(zip(sins,coss)):
-        print('Angle from sin and cos:')
-        print('{:.2f}, {:.2f}'.format( (np.pi / 2 - np.arcsin(s)) * rad2deg  , (np.pi / 2 - np.arccos(c)) *rad2deg ))
-        t = np.arctan2(s,c) * rad2deg
+table = np.zeros((len(sins)+3,len(coss)+3))
+table[3:,0] = np.array([s for s in sins]) 
+table[3:,1] = np.array([np.arcsin(s) *r2d for s in sins]) 
+table[0,3:] = np.array([c for c in coss]) 
+table[1,3:] = np.array([np.arccos(c) *r2d for c in coss]) 
+
+for i, s in enumerate(sins):
+    for j, c in enumerate(coss):
+        print('Sin and cos:')
+        print('{:.2f}, {:.2f}'.format(s,c) )
+        print('Angles coming from sin and cos')
+        print('{:.2f}, {:.2f}'.format( np.arcsin(s) * r2d, np.arccos(c) *r2d))
+        t = np.arctan2(s,c) * r2d
         print('Angle from arctan2:')
         print(t)
-        print('Actual angle')
-        print(angles[i] * rad2deg)
+        table[i+3,j+3] = '{:.2f}'.format(t)
 
-# for a in angles:
-#     print(a * rad2deg)
-#     s = np.sin(a)
-#     c = np.cos(a)
-#     t = np.arctan2(s,c)
-#     print(t * rad2deg)
-#     print('#')
+print(tabulate(table,numalign='center',stralign='center',tablefmt='presto'))

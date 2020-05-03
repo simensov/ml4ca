@@ -93,6 +93,25 @@ finabaseline:		r-trajectories: okay
 			note: first test with full angle setup, using non-cont ang. cont ang seems better
 
 
+finactderall:		r-trajectories: good
+			y-trajectories: great
+			thrust-usage:	high
+			thrust-derivs:	high
+			angle-derivs:	locks a bit
+			note: better than baseline, but still use a lot of thrust
+
+fincontacderall:	r-trajectories: good
+			y-trajectories: great
+			thrust-usage:	okay
+			thrust-derivs:	high
+			angle-derivs:	great
+			note: getting closer!
+
+NOTES: From now, the cont angles seems like the better choice. The trajectories are better from RL than from QP and pseudo, so now only action penalties is going to be tuned.
+
+
+
+
 
 
 

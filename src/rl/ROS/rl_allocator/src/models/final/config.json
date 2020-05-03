@@ -12,31 +12,31 @@
     "curriculum":	false,
     "env_fn":	"env_fn",
     "epochs":	1500,
-    "exp_name":	"finalbaseline",
+    "exp_name":	"finconttorque",
     "ext":	true,
     "gamma":	0.99,
     "lam":	0.97,
     "logger":	{
-        "<spinup.utils.logx.EpochLogger object at 0x000001A6466F51D0>":	{
+        "<spinup.utils.logx.EpochLogger object at 0x000001DD635AD320>":	{
             "epoch_dict":	{},
-            "exp_name":	"finalbaseline",
+            "exp_name":	"finconttorque",
             "first_row":	true,
             "log_current_row":	{},
             "log_headers":	[],
-            "output_dir":	"C:\\Users\\simensov\\Documents\\thesis\\ml4ca\\src\\rl\\windows_workspace\\data\\finalbaseline\\finalbaseline_s0",
+            "output_dir":	"C:\\Users\\simensov\\Documents\\thesis\\ml4ca\\src\\rl\\windows_workspace\\data\\finconttorque\\finconttorque_s0",
             "output_file":	{
-                "<_io.TextIOWrapper name='C:\\\\Users\\\\simensov\\\\Documents\\\\thesis\\\\ml4ca\\\\src\\\\rl\\\\windows_workspace\\\\data\\\\finalbaseline\\\\finalbaseline_s0\\\\progress.txt' mode='w' encoding='cp1252'>":	{
+                "<_io.TextIOWrapper name='C:\\\\Users\\\\simensov\\\\Documents\\\\thesis\\\\ml4ca\\\\src\\\\rl\\\\windows_workspace\\\\data\\\\finconttorque\\\\finconttorque_s0\\\\progress.txt' mode='w' encoding='cp1252'>":	{
                     "mode":	"w"
                 }
             }
         }
     },
     "logger_kwargs":	{
-        "exp_name":	"finalbaseline",
-        "output_dir":	"C:\\Users\\simensov\\Documents\\thesis\\ml4ca\\src\\rl\\windows_workspace\\data\\finalbaseline\\finalbaseline_s0"
+        "exp_name":	"finconttorque",
+        "output_dir":	"C:\\Users\\simensov\\Documents\\thesis\\ml4ca\\src\\rl\\windows_workspace\\data\\finconttorque\\finconttorque_s0"
     },
     "max_ep_len":	400,
-    "note":	"First test of final env with action vector being angles directly. Standard rewardfunc with small angular der penalties used",
+    "note":	"New EF, final env, cont ang.  Using the final rew function with torque penalty coeffs 0.03 and angcoeff 0.2",
     "pi_lr":	0.0003,
     "save_freq":	10,
     "seed":	0,

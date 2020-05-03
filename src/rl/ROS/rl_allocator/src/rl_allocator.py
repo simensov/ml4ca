@@ -112,7 +112,7 @@ class RLTA(object):
 
         ### TODO
         ### Set environment type (see ml4ta/src/rl/windows_workspace/specific/customEnv for definitions)
-        self.cont_ang = False
+        self.cont_ang = True
         self.env = 'final'
         
         ###

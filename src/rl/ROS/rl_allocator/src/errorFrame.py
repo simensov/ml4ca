@@ -48,7 +48,7 @@ class ErrorFrame(object):
         if pos: self.update(pos=pos)
 
         err = np.array([ [a - b for a, b in zip(self._pos,self._ref)] ]).T # full shape column vector of errors
-        rotation_angle = wrap_angle(self._ref[2]) # this is the same as smallest signed angle, see MSS Toolbox, ssa.m, by T.I.Fossen
+        rotation_angle = wrap_angle(self._pos[2]) # this is the same as smallest signed angle, see MSS Toolbox, ssa.m, by T.I.Fossen
         pos_bod = rotation_matrix(rotation_angle).T.dot(err[0:2,:]) # a 2,1 column vector of the body frame errors in [surge,sway], using the NED angle for coordinate shift
         self._error_coordinate = [pos_bod[0,0], pos_bod[1,0], wrap_angle(err[2,0])] # body frame errors [surge,sway,yaw]
 

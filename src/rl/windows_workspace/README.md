@@ -34,6 +34,8 @@ example:
 
         This is no big problem; the simulator windows opens, but the configuration is not loaded and the Python script terminates. Just load the configuration manually in the simulator window, and launch the Python script when completed. 
 
+    - Another known error is that using too long experiment names makes the storage of variables crash somehow. Annoyingly, this happens after the simulation starts seemingly without problems, but the error occurs during the first attempt to save variables and weights. The printout is something along the lines of that it cannot find a certain operation, referring to a certain weight in the network. Just keep the names short, lowercase letters, avoid numbers and symbols, and you will be fine.
+
 
 ## Other directories
 

@@ -270,17 +270,18 @@ class Revolt(gym.Env):
         # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty([0.05,0.075,0.075], angular = False) # actderros # changed derivatives according to what seems nice in ROS. high used 0.1, 0.1, 0.1
 
         ### Final Env
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty(thrust=False, angular=True, ang_coeff=[0.02,0.02,0.02]) # used for final inits
-        # Attempt to reduce finals thrust fluctuations in two ways: (1) penalize thrust according to torque, and (2) penalize delta_n (ideally both shall be used in the end)
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.03,0.03,0.03], torque_based=True) + self.action_derivative_penalty(thrust=False,                            angular=True, ang_coeff=[0.02,0.02,0.02]) # finconttorque
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1])                       + self.action_derivative_penalty(thrust=True, pen_coeff=[0.00,0.01,0.01], angular=True, ang_coeff=[0.00,0.01,0.01]) # fincontactderall
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.15,0.15,0.15]) + self.action_derivative_penalty(thrust=True, pen_coeff=[0.00,0.05,0.05], angular=True, ang_coeff=[0.00,0.01,0.01]) # finconttotal - good for iterative approach
 
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.15,0.15,0.15])                    + self.action_derivative_penalty(thrust=True, pen_coeff=[0.00,0.05,0.05], angular=True, ang_coeff=[0.00,0.01,0.01]) # finconttotal
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.20,0.30,0.30])                    + self.action_derivative_penalty(thrust=True, pen_coeff=[0.00,0.05,0.05], angular=True, ang_coeff=[0.00,0.01,0.01]) # finconttotalhigh
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.10,0.10,0.10])                    + self.action_derivative_penalty(thrust=True, pen_coeff=[0.05,0.10,0.10], angular=True, ang_coeff=[0.00,0.01,0.01]) # finconttotalhighder
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.05,0.05,0.05], torque_based=True) + self.action_derivative_penalty(thrust=True, pen_coeff=[0.02,0.02,0.02], angular=True, ang_coeff=[0.02,0.02,0.02]) # finconttotaltorque
-        rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.075,0.075,0.075], torque_based=True) + self.action_derivative_penalty(thrust=True, pen_coeff=[0.05,0.075,0.075], angular=True, ang_coeff=[0.02,0.02,0.02]) # finconttorqueactderrosangle
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.10,0.10,0.10])                    + self.action_derivative_penalty(thrust=True, pen_coeff=[0.02,0.02,0.02], angular=True, ang_coeff=[0.00,0.02,0.02]) # finactderallangleup
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.15,0.15,0.15]) + self.action_derivative_penalty(thrust=True, pen_coeff=[0.02,0.02,0.02], angular=True, ang_coeff=[0.00,0.04,0.04]) # finactderallangleup / finimprovement
+
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.15,0.15,0.15]) + self.action_derivative_penalty(thrust=True, pen_coeff=[0.05,0.05,0.05], angular=True, ang_coeff=[0.00,0.01,0.01]) # finconttotbowder
+
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.15,0.20,0.20]) + self.action_derivative_penalty(thrust=True, pen_coeff=[0.05,0.05,0.05], angular=True, ang_coeff=[0.00,0.01,0.01]) # finconttotallup
+
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.15,0.30,0.30]) + self.action_derivative_penalty(thrust=True, pen_coeff=[0.05,0.05,0.05], angular=True, ang_coeff=[0.00,0.02,0.02]) # finconttothighall
+
+        rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.20,0.30,0.30]) + self.action_derivative_penalty(thrust=True, pen_coeff=[0.05,0.05,0.05], angular=True, ang_coeff=[0.00,0.01,0.01]) # finconttothighbowder
+
         return rew  
 
     def vel_reward(self, coeffs = None):
@@ -481,4 +482,13 @@ rew = self.vel_reward() + self.summed_gaussian_with_multivariate() + self.thrust
 
 # actderallsmallest to see if it can become stable
 rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty(pen_coeff=[0.00,0.01,0.01], thrust=True, angular=True, ang_coeff=[0.00,0.01,0.01])  
+
+# rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.03,0.03,0.03], torque_based=True) + self.action_derivative_penalty(thrust=False,                            angular=True, ang_coeff=[0.02,0.02,0.02]) # finconttorque
+# rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1])                       + self.action_derivative_penalty(thrust=True, pen_coeff=[0.00,0.01,0.01], angular=True, ang_coeff=[0.00,0.01,0.01]) # fincontactderall
+# rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.15,0.15,0.15])                    + self.action_derivative_penalty(thrust=True, pen_coeff=[0.00,0.05,0.05], angular=True, ang_coeff=[0.00,0.01,0.01]) # finconttotal
+# rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.20,0.30,0.30])                    + self.action_derivative_penalty(thrust=True, pen_coeff=[0.00,0.05,0.05], angular=True, ang_coeff=[0.00,0.01,0.01]) # finconttotalhigh
+# rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.10,0.10,0.10])                    + self.action_derivative_penalty(thrust=True, pen_coeff=[0.05,0.10,0.10], angular=True, ang_coeff=[0.00,0.01,0.01]) # finconttotalhderhigh
+# rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.05,0.05,0.05], torque_based=True) + self.action_derivative_penalty(thrust=True, pen_coeff=[0.02,0.02,0.02], angular=True, ang_coeff=[0.02,0.02,0.02]) # finconttotaltorque
+# rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.075,0.075,0.075], torque_based=True) + self.action_derivative_penalty(thrust=True, pen_coeff=[0.05,0.075,0.075], angular=True, ang_coeff=[0.02,0.02,0.02]) # finconttorqueactderrosangle
+# rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.10,0.10,0.10])                    + self.action_derivative_penalty(thrust=True, pen_coeff=[0.02,0.02,0.02], angular=True, ang_coeff=[0.00,0.02,0.02]) # finactderallangleup
 '''

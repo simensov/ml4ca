@@ -63,6 +63,7 @@ if __name__ == '__main__':
 
     env = t.env_fn()
     if env.dt != 0.1:
+        # The parameters of episode length etc. was chosen with simulator timesteps of 0.1 s. If it has changed; scale the hyperparameters accordingly, e.g. I have personally changed to 0.2 s / 5 Hz, meaning that the simulator must take n_steps = 20 (they are counted in 100Hz steps)
         args.max_ep_len = env.max_ep_len # the environment has stored a max_ep_len originally used only when loading and testing, but it follows step size
         args.steps = int(args.steps * 10 / env.n_steps) # Scale the number of time steps during an epoch relative to how many 100Hz-steps we are now taking compared to when we were taking 10 Hz steps
 

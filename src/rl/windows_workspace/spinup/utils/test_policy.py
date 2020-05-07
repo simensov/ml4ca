@@ -86,6 +86,8 @@ def load_tf_policy(fpath, itr, deterministic=False):
     else:
         print('Using default action op.')
         action_op = model['pi']
+        if True:
+            action_op = action_op.graph.get_tensor_by_name('pi/dense_3/BiasAdd:0') # NOTE I choose to pick the deterministic part of the policy instead of the stochastic - great idea Mr.
 
     # make function for producing an action given a single state
     get_action = lambda x : sess.run(action_op, feed_dict={model['x']: x[None,:]})[0]

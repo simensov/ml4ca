@@ -11,7 +11,7 @@ stern_setpoints_path = 'bagfile__{}thrusterAllocation_stern_thruster_setpoints.c
 stern_angles_path = 'bagfile__{}thrusterAllocation_pod_angle_input.csv'
 bow_params_path = 'bagfile__{}bow_control.csv'
 eta_path = path = 'bagfile__{}observer_eta_ned.csv'
-ref_filter = 'bagfile__{}reference_filter_state_desired_new.csv'
+ref_filter = 'bagfile__{}reference_filter_state_desired.csv'
 
 paths = [stern_setpoints_path, stern_angles_path, bow_params_path, eta_path, ref_filter]
 

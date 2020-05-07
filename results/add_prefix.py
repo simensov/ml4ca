@@ -2,9 +2,10 @@ import csv
 import argparse
 import numpy as np
 import sys
+import os
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-p', type=str, default='')
+parser.add_argument('--p', type=str, default='')
 args = parser.parse_args()
 
 stern_setpoints_path = 'bagfile__{}thrusterAllocation_stern_thruster_setpoints.csv'
@@ -19,18 +20,12 @@ assert args.p != '', 'The script demands that prefix is passed as command line a
 for path in paths:
 
 	openpath = path.format('')
+
 	try:
-		r = csv.reader(open(openpath))
-		print('Opened csv at {}'.format(openpath))
+		os.rename(openpath, path.format(args.p + '_'))
 	except:
-		print('Could not find any files at {}'.format(openpath))
-		continue
+		print('Could not rename', openpath)
 
-	data = np.array(list(r))
-	path = path.format(args.p + '_')
-	writer = csv.writer(open(path, 'w'))
-	writer.writerows(data)
-
-	print('Added new file with prefix to {}'.format(path))
+	print('Added new file prefix to {}'.format(openpath))
 
 sys.exit()

@@ -14,7 +14,7 @@ set_params()
 Positional data
 '''
 path = 'bagfile__{}_observer_eta_ned.csv' # General path to eta
-path_ref = 'bagfile__reference_filter_state_desired_new.csv'
+path_ref = 'bagfile__reference_filter_state_desired.csv'
 
 north, east, psi, time = [np.zeros((1,1))]*len(methods), [np.zeros((1,1))]*len(methods), [np.zeros((1,1))]*len(methods), [np.zeros((1,1))]*len(methods)
 data = []
@@ -50,7 +50,7 @@ if False:
     ref_time = np.vstack( (ref_time,np.array([240])))
 refdata = [ref_north, ref_east, ref_yaw]
 
-n_0, e_0, p_0 = north[0], east[0], psi[0]
+n_0, e_0, p_0 = north[2], east[2], psi[2]
 # Points for the different box test square. These are only the coords and not the changes relative to eachother. Very first elements are nan
 box_n = [n_0[1,0],  n_0[1,0] + 5, n_0[1,0] + 5.0,  n_0[1,0] + 5.0,  n_0[1,0],           n_0[1,0]]
 box_e = [e_0[1,0],  e_0[1,0],     e_0[1,0] - 5.0,  e_0[1,0] - 5.0,  e_0[1,0] - 5.0,     e_0[1,0]]

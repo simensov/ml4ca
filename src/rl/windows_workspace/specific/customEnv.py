@@ -280,7 +280,10 @@ class Revolt(gym.Env):
 
         # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.15,0.30,0.30]) + self.action_derivative_penalty(thrust=True, pen_coeff=[0.05,0.05,0.05], angular=True, ang_coeff=[0.00,0.02,0.02]) # finconttothighall
 
-        rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.20,0.30,0.30]) + self.action_derivative_penalty(thrust=True, pen_coeff=[0.05,0.05,0.05], angular=True, ang_coeff=[0.00,0.01,0.01]) # finconttothighbowder
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.20,0.30,0.30]) + self.action_derivative_penalty(thrust=True, pen_coeff=[0.05,0.05,0.05], angular=True, ang_coeff=[0.00,0.01,0.01]) # finconttothighbowder
+
+        # This reward function is from now called optione - first version was called finconttothighbowder
+        rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.20,0.30,0.30]) + self.action_derivative_penalty(thrust=True, pen_coeff=[0.05,0.05,0.05], angular=True, ang_coeff=[0.00,0.01,0.01]) # optione
 
         return rew  
 

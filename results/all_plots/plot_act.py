@@ -11,6 +11,8 @@ set_params()
 def plot_zeros(ax,data):
     ax.plot(t,[0]*len(data),'-', linewidth=0.5, color='grey', alpha=0.5,label=None)
 
+PLOT_SETPOINT_AREAS = True
+
 
 '''
 Positional data
@@ -43,6 +45,7 @@ for i in range(len(methods)):
     time_bow[i] = bow_data[1:,4:] # lin_act_bow is in pos 3
 
 setpointx = [10, 60, 110, 140, 190]
+setpnt_areas = [0] + setpointx + [240]
 
 '''
 ### ANGLES
@@ -67,10 +70,16 @@ for axn,ax in enumerate(axes):
         ax.spines['right'].set_visible(False)
         # ax.yaxis.grid(color='grey', linestyle='--', alpha=0.5)
     
-    lab = 'Set point changes' if axn == 0 and i == 0 else '' # TODO get labels to work
-    for c in setpointx:
-        ax.axvline(c, linestyle='--', color='black', alpha = 0.8, label=lab)
-
+    if not PLOT_SETPOINT_AREAS:
+        lab = 'Set point changes' if axn == 0 and i == 0 else '' # TODO get labels to work
+        for c in setpointx:
+            ax.axvline(c, linestyle='--', color='black', alpha = 0.8, label=lab)
+    else:
+        clrs = ['grey','white']
+        clrctr = 0
+        for i in range(len(setpnt_areas) - 1):
+            ax.axvspan(setpnt_areas[i],setpnt_areas[i+1], facecolor=clrs[clrctr], alpha=0.1)
+            clrctr = int(1 - clrctr)
     
     # Print reference lines
 # ax.plot(setpointx,targets,'--',color=colors[3], label = 'Reference' if axn == 0 else None)
@@ -106,9 +115,16 @@ for axn,ax in enumerate(axes):
         ax.spines['right'].set_visible(False)
         # ax.yaxis.grid(color='grey', linestyle='--', alpha=0.5)
     
-    lab = 'Set point changes' if axn == 0 and i == 0 else '' # TODO get labels to work
-    for c in setpointx:
-        ax.axvline(c, linestyle='--', color='black', alpha = 0.8, label=lab)
+    if not PLOT_SETPOINT_AREAS:
+        lab = 'Set point changes' if axn == 0 and i == 0 else '' # TODO get labels to work
+        for c in setpointx:
+            ax.axvline(c, linestyle='--', color='black', alpha = 0.8, label=lab)
+    else:
+        clrs = ['grey','white']
+        clrctr = 0
+        for i in range(len(setpnt_areas) - 1):
+            ax.axvspan(setpnt_areas[i],setpnt_areas[i+1], facecolor=clrs[clrctr], alpha=0.1)
+            clrctr = int(1 - clrctr)
 
     # Print reference lines
 # ax.plot(setpointx,targets,'--',color=colors[3], label = 'Reference' if axn == 0 else None)
@@ -139,7 +155,7 @@ for i in range(len(methods)):
     nb = nbow[i]
     pb = 0
 
-    for j in range(len(tbow) - 1): #trapezoidal lols
+    for j in range(len(tbow) - 1): # trapezoidal integration
         dt = tbow[j+1] - tbow[j]
         p_avg = (power(nb[j+1] , 'bow') + power(nb[j] , 'bow')) / 2 # average |n^3| for current time interval
         powers[i][0].append(p_avg * dt)
@@ -147,7 +163,8 @@ for i in range(len(methods)):
     taft = time_nstern[i]
     nprt = nport[i]
     nstr = nstar[i]
-    for j in range(len(taft) - 1):
+    
+    for j in range(len(taft) - 1): # trapezoidal integration
         dt = taft[j+1] - taft[j]
         p_avg_port = (power(nprt[j+1] , 'stern') + power(nprt[j] , 'stern')) / 2
         p_avg_star = (power(nstr[j+1] , 'stern') + power(nstr[j] , 'stern')) / 2
@@ -175,9 +192,16 @@ for axn,ax in enumerate(axes):
         ax.spines['right'].set_visible(False)
         # ax.yaxis.grid(color='grey', linestyle='--', alpha=0.5)
     
-    lab = 'Set point changes' if axn == 0 and i == 0 else '' # TODO get labels to work
-    for c in setpointx:
-        ax.axvline(c, linestyle='--', color='black', alpha = 0.8, label=lab)
+    if not PLOT_SETPOINT_AREAS:
+        lab = 'Set point changes' if axn == 0 and i == 0 else '' # TODO get labels to work
+        for c in setpointx:
+            ax.axvline(c, linestyle='--', color='black', alpha = 0.8, label=lab)
+    else:
+        clrs = ['grey','white']
+        clrctr = 0
+        for i in range(len(setpnt_areas) - 1):
+            ax.axvspan(setpnt_areas[i],setpnt_areas[i+1], facecolor=clrs[clrctr], alpha=0.1)
+            clrctr = int(1 - clrctr)
 
 axes[0].legend(loc='best', facecolor='#FAD7A0', framealpha=0.3).set_draggable(True)
 f.tight_layout()
@@ -216,9 +240,16 @@ for axn,ax in enumerate(axes):
         ax.spines['right'].set_visible(False)
         # ax.yaxis.grid(color='grey', linestyle='--', alpha=0.5)
     
-    lab = 'Set point changes' if axn == 0 and i == 0 else '' # TODO get labels to work
-    for c in setpointx:
-        ax.axvline(c, linestyle='--', color='black', alpha = 0.8, label=lab)
+    if not PLOT_SETPOINT_AREAS:
+        lab = 'Set point changes' if axn == 0 and i == 0 else '' # TODO get labels to work
+        for c in setpointx:
+            ax.axvline(c, linestyle='--', color='black', alpha = 0.8, label=lab)
+    else:
+        clrs = ['grey','white']
+        clrctr = 0
+        for i in range(len(setpnt_areas) - 1):
+            ax.axvspan(setpnt_areas[i],setpnt_areas[i+1], facecolor=clrs[clrctr], alpha=0.1)
+            clrctr = int(1 - clrctr)
 
 axes[0].legend(loc='best', facecolor='#FAD7A0', framealpha=0.3).set_draggable(True)
 f.tight_layout()
@@ -226,11 +257,36 @@ f.tight_layout()
 final_powers = [[[],[],[]], [[],[],[]], [[],[],[]]]
 
 for i,p_method in enumerate(powers):
-    for j,thruster in enumerate(p_method):
-        final_powers[i][j] = sum(powers[i][j])
+    # all p_method comes as power timeseries [p_bow, p_port, p_star]
+    for j,p_thruster in enumerate(p_method):
+        # p_thruster is now power time series for a given thruster, for the given method i
+        final_powers[i][j] = sum(p_thruster)
 
 for i in range(len(methods)):
     print('Method {}'.format(methods[i]))
     print(sum(final_powers[i]))
 
+f = plt.figure()
+
+bars = []
+for i in range(3): # all three thrusters
+    for j in range(len(methods)):
+        bars.append(final_powers[j][i][0]) # collects [p_bow_dnvgl, p_bow_qp, p_bow_rl, p_port_dnvgl, ..., p_star_rl]
+
+for i in range(len(methods)):
+    bars.append(sum(final_powers[i])[0])   
+
+bar_positions = [0,1,2,4,5,6,9,10,11,14,15,16]
+tick_pos = [1,5,10,15]
+txts = ['Bow thruster', 'Port thruster', 'Starboard thruster', 'Total']
+bar_colors = [colors[0], colors[1], colors[2]]*4
+elements = plt.bar(bar_positions, bars, color = bar_colors)
+plt.xticks(tick_pos, txts)
+
+ax = plt.gca()
+ax.legend(elements[0:3], ['DNVGL\'s pseudoinverse', 'Quadratic Programming', 'Reinforcement Learning'],loc='best', facecolor='#FAD7A0', framealpha=0.3).set_draggable(True)
+ax.spines['top'].set_visible(False)
+ax.spines['right'].set_visible(False)
+
+f.tight_layout()
 plt.show()

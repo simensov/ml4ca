@@ -2,10 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import sys
-from common import methods, labels, colors, set_params
-#plt.gca().spines['top'].set_visible(False)
-# gridspec.GridSpec(3,3)
-# plt.subplot2grid((2,3),(0,1)); plt.subplot2grid((2,3),(1,0),colspan=3)
+from common import methods, labels, colors, set_params, get_secondly_averages, absolute_error, IAE
+
 
 save = False
 set_params()
@@ -17,7 +15,7 @@ path = 'bagfile__{}_observer_eta_ned.csv' # General path to eta
 path_ref = 'bagfile__reference_filter_state_desired.csv'
 
 north, east, psi, time = [np.zeros((1,1))]*len(methods), [np.zeros((1,1))]*len(methods), [np.zeros((1,1))]*len(methods), [np.zeros((1,1))]*len(methods)
-data = []
+ALL_POS_DATA = []
 for i in range(len(methods)):
     fpath = path.format(methods[i])
     posdata = np.genfromtxt(fpath,delimiter=',')
@@ -35,7 +33,7 @@ for i in range(len(methods)):
 
     psi[i] = posdata[1:,6:7]
     time[i] = posdata[1:,7:]
-    data.append([north[i], east[i], psi[i], time[i]] )
+    ALL_POS_DATA.append([north[i], east[i], psi[i], time[i]] )
 
 
 refdata = np.genfromtxt(path_ref,delimiter=',')
@@ -43,11 +41,13 @@ ref_north = refdata[1:,1:2]
 ref_east = refdata[1:,2:3]
 ref_yaw = refdata[1:,3:4]
 ref_time = refdata[1:,-1:]
-if False:
+
+if False: # manually moving reffilter as it might not fit time
     ref_time = ref_time - 2 *np.ones_like(ref_time)
     ref_time[ref_time < 0] = 0.0
     ref_time = ref_time[1:]
     ref_time = np.vstack( (ref_time,np.array([240])))
+
 refdata = [ref_north, ref_east, ref_yaw]
 
 n_0, e_0, p_0 = north[2], east[2], psi[2]
@@ -100,15 +100,99 @@ for axn,ax in enumerate(axes):
         ax.plot(t,relevant_data,color=colors[i],label=labels[i])
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
-        ax.yaxis.grid(color='grey', linestyle='--', alpha=0.5)
+        # ax.yaxis.grid(color='grey', linestyle='--', alpha=0.5)
     
     # Print reference lines
     targets = box_coords_over_time[axn]
     # ax.plot(setpointx,targets,'--',color=colors[3], label = 'Reference' if axn == 0 else None)
     ax.plot(ref_time, refdata[axn], '--',color=colors[3], label = 'Reference' if axn == 0 else None)
 
+    setpointx = [10, 60, 110, 140, 190]
+    setpnt_areas = [0] + setpointx + [240]
+    clrs = ['grey','white']
+    clrctr = 0
+    for i in range(len(setpnt_areas) - 1):
+        ax.axvspan(setpnt_areas[i],setpnt_areas[i+1], facecolor=clrs[clrctr], alpha=0.1)
+        clrctr = int(1 - clrctr)
+   
 axes[0].legend(loc='best', facecolor='#FAD7A0', framealpha=0.3).set_draggable(True)
 f0.tight_layout()
 
+
+'''
+### Integral Absolute Error : int_0^t  sqrt ( error^2 ) dt
+    - compare position to reference filter
+'''
+
+ref_data_averages = [] # list of tuples: (average times [whole seconds] (dim 1,), average data values (dim 3,xsteps))
+for data in refdata:
+    ref_data_averages.append(get_secondly_averages(ref_time, data))
+
+pos_data_averages = [] # is a list of three lists containing tuples: (average times [whole seconds], average data values) 
+for i in range(len(methods)):
+    current_method_averages = []
+    current_method_data = ALL_POS_DATA[i]
+    t = current_method_data[-1]
+    for j in range(len(current_method_data) - 1):
+        dimensional_data = current_method_data[j].reshape(current_method_data[j].shape[0],).tolist()
+        inn = get_secondly_averages(t, dimensional_data)
+        current_method_averages.append(inn)
+    
+    pos_data_averages.append(current_method_averages)
+
+if False: # This is used to verify that averages is true to the real data
+    f0, axes = plt.subplots(3,1,figsize=(12,9),sharex = True)
+    for axn,ax in enumerate(axes):
+        ax.plot(ref_data_averages[axn][0], ref_data_averages[axn][1], '--', color=colors[3])
+        for i in range(len(methods)):
+            local_time = pos_data_averages[i][axn][0]
+            local_data = pos_data_averages[i][axn][1]
+            ax.plot(local_time,local_data,color = colors[i])
+    f0.tight_layout()
+
+# Here, three IAE plots will be shown ontop of eachother
+etas = [] # list of columvectors
+refs = [] # list of columvectors
+
+for pos_data_method_i in pos_data_averages:
+    local_ned = []
+    for tup in pos_data_method_i:
+        t, d = tup
+        local_ned.append(d)
+        
+    etas.append(np.array(local_ned).T)
+
+local_ned = []
+for tup in ref_data_averages:
+    t,d = tup
+    local_ned.append(d)
+
+refs = np.array(local_ned).T
+
+f0, ax = plt.subplots(1,1,sharex = True)
+IAES = [] # cumulative errors over time
+times = ref_data_averages[0][0]
+for i in range(len(methods)):
+    integrals, cumsums = IAE(etas[i] / np.array([5.,5.,50.]), refs / np.array([5.,5.,50.]), times)
+    IAES.append(cumsums)
+    ax.plot(times, IAES[i], color=colors[i], label=labels[i])
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
+setpointx = [10, 60, 110, 140, 190]
+setpnt_areas = [0] + setpointx + [240]
+clrs = ['grey','white']
+clrctr = 0
+for i in range(len(setpnt_areas) - 1):
+    ax.axvspan(setpnt_areas[i],setpnt_areas[i+1], facecolor=clrs[clrctr], alpha=0.1)
+    clrctr = int(1 - clrctr)
+
+ax.legend(loc='best', facecolor='#FAD7A0', framealpha=0.3).set_draggable(True)
+ax.set_ylabel('IAE')
+ax.set_xlabel('Time [s]')
+f0.tight_layout()
+    
+print('IAES')
+for i in range(len(methods)): print(methods[i], ':', IAES[i][-1])
 
 plt.show()

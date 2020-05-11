@@ -73,6 +73,9 @@ def plot_data(data, xaxis='Epoch', value="AverageEpRet", condition="Condition1",
     ax = plt.gca()
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
+    ax.spines['left'].set_color('black')
+    ax.spines['bottom'].set_color('black')
+    ax.tick_params(bottom=True, left=True)
 
 def get_datasets(logdir, condition=None):
     """

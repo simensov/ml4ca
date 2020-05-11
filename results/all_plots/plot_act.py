@@ -141,7 +141,7 @@ f.tight_layout()
     
 rps_max = {'bow': 33.0, 'stern': 11.0}
 diameters = {'bow': 0.06, 'stern': 0.15}
-KQ_0 = {'bow': 0.035 * 0.001518 / 0.0027, 'stern':0.028}
+KQ_0 = {'bow': 0.035 * 0.001518 / 0.0027, 'stern': 0.028}
 rho = 1025.0
 
 def power(n,which):
@@ -163,7 +163,7 @@ for i in range(len(methods)):
     taft = time_nstern[i]
     nprt = nport[i]
     nstr = nstar[i]
-    
+
     for j in range(len(taft) - 1): # trapezoidal integration
         dt = taft[j+1] - taft[j]
         p_avg_port = (power(nprt[j+1] , 'stern') + power(nprt[j] , 'stern')) / 2

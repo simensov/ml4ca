@@ -66,7 +66,7 @@ box_coords_over_time = np.array([
 '''
 ### NEDPOS
 '''
-f = plt.figure(figsize=(12,9))
+f = plt.figure(figsize=(9,9))
 ax = plt.gca()
 ax.scatter(box_e,box_n,color = colors[3],marker='8',s=50,label='Set points')
 ax.spines['top'].set_visible(False)
@@ -77,8 +77,8 @@ for i in range(len(methods)):
     e, n = east[i], north[i]
     plt.plot(e,n,color = colors[i], label=labels[i])
 
-ax.set_xlabel('East [m from NED frame origin]')
-ax.set_ylabel('North [m from NED frame origin]')
+ax.set_xlabel('East position relative to NED frame origin [m]')
+ax.set_ylabel('North position relative to NED frame origin [m]')
 ax.legend(loc='best', facecolor='#FAD7A0', framealpha=0.3).set_draggable(True)
 f.tight_layout()
 

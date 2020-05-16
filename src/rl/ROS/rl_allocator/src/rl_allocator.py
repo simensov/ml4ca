@@ -110,11 +110,11 @@ class RLTA(object):
                          'full': {'act_bnd': act_bnd['full'],    'act_map' : act_map['full'],    'default_actions': act_def['full'] }  
                       }
 
-        ### TODO
-        ### Set environment type (see ml4ta/src/rl/windows_workspace/specific/customEnv for definitions)
-        self.cont_ang = True
+        ### TODO Set environment type (see ml4ta/src/rl/windows_workspace/specific/customEnv for definitions)
+        ### THIS HAS TO BE SET MANUALLY - NOT VERY FLEXIBLE YET
         self.env = 'final'
-        
+        self.number_of_hidden_layers = 3
+        self.cont_ang = True
         ###
         ### ABOVE PARAMS MUST BE SET
 
@@ -123,19 +123,13 @@ class RLTA(object):
         path = '/home/revolt/revolt_ws/src/rl_allocator/src/models/{}'.format(self.env)
         rospy.loginfo('Launching RLTA - it takes a few seconds to load...')
         try:
-            self.actor = load_policy(fpath = path) # a FUNCTION which takes in a state, and outputs an action
+            self.actor = load_policy(fpath = path, num_hidden_layers=self.number_of_hidden_layers) # a FUNCTION which takes in a state, and outputs an action
             rospy.loginfo('... loading RL policy network using {} thruster setup for thrust allocation successful.'.format(self.env))
         except:
             rospy.logerr('... loading RL policy network for thrust allocation was not successful. Shutting down node')
             sys.exit()
 
         self.rate = rospy.Rate(5) # time step of 0.1 s^1 = 10 Hz or 0.2 s^1 = 5 Hz
-
-        # Scaling factor for the forces and moments used when training the neural network
-        self.max_forces_forward  = np.array([[25,       25,     14]]).T         # In Newton
-        self.max_forces_backward = np.array([[25,       25,     6.1]]).T        # In Newton - bow thruster is asymmetrical, thus lower force backwards
-        self.forwards_K          = np.array([[0.0027,   0.0027, 0.001518]]).T
-        self.backwards_K         = np.array([[0.0027,   0.0027, 0.0006172]]).T
 
         # Init variable for storing the previous state each time, so that it is possible to send the thrusters the right way using shortest path calculations
         self.state               = np.zeros((9,)) # State vector contains [error_surge, error_sway, error_yaw, u, v, r, thr_bow/100, thr_port/100, thr_star/100]
@@ -147,23 +141,18 @@ class RLTA(object):
         self.error_time_prev     = rospy.get_time()
         self.h                   = 0.0
 
-        # Init Publishers TODO use neuralAllocator
+        # Init Publishers
         self.pub_stern_angles             = rospy.Publisher('thrusterAllocation/pod_angle_input', podAngle, queue_size=1)
         self.pub_stern_thruster_setpoints = rospy.Publisher("thrusterAllocation/stern_thruster_setpoints", SternThrusterSetpoints, queue_size=1)
         self.pub_bow_control              = rospy.Publisher("bow_control", bowControl, queue_size=1)
-        self.pub_thruster_forces          = rospy.Publisher("RLallocation/F", Wrench, queue_size=1)
         self.pub_state                    = rospy.Publisher("RLallocation/state", NorthEastHeading, queue_size=1)
 
-        # Init subscriber for control forces from either DP controller or RC remote (manual T.A.)
-        # rospy.Subscriber("reference_filter/state_desired", NorthEastHeading, self.state_desired_callback,queue_size=1) # TODO
-
-        rospy.Subscriber("reference_filter/state_desired_new", NorthEastHeading, self.state_desired_callback,queue_size=1) # TODO
+        # Init Subscribers for reference, states and sysID
+        rospy.Subscriber("reference_filter/state_desired", NorthEastHeading, self.state_desired_callback,queue_size=1) # TODO old reference filter
+        # rospy.Subscriber("reference_filter/state_desired_new", NorthEastHeading, self.state_desired_callback,queue_size=1) # TODO new reference filter
         # rospy.Subscriber("CME/pose_reference", Pose2D, self.pose_reference_callback,queue_size=1)
-
         rospy.Subscriber("observer/eta/ned", Twist, self.eta_obs_callback)
         rospy.Subscriber('observer/nu/body', Twist, self.nu_obs_callback)
-
-        # for sysID
         rospy.Subscriber("CME/diff_throttle_stern", diffThrottleStern, self.diff_throttle_stern_callback)
 
     def eta_obs_callback(self, eta):
@@ -213,6 +202,19 @@ class RLTA(object):
         self.prev_thrust_state = np.copy(u) # TODO USE REAL THRUSTER VALUES HERE?
         self.state[-3:] = np.array([u[2], u[0], u[1]]) / 100.0 # Updating state using neural net input
 
+        if True or DEBUG:
+            msg = NorthEastHeading()
+            msg.pos_north   = float(self.state[0])
+            msg.pos_east    = float(self.state[1])
+            msg.pos_heading = float(np.rad2deg(self.state[2]))
+            msg.vel_north   = float(self.state[3])
+            msg.vel_east    = float(self.state[4])
+            msg.vel_heading = float(np.rad2deg(self.state[5]))
+            msg.acc_north   = float(self.state[6])
+            msg.acc_east    = float(self.state[7])
+            msg.acc_heading = float(self.state[8])
+            self.pub_state.publish(msg)
+
         self.rate.sleep() # Ensure that the published messages doesn't exceed given rate
 
     ###
@@ -261,32 +263,17 @@ class RLTA(object):
 
         self.rate.sleep() # Ensure that the published messages doesn't exceed given rate
 
-        ''' Messages used only for plotting purposes '''
-        # Constant K values F = K*|n|*n (see Alheim and Muggerud, 2016, for this empirical formula). The bow thruster is unsymmetrical, and this has lower coefficient for negative directioned thrust.
-        # K = self.forwards_K if u[2] >0 else self.backwards_K
-        # F = K * np.abs(u[:3]) * u[:3] # ELEMENTWISE multiplication, using thruster percentages
-
     def scale_and_clip(self,action):
         bnds = np.array(self.params[self.env]['act_bnd'])
         action = np.multiply(action,bnds) # scale
-
-        ''' 
-        # TODO find shortest angle, add the shortest angle, and map to -pi,pi before clipping
-        actor_angles = ??? # TODO need a mapping
-        angles = self.prev_thrust_state[3:]
-        for i in range(len(angles)):
-            angles[i] = angles[i] + self.shortestPath(a_prev = angles[i], a = actor_angles[i], deg = False)
-
-        action = something_dependend_on_angles # TODO
-        '''
         action = np.clip(action,-bnds,bnds) # clip
         return action
 
     def get_action(self):
         # Get action selection from the policy network and scale according to environment
-        action = self.actor(self.state) # (x,) shaped array
+        action = self.actor(self.state) # (x,) shaped array as output from the neural network
 
-        if self.env == 'final' and self.cont_ang:
+        if self.env == 'final' and self.cont_ang: # TODO there has been added a change to the case where cont_ang is False - wrapping before clipping
             action = self.handle_continuous_angles(action)
 
         action = self.scale_and_clip(action)
@@ -295,11 +282,12 @@ class RLTA(object):
         full_act_map = self.params['full']['act_map']   # The action map from default actions to the ROS format
         arr = np.zeros((6,))
 
-        # First, set all default actions in the ROS format using the current format's default values with the full format action map
+        # Translate the output from the neural network to outputs understood by the ROS format:
+        # (1) set all default actions in the ROS format using the current format's default values with the full format action map
         for i, default in enumerate(self.params[self.env]['default_actions']): # [nbow,nport,nstar,abow,aport,astar]
             arr[full_act_map[i]] = default
 
-        # Then fill the chosen action values into the ROS format using the current environment's action map
+        # (2) fill the chosen action values into the ROS format using the current environment's action map
         for i,act in enumerate(action):
             arr[curr_act_map[i]] = act
 
@@ -310,7 +298,7 @@ class RLTA(object):
         current_state = np.array(self.EF.get_pose())
         if self.use_integral_effect:
             self.integrator = self.integrator + step * 0.001 * current_state
-            bnds = np.array([8.0, 8.0, np.pi/2])
+            bnds = np.array([8.0, 8.0, np.pi/2]) # This was the max state space bounds during training of the RL agent
             self.integrator = np.clip(self.integrator, -bnds, bnds)
             # print('curr_state:', current_state)
             # print('integrator:', self.integrator)

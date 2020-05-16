@@ -107,8 +107,41 @@ fincontacderall:	r-trajectories: good
 			angle-derivs:	great
 			note: getting closer!
 
-NOTES: From now, the cont angles seems like the better choice. The trajectories are better from RL than from QP and pseudo, so now only action penalties is going to be tuned.
+finconttorque:		r-trajectories: great, slow
+			y-trajectories: great, slow
+			thrust-usage:	great
+			thrust-derivs:	great
+			angle-derivs:	great, locks at 90 deg though
+			note: maybe too slow.
 
+NOTES: From now, the cont angles seems like the better choice. The trajectories are better from RL than from QP and pseudo, so now only action penalties is going to be tuned. Torque seems to make studd a bit too slow, and makes the difference between 0 - 100 thrust a lot, but dont care if at 20 instead of 0.
+
+QP fuel: 885 
+pseudo:	 1322
+
+finconttotalup:		r-trajectories: cannot be much better
+			y-trajectories: very good
+			thrust-usage:	good
+			thrust-derivs:	good 
+			angle-derivs:	good, does not lock between set points
+			fuel: 915 on box test
+			note: seems like the most acceptable one in terms of station keeping.
+
+finconttotbowder:	r-trajectories: very good
+			y-trajectories: very good
+			thrust-usage:	good
+			thrust-derivs:	good 
+			angle-derivs:	good, does lock
+			fuel: 828 on box test
+			note: just a really good one
+
+finconttothighbowder:	r-trajectories: very good
+			y-trajectories: very good
+			thrust-usage:	good
+			thrust-derivs:	good 
+			angle-derivs:	good, does lock
+			fuel: 600 on box test
+			note: really pushes fuel to a minimum. Acts as a middle ground of two above wrt. r
 
 
 

@@ -37,7 +37,7 @@ def restore_tf_graph(sess, fpath):
     model.update({k: graph.get_tensor_by_name(v) for k,v in model_info['outputs'].items()})
     return model
 
-def load_tf_policy(fpath, itr, deterministic=False):
+def load_tf_policy(fpath, itr, deterministic=False,n_hidden=None):
     """ Load a tensorflow policy """
     fname = osp.join(fpath, 'tf1_save'+itr)
     print('Loading policy from %s'%fname)
@@ -50,13 +50,15 @@ def load_tf_policy(fpath, itr, deterministic=False):
         print('Using deterministic action op.')
         action_op = model['mu']
     else:
-        print('Using default action op.')
-        action_op = model['pi']
+        print('Using stochastic action op.')
+        action_op = model['pi'] # loads entire stochastic policy, with noise
+        if n_hidden:
+            action_op = action_op.graph.get_tensor_by_name('pi/dense_{}/BiasAdd:0'.format(n_hidden)) # This extracts the mean components of the gaussian policy - like setting all noise to zero!
 
     # Return function for producing an action given a single state
     return lambda x : sess.run(action_op, feed_dict={model['x']: x[None,:]})[0]
 
-def load_policy(fpath, itr='last', deterministic=False):
+def load_policy(fpath, itr='last', deterministic=False, num_hidden_layers=None):
     """
     Load a policy from save.
     Not exceptionally future-proof, but it will suffice for basic uses of the 
@@ -69,19 +71,15 @@ def load_policy(fpath, itr='last', deterministic=False):
     # handle which epoch to load from
     if itr=='last':
         # check filenames for epoch (AKA iteration) numbers, find maximum value
-
         saves = [int(x[8:]) for x in os.listdir(fpath) if 'tf1_save' in x and len(x)>8]
-            
         itr = '%d'%max(saves) if len(saves) > 0 else ''
-
     else:
         assert isinstance(itr, int), \
             "Bad value provided for itr (needs to be int or 'last')."
         itr = '%d'%itr
 
     # load the get_action function
-    get_action = load_tf_policy(fpath, itr, deterministic)
-
+    get_action = load_tf_policy(fpath, itr, deterministic, n_hidden=num_hidden_layers)
     return get_action
 
 '''

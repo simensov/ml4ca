@@ -1,23 +1,9 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
+from plot_commons import set_params,colors
 
-'''
-### FROM common in ROS
-'''
-# plt.rcParams['axes.labelweight'] = 'bold'
-params = {
-    'font.serif': 'Computer Modern Roman',
-    'axes.labelsize': 10,
-    'legend.fontsize': 10,
-    'xtick.labelsize': 8,
-    'ytick.labelsize': 8,
-    'text.usetex': False,
-    'figure.figsize': [12, 9]
-    }
-
-plt.rcParams.update(params)
-
+set_params()
     
 def plot_policytest_data(args,data,env):
     fig, (ax1, ax2, ax3) = plt.subplots(3, sharex=True)
@@ -67,7 +53,7 @@ def plot_policytest_data(args,data,env):
     ax4.set_xlim((-5, 5))
     ax4.set_ylim((-5, 5))
 
-    axes[0].legend(loc='best', facecolor='#FAD7A0', framealpha=0.3).set_draggable(True)
+    axes[0].legend(loc='best').set_draggable(True)
     fig.tight_layout()
 
 
@@ -122,7 +108,7 @@ def plot_NED_data(args,data,env):
     ax4.set_xlim(-5,5)
     ax4.set_ylim(-5,5)
 
-    axes[0].legend(loc='best', facecolor='#FAD7A0', framealpha=0.3).set_draggable(True)
+    axes[0].legend(loc='best').set_draggable(True)
     f2.tight_layout()
 
 
@@ -175,9 +161,8 @@ def plot_action_data(args,data,env):
             ax.spines['right'].set_visible(False)
             # ax.xaxis.set_tick_params(which='both', labelbottom=True)
 
-    axes[0,0].legend(loc='best', facecolor='#FAD7A0', framealpha=0.3).set_draggable(True)
+    axes[0,0].legend(loc='best').set_draggable(True)
     # fig.tight_layout()
-
 
 if __name__ == '__main__':
     pass

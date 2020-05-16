@@ -59,7 +59,8 @@ def plot_data(data, xaxis='Epoch', value="AverageEpRet", condition="Condition1",
         # Just some formatting niceness: x-axis scale in scientific notation if max x is large
         plt.ticklabel_format(style='sci', axis='x', scilimits=(0,0))
 
-    plt.tight_layout(pad=0.5)
+    # plt.tight_layout(pad=0.5)
+    plt.tight_layout()
 
     # Add my own likings to the plots
     if value in label_equivs:
@@ -177,7 +178,7 @@ def make_plots(all_logdirs, legend=None, xaxis=None, values=None, count=False,
     condition = 'Condition2' if count else 'Condition1'
     estimator = getattr(np, estimator)      # choose what to show on main curve: mean? max? min?
     for value in values:
-        plt.figure()
+        plt.figure(figsize=(7,5))
         plot_data(data, xaxis=xaxis, value=value, condition=condition, smooth=smooth, estimator=estimator, add = add)
     plt.show()
 

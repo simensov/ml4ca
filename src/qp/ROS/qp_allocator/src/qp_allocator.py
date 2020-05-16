@@ -15,7 +15,7 @@ The forces are manually translated into percentage thrust using formulas found i
 
 from __future__ import division
 import rospy
-from custom_msgs.msg import podAngle, SternThrusterSetpoints, bowControl
+from custom_msgs.msg import podAngle, SternThrusterSetpoints, bowControl, diffThrottleStern
 from geometry_msgs.msg import Wrench
 import numpy as np 
 import sys # for sys.exit()
@@ -36,18 +36,30 @@ class QPTA(object):
 
         # Init ROS Node
         rospy.init_node('QPAllocator', anonymous = True)
-        self.dt = 0.2
+        self.dt = 0.20
         self.rate = rospy.Rate(5) # time step of 0.2 s^1 = 5 Hz
 
-        # Scaling factor for the forces and moments used when training the neural network
-        self.max_forces_forward = np.array([[25.0,25.0,14.0]]).T # In Newton
-        self.max_forces_backward = np.array([[25.0,25.0,6.1]]).T # In Newton - bow thruster is asymmetrical, thus lower force backwards
+        self.OLD_THRUSTER_COEFFS = False
+
+        # Scaling factor for forces 
+        if self.OLD_THRUSTER_COEFFS:
+            self.max_forces_forward  = np.array([[25.0,25.0,14.0]]).T # In Newton
+            self.max_forces_backward = np.array([[25.0,25.0,6.1]]).T # In Newton - bow thruster is asymmetrical, thus lower force backwards
+            self.forwards_K          = np.array([[0.0027, 0.0027, 0.001518]]).T
+            self.backwards_K         = np.array([[0.0027, 0.0027, 0.0006172]]).T
+        else:
+            # This is how the propeller forces are set currently in the simulator - Alfheim and Muggerudss values are OLD AND GIVES BAD RESULTS
+            self.max_forces_forward  = np.array([[20.5,20.5,9.0]]).T # In Newton
+            self.max_forces_backward = np.copy(self.max_forces_forward) # In Newton - bow thruster is ASSUMED SYMMETRICAL IN SIMULATOR
+            self.forwards_K          = np.array([[0.00205, 0.00205, 0.0009]]).T
+            self.backwards_K         = np.copy(self.forwards_K)
+
         self.max_force_rate = [10.0/2.0, 10.0/2.0, 4.0/2.0] # 5, 5, 2 was also nice
         self.max_rotational_rate = [np.pi/6.0 / 2.0, np.pi/6.0 / 2.0, np.pi/32.0 / 2.0] # pi/12 on all was also nice
-        # note that all rates has been divided by 2 due to the changed rate of the node in master's compared to in project thesis
 
-        self.forwards_K  = np.array([[0.0027, 0.0027, 0.001518]]).T
-        self.backwards_K = np.array([[0.0027, 0.0027, 0.0006172]]).T
+        # self.max_force_rate = [10.0, 10.0, 4.0] # 5, 5, 2 was also nice
+        # self.max_rotational_rate = [np.pi/6.0, np.pi/6.0, np.pi/32.0] # pi/12 on all was also nice
+        # note that all rates has been divided by 2 due to the changed rate of the node in master's compared to in project thesis
 
         # Init variable for storing the previous state each time, so that it is possible to send the thrusters the right way using shortest path calculations
         self.bow_angle_fixed = np.pi/2
@@ -67,14 +79,11 @@ class QPTA(object):
         self.pub_stern_thruster_setpoints = rospy.Publisher("thrusterAllocation/stern_thruster_setpoints", SternThrusterSetpoints, queue_size=1)
         self.pub_bow_control              = rospy.Publisher("bow_control", bowControl, queue_size=1)
 
-        self.pub_tau_diff        = rospy.Publisher("QP/tau_diff", Wrench, queue_size=1)
-        self.pub_tau_res         = rospy.Publisher("QP/tau_res", Wrench, queue_size=1)
-        self.pub_thruster_forces = rospy.Publisher("QP/F", Wrench, queue_size=1)
-
         # Init subscriber for control forces from either DP controller or RC remote (manual T.A.)
         rospy.Subscriber("tau_controller", Wrench, self.tau_controller_callback, queue_size=1) # critical with size 1 when using rospy.rate.sleep()
         self.callback_time = rospy.get_time()
 
+        rospy.Subscriber("CME/diff_throttle_stern", diffThrottleStern, self.diff_throttle_stern_callback)
         rospy.loginfo('QP allocator started, running at {} Hz'.format(1.0 / self.dt))
 
     def saturateThrustPercentage(self, u):
@@ -105,9 +114,14 @@ class QPTA(object):
         s_t = self.previous_thruster_state # states at time t, being [Fport, Fstar, Fbow, aport, astar, abow]
         
         def objective(x, Q = weight_matrix, fuel=reduce_fuel, flick=reduce_flickering, ang=reduce_angular):
-            # Objective to minimize (is quadratic) - does not constrain the angles, but it is possible to constraint the size depending on the previous angle in s_t
-            # Decision variables for the optimization: x = [f1 f2 f3 a1 a2 s1 s2 s3]
-            
+            ''' Create objective to minimize (is quadratic in decision variables)
+                Decision variables for the optimization: x = [f1 f2 f3 a1 a2 s1 s2 s3]
+                The objective function is constructed depending on which factors are being considered:
+                    - the objective function ALWAYS consists, as a minimum, of f1,f2,f3,s1,s2,s3 - being minimized in a regular, quadratic fashion
+                    - fuel: penalizes forces to the power of 3/2
+                    - flick: penalizes changes of force linearly
+                    - ang: penalizes changes of angles linearly
+            '''
             obj = x[5:] # minimize slack variables
 
             if fuel:
@@ -133,7 +147,7 @@ class QPTA(object):
                     for i in range(idx,idx+3):
                         Q[i,i] = 0.25
 
-            return 0.5 * (obj.T).dot(Q).dot(obj) # 0.5 x^t Q x
+            return 0.5 * (obj.T).dot(Q).dot(obj) # 0.5 x^t Q x - 0.5 is not neccessary as the minimum of x^2 and 0.5 x^2 is the same, but it gives a prettier derivative
 
         ### PHYSICAL CONSTRAINTS DEPENDENT ON THE THRUSTER SETUP: B(alpha)*F = tau_d
         # Since these are equality constrains, a slack variable is added and the goal is to minimize s^2 - added in the objective functions
@@ -181,7 +195,7 @@ class QPTA(object):
         # np.inf is used to disable constrains, see https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.Bounds.html#scipy.optimize.Bounds
         s_bnd = 1.0 # these has to be reset since the desired forces may be too large compared to the previous thruster states
         
-        bnds = ((-25,25),(-25,25),(-6.1,14),\
+        bnds = ((-self.max_forces_backward[0,0],self.max_forces_forward[0,0]),(-self.max_forces_backward[1,0],self.max_forces_forward[1,0]),(-self.max_forces_backward[2,0],self.max_forces_forward[2,0]),\
                 (-2*np.pi,2*np.pi),(-2*np.pi,2*np.pi),\
                 (-s_bnd,s_bnd),(-s_bnd,s_bnd),(-s_bnd,s_bnd)) 
 
@@ -192,12 +206,12 @@ class QPTA(object):
         solution = minimize(objective, x0, method='SLSQP', bounds = bnds, constraints = cons) # Using Sequential Least Squares Quadratic Programming
 
         # TODO here the logic can be altered to gradually increase the s_bnds if not solution was found
-        while not solution.success and (rospy.get_time() - self.callback_time > (self.dt / 2.0)): # look for new solution within time limit, including safety
+        while (solution.success is False) and ( (rospy.get_time() - self.callback_time) > (self.dt / 4.0) ): # look for new solution within time limit, including safety
             rospy.loginfo('No sol found - attempting to iteratively find new sol') if DEBUGGING else None
 
-            s_bnd += 0.5 # TODO set this to whatever suitable
+            s_bnd += 1.0 # TODO set this to whatever suitable
 
-            bnds = ((-25,25),(-25,25),(-6.1,14),\
+            bnds = ((-self.max_forces_backward[0,0],self.max_forces_forward[0,0]),(-self.max_forces_backward[1,0],self.max_forces_forward[1,0]),(-self.max_forces_backward[2,0],self.max_forces_forward[2,0]),\
                     (-2*np.pi,2*np.pi),(-2*np.pi,2*np.pi),\
                     (-s_bnd,s_bnd),(-s_bnd,s_bnd),(-s_bnd,s_bnd)) 
             
@@ -223,7 +237,7 @@ class QPTA(object):
         # This acts more stable than self.rate.sleep() and queue_size = 1 since it actually discards messages coming in at more than self.dt seconds,
         # while self.rate.sleep() seems to not do the trick
         
-        if self.callback_time is None or (rospy.get_time() - self.callback_time >= self.dt): 
+        if self.callback_time is None or ( (rospy.get_time() - self.callback_time) >= self.dt * 0.50): 
             if self.callback_time is None:
                 self.callback_time = rospy.get_time() 
 
@@ -254,7 +268,8 @@ class QPTA(object):
             rospy.logwarn('QP found no solution - setting thruster states == previous states')
             solution = self.previous_thruster_state
         else:
-            rospy.loginfo('Solution found')
+            pass
+            # rospy.loginfo('QP allocation: Solution found')
 
         # Extract thruster forces F and angles alpha
         F = np.array([[ solution[0], solution[1], solution[2] ]]).T # Has been constrained between max and min force in QP solver
@@ -263,10 +278,10 @@ class QPTA(object):
 
         # Constant K values F = K*n*|n| (see Alheim and Muggerud, 2016, for this empirical formula). 
         # The bow thruster is unsymmetrical, and this has lower coefficient for negative directioned thrust.
-        if F[2] >= 0:
-            K = self.forwards_K
+        if self.OLD_THRUSTER_COEFFS:
+            K = self.forwards_K if F[2] >= 0 else self.backwards_K
         else:
-            K = self.backwards_K
+            K = self.forwards_K # NOTE new simulator values assumes same force profile for bow thruster
 
         # Calculate n [% thrust] : f = K*n*abs(n). Note that these operations are performed elementwise
         fk = np.divide(F,K) # F/ K
@@ -296,29 +311,35 @@ class QPTA(object):
         self.previous_thruster_state = [float(F[0,0]),float(F[1,0]),\
                                         float(F[2,0]),float(alpha[0,0]),\
                                         float(alpha[1,0]),float(alpha[2,0])] # regular list of three forces and angles
-        
-        '''
-        Messages used only for plotting purposes after running tests
-        '''
-        tau_res = Wrench()
-        tau_res.force.x = float(np.cos(alpha[0,0]) * F[0,0] + np.cos(alpha[1,0]) * F[1,0] + np.cos(alpha[2,0]) * F[2,0]) 
-        tau_res.force.y = float(np.sin(alpha[0,0]) * F[0,0] + np.sin(alpha[1,0]) * F[1,0] + np.sin(alpha[2,0]) * F[2,0])
-        tau_res.torque.z = float( (self.lx[0]*np.sin(alpha[0,0]) - self.ly[0]*np.cos(alpha[0,0])) * F[0,0] + (self.lx[1]*np.sin(alpha[1,0]) - self.ly[1]*np.cos(alpha[1,0])) * F[2,0] + (self.lx[2]*np.sin(alpha[2,0]) - self.ly[2]*np.cos(alpha[2,0])) * F[2,0]) 
-        
-        # Store difference between produced force/moment and desired
-        tau_diff = Wrench()
-        tau_diff.force.x = tau_res.force.x - float(tau_d.force.x)
-        tau_diff.force.y = tau_res.force.y - float(tau_d.force.y)
-        tau_diff.torque.z = tau_res.torque.z - float(tau_d.torque.z)
 
-        thruster_forces = Wrench() # x,y,z represents forces for port, stern, bow
-        thruster_forces.force.x = float(F[0,0])
-        thruster_forces.force.y = float(F[1,0])
-        thruster_forces.force.z = float(F[2,0])
 
-        self.pub_thruster_forces.publish(thruster_forces)
-        self.pub_tau_diff.publish(tau_diff)
-        self.pub_tau_res.publish(tau_res)
+    def diff_throttle_stern_callback(self, diff_throttle_input):
+        '''Callback for system identification control mode. Publishes stern thruster setpoints.
+        :params:
+            - diff_throttle_input (SternThrusterSetpoints message): 
+                a message which controls the vessel by using a virtual rudder angle to control the vessel by
+                lowering and increasing thrust on port/starboard side oppositely of each other
+        '''
+
+        stern_thruster_setpoints = SternThrusterSetpoints()
+        throttle_in = self.clip_scalar(diff_throttle_input.throttle) # Not self
+        rudder_in = self.clip_scalar(diff_throttle_input.rudder)
+        # Mixing of throttle and rudder inputs
+        stern_thruster_setpoints.port_effort = float(throttle_in) + float(rudder_in)
+        stern_thruster_setpoints.star_effort = float(throttle_in) - float(rudder_in)
+        # Note: Port propeller is mirrored physically and needs to rotate the other way
+        self.pub_stern_thruster_setpoints.publish(stern_thruster_setpoints)
+
+    def clip_scalar(self, input_check, bound=(-100.0,100.0)):
+        ''' Checks if throttle is in valid area.
+        :params:
+            - input_check (float): input to clip
+            - bound (tuple of floats): lower and upper bound of clipping region
+        :returns:
+            - a float being the clipped scalar value
+        '''
+        if not (isinstance(input_check,float) or isinstance(input_check, int)): raise Exception('Clipping function received an object which is not a float or an integer!')
+        return np.clip(input_check,bound[0],bound[1])
 
 if __name__ == '__main__':
     

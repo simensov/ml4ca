@@ -7,12 +7,17 @@ import os.path as osp
 import numpy as np
 import copy
 
+# Set the plotting parameters to the global ones
+from spinup.utils.plot_commons import set_params
+set_params()
+
 DIV_LINE_WIDTH = 50
 
 # Global vars for tracking and labeling data at load time.
 exp_idx = 0
 units = dict()
 
+# Improve layout of the labels
 label_equivs = {'AverageEpRet': 'Average Episodal Return', 'AverageVVals': 'Average $\hat{V}(s)$', 'TotalEnvInteracts': 'Simulator Time Steps', 'LossV': 'Critic Loss'}
 
 def plot_data(data, xaxis='Epoch', value="AverageEpRet", condition="Condition1", smooth=1, add=False, **kwargs):
@@ -37,7 +42,7 @@ def plot_data(data, xaxis='Epoch', value="AverageEpRet", condition="Condition1",
     if smooth > 1 and isinstance(data_smoothed, list):
         data_smoothed = pd.concat(data_smoothed, ignore_index=True)
 
-    sns.set(style="whitegrid", font_scale=1.5)
+    # sns.set(style="whitegrid", font_scale=1.5)
 
     if (not add):
         sns.tsplot(data=data, time=xaxis, value=value, unit="Unit", condition=condition, ci='sd',**kwargs)
@@ -53,7 +58,7 @@ def plot_data(data, xaxis='Epoch', value="AverageEpRet", condition="Condition1",
     tsplot to lineplot replacing L29 with 'sns.lineplot(data=data, x=xaxis, y=value, hue=condition, ci='sd', **kwargs)'
     Changes the colorscheme and the default legend style, though.
     """
-    plt.legend(loc='best').set_draggable(True)
+    
     xscale = np.max(np.asarray(data[xaxis])) > 5e3
     if xscale:
         # Just some formatting niceness: x-axis scale in scientific notation if max x is large
@@ -72,11 +77,11 @@ def plot_data(data, xaxis='Epoch', value="AverageEpRet", condition="Condition1",
     plt.grid(False)
     plt.grid(axis='y', linestyle='--', color='grey', alpha=0.5)
     ax = plt.gca()
-    ax.spines['right'].set_visible(False)
-    ax.spines['top'].set_visible(False)
     ax.spines['left'].set_color('black')
     ax.spines['bottom'].set_color('black')
     ax.tick_params(bottom=True, left=True)
+
+    plt.legend(loc='best').set_draggable(True)
 
 def get_datasets(logdir, condition=None):
     """

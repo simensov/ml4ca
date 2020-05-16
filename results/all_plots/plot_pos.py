@@ -1,12 +1,12 @@
 import numpy as np 
 import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
+from matplotlib.cbook import get_sample_data
+from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+
 import sys
-from common import methods, labels, colors, set_params, get_secondly_averages, absolute_error, IAE
+from common import methods, labels, colors, set_params, get_secondly_averages, absolute_error, IAE, plot_gray_areas
 
-
-save = False
-set_params()
+set_params() # sets global plot parameters
 
 '''
 Positional data
@@ -63,14 +63,13 @@ box_coords_over_time = np.array([
     (np.array([box_e[0]]*(len(setpointx))) + np.array([0,  0,  0,   0,  -5,  -5,  -5,  -5,  -5,  -5,   0,   0])).tolist(),
     (np.array([0]*(len(setpointx)))        + np.array([0,  0,  0,   0,   0,   0, -45, -45, -45, -45,   0,   0])).tolist()
 ])
+
 '''
 ### NEDPOS
 '''
 f = plt.figure(figsize=(9,9))
 ax = plt.gca()
 ax.scatter(box_e,box_n,color = colors[3],marker='8',s=50,label='Set points')
-ax.spines['top'].set_visible(False)
-ax.spines['right'].set_visible(False)
 ax.grid(color='grey', linestyle='--', alpha=0.5)
 
 for i in range(len(methods)):
@@ -79,7 +78,7 @@ for i in range(len(methods)):
 
 ax.set_xlabel('East position relative to NED frame origin [m]')
 ax.set_ylabel('North position relative to NED frame origin [m]')
-ax.legend(loc='best', facecolor='#FAD7A0', framealpha=0.3).set_draggable(True)
+ax.legend(loc='best').set_draggable(True)
 f.tight_layout()
 
 '''
@@ -92,36 +91,24 @@ axes[1].set_ylabel('East [m]')
 axes[2].set_ylabel('Yaw [deg]')
 
 for axn,ax in enumerate(axes):
-
     for i in range(len(methods)):
         local_data = north[i], east[i], psi[i], time[i]
         t = local_data[3]
-        relevant_data = local_data[axn]
-        ax.plot(t,relevant_data,color=colors[i],label=labels[i])
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        # ax.yaxis.grid(color='grey', linestyle='--', alpha=0.5)
+        ax.plot(t,local_data[axn],color=colors[i],label=labels[i])
     
     # Print reference lines
     targets = box_coords_over_time[axn]
-    # ax.plot(setpointx,targets,'--',color=colors[3], label = 'Reference' if axn == 0 else None)
     ax.plot(ref_time, refdata[axn], '--',color=colors[3], label = 'Reference' if axn == 0 else None)
+    plot_gray_areas(ax, [0] + [11, 61, 111, 141, 191] + [240])
 
-    setpointx = [10, 60, 110, 140, 190]
-    setpnt_areas = [0] + setpointx + [240]
-    clrs = ['grey','white']
-    clrctr = 0
-    for i in range(len(setpnt_areas) - 1):
-        ax.axvspan(setpnt_areas[i],setpnt_areas[i+1], facecolor=clrs[clrctr], alpha=0.1)
-        clrctr = int(1 - clrctr)
    
-axes[0].legend(loc='best', facecolor='#FAD7A0', framealpha=0.3).set_draggable(True)
+axes[0].legend(loc='best').set_draggable(True)
 f0.tight_layout()
-
 
 '''
 ### Integral Absolute Error : int_0^t  sqrt ( error^2 ) dt
     - compare position to reference filter
+    - gather data from ref_filter/state_desired and observer/eta/ned, which are very different, so take their averages per second.
 '''
 
 ref_data_averages = [] # list of tuples: (average times [whole seconds] (dim 1,), average data values (dim 3,xsteps))
@@ -149,6 +136,8 @@ if False: # This is used to verify that averages is true to the real data
             local_data = pos_data_averages[i][axn][1]
             ax.plot(local_time,local_data,color = colors[i])
     f0.tight_layout()
+    plt.show()
+    sys.exit()
 
 # Here, three IAE plots will be shown ontop of eachother
 etas = [] # list of columvectors
@@ -169,27 +158,27 @@ for tup in ref_data_averages:
 
 refs = np.array(local_ned).T
 
-f0, ax = plt.subplots(1,1,sharex = True)
+f0, ax = plt.subplots(1,1,figsize=(12,5),sharex = True)
 IAES = [] # cumulative errors over time
-times = ref_data_averages[0][0]
+times = (np.array(ref_data_averages[0][0]) - 1.0).tolist()
 for i in range(len(methods)):
     integrals, cumsums = IAE(etas[i] / np.array([5.,5.,50.]), refs / np.array([5.,5.,50.]), times)
     IAES.append(cumsums)
     ax.plot(times, IAES[i], color=colors[i], label=labels[i])
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
 
-setpointx = [10, 60, 110, 140, 190]
-setpnt_areas = [0] + setpointx + [240]
-clrs = ['grey','white']
-clrctr = 0
-for i in range(len(setpnt_areas) - 1):
-    ax.axvspan(setpnt_areas[i],setpnt_areas[i+1], facecolor=clrs[clrctr], alpha=0.1)
-    clrctr = int(1 - clrctr)
+# Gray areas
+plot_gray_areas(ax,areas = [0] + [11, 61, 111, 141, 191] + [240])
 
-ax.legend(loc='best', facecolor='#FAD7A0', framealpha=0.3).set_draggable(True)
-ax.set_ylabel('IAE')
+ax.legend(loc='best').set_draggable(True)
+ax.set_ylabel('IAE [-]')
 ax.set_xlabel('Time [s]')
+
+for i in range(len(methods)):
+    val = IAES[i][-1] # extract IAE at last timestep
+    x_coord = 240 + 0.25
+    txt = '{:.2f}'.format(val)
+    ax.annotate(txt, (x_coord, val*0.99),color=colors[i],weight='bold')
+
 f0.tight_layout()
     
 print('IAES')

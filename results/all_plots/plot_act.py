@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import sys
-from common import methods, labels, colors, set_params
+from common import methods, labels, colors, set_params, plot_gray_areas
 import math
 
 save = False
@@ -13,6 +13,9 @@ def plot_zeros(ax,data):
 
 PLOT_SETPOINT_AREAS = True
 
+FIGSIZES = (12,5)
+FIGSIZES1 = (12,9)
+FIGSIZES2 = (9,9)
 
 '''
 Positional data
@@ -50,11 +53,11 @@ setpnt_areas = [0] + setpointx + [240]
 '''
 ### ANGLES
 '''
-f0, axes = plt.subplots(2,1,figsize=(12,9),sharex=True)
+f0, axes = plt.subplots(2,1,figsize=FIGSIZES,sharex=True)
 plt.xlabel('Time [s]')
 # axes[0].set_ylabel('Bow thruster angle [deg]')
-axes[0].set_ylabel('Port thruster angle [deg]')
-axes[1].set_ylabel('Starboard thruster angle [deg]')
+axes[0].set_ylabel('Port angle [deg]')
+axes[1].set_ylabel('Starboard angle [deg]')
 
 for axn,ax in enumerate(axes):
     for i in range(len(methods)):
@@ -66,35 +69,27 @@ for axn,ax in enumerate(axes):
 
         ax.plot(t,relevant_data, color=colors[i],label=labels[i],alpha=0.9)
         plot_zeros(ax,relevant_data)
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        # ax.yaxis.grid(color='grey', linestyle='--', alpha=0.5)
     
     if not PLOT_SETPOINT_AREAS:
         lab = 'Set point changes' if axn == 0 and i == 0 else '' # TODO get labels to work
         for c in setpointx:
             ax.axvline(c, linestyle='--', color='black', alpha = 0.8, label=lab)
     else:
-        clrs = ['grey','white']
-        clrctr = 0
-        for i in range(len(setpnt_areas) - 1):
-            ax.axvspan(setpnt_areas[i],setpnt_areas[i+1], facecolor=clrs[clrctr], alpha=0.1)
-            clrctr = int(1 - clrctr)
+        plot_gray_areas(ax, areas=setpnt_areas)
     
-    # Print reference lines
-# ax.plot(setpointx,targets,'--',color=colors[3], label = 'Reference' if axn == 0 else None)
-axes[0].legend(loc='best', facecolor='#FAD7A0', framealpha=0.3).set_draggable(True)
+# Print reference lines
+axes[0].legend(loc='best').set_draggable(True)
 f0.tight_layout(pad=0.4)
 
 
 '''
 ### THRUST
 '''
-f, axes = plt.subplots(3,1,figsize=(12,9),sharex = True)
+f, axes = plt.subplots(3,1,figsize=FIGSIZES1,sharex = True)
 plt.xlabel('Time [s]')
-axes[0].set_ylabel('Bow thrust [% of max]')
-axes[1].set_ylabel('Port thrust [% of max]')
-axes[2].set_ylabel('Starboard thrust [% of max]')
+axes[0].set_ylabel('$T_{bow}$ [%]')
+axes[1].set_ylabel('$T_{port}$ [%]')
+axes[2].set_ylabel('$T_{star}$ [%]')
 
 for axn,ax in enumerate(axes):
     for i in range(len(methods)):
@@ -111,38 +106,26 @@ for axn,ax in enumerate(axes):
 
         ax.plot(t,relevant_data, color=colors[i],label=labels[i],alpha=0.9) # use lower alpha to view all better ontop of eachother
         plot_zeros(ax,relevant_data)
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        # ax.yaxis.grid(color='grey', linestyle='--', alpha=0.5)
     
     if not PLOT_SETPOINT_AREAS:
         lab = 'Set point changes' if axn == 0 and i == 0 else '' # TODO get labels to work
         for c in setpointx:
             ax.axvline(c, linestyle='--', color='black', alpha = 0.8, label=lab)
     else:
-        clrs = ['grey','white']
-        clrctr = 0
-        for i in range(len(setpnt_areas) - 1):
-            ax.axvspan(setpnt_areas[i],setpnt_areas[i+1], facecolor=clrs[clrctr], alpha=0.1)
-            clrctr = int(1 - clrctr)
+        plot_gray_areas(ax,areas=setpnt_areas)
 
-    # Print reference lines
-# ax.plot(setpointx,targets,'--',color=colors[3], label = 'Reference' if axn == 0 else None)
+# Print reference lines
 axes[0].legend(loc='best', facecolor='#FAD7A0', framealpha=0.3).set_draggable(True)
 f.tight_layout()
 
 '''
 ### POWER Equivalents
 '''
-
-# bow doesnt work under 3%
-#for i in range(len(methods)):
-#	nbow[i][np.abs(nbow[i]) < 3.0] = 0.0
     
-rps_max = {'bow': 33.0, 'stern': 11.0}
-diameters = {'bow': 0.06, 'stern': 0.15}
-KQ_0 = {'bow': 0.035 * 0.001518 / 0.0027, 'stern': 0.028}
-rho = 1025.0
+rps_max     = {'bow': 33.0, 'stern': 11.0}
+diameters   = {'bow': 0.06, 'stern': 0.15}
+KQ_0        = {'bow': 0.035 * 0.001518 / 0.0027, 'stern': 0.028}
+rho         = 1025.0
 
 def power(n,which):
 	''' n comes as -100% to 100%, and must be divided on 100 for multiplication with rps to give fraction'''
@@ -150,7 +133,6 @@ def power(n,which):
 
 powers = [[[],[],[]], [[],[],[]], [[],[],[]]] # Contains power timeseries on [method0: [bow,port,star], method1: ...] for each method
 for i in range(len(methods)):
-    
     tbow = time_bow[i]
     nb = nbow[i]
     pb = 0
@@ -171,11 +153,11 @@ for i in range(len(methods)):
         powers[i][1].append(p_avg_port * dt)
         powers[i][2].append(p_avg_star * dt)
 
-f, axes = plt.subplots(3,1,figsize=(12,9),sharex = True)
+f, axes = plt.subplots(3,1,figsize=FIGSIZES,sharex = True)
 plt.xlabel('Time [s]')
-axes[0].set_ylabel('$P_{bow}$ equivalent')
-axes[1].set_ylabel('$P_{port}$ equivalent')
-axes[2].set_ylabel('$P_{starboard}$ equivalent')
+axes[0].set_ylabel('$P^*_{bow}$')
+axes[1].set_ylabel('$P^*_{port}$')
+axes[2].set_ylabel('$P^*_{star}$')
 
 for axn,ax in enumerate(axes):
     for i in range(len(methods)):
@@ -188,22 +170,15 @@ for axn,ax in enumerate(axes):
 
         ax.plot(t,relevant_data, color=colors[i],label=labels[i],alpha=0.9)
         plot_zeros(ax,relevant_data)
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        # ax.yaxis.grid(color='grey', linestyle='--', alpha=0.5)
     
     if not PLOT_SETPOINT_AREAS:
         lab = 'Set point changes' if axn == 0 and i == 0 else '' # TODO get labels to work
         for c in setpointx:
             ax.axvline(c, linestyle='--', color='black', alpha = 0.8, label=lab)
     else:
-        clrs = ['grey','white']
-        clrctr = 0
-        for i in range(len(setpnt_areas) - 1):
-            ax.axvspan(setpnt_areas[i],setpnt_areas[i+1], facecolor=clrs[clrctr], alpha=0.1)
-            clrctr = int(1 - clrctr)
+        plot_gray_areas(ax,areas=setpnt_areas)
 
-axes[0].legend(loc='best', facecolor='#FAD7A0', framealpha=0.3).set_draggable(True)
+axes[0].legend(loc='best').set_draggable(True)
 f.tight_layout()
 
 cumsums = [[[],[],[]], [[],[],[]], [[],[],[]]]
@@ -211,12 +186,12 @@ for i in range(len(methods)):
     for j in range(3):
         cumsums[i][j] = np.cumsum(powers[i][j])
 
-f, axes = plt.subplots(4,1,figsize=(12,9),sharex = True)
+f, axes = plt.subplots(4,1,figsize=FIGSIZES1,sharex = True)
 plt.xlabel('Time [s]')
-axes[0].set_ylabel('$P_{bow}$ cumulative')
-axes[1].set_ylabel('$P_{port}$ cumulative')
-axes[2].set_ylabel('$P_{starboard}$ cumulative')
-axes[3].set_ylabel('$P_{total}$ cumulative')
+axes[0].set_ylabel('$W^*_{bow}$ [J]')
+axes[1].set_ylabel('$W^*_{port}$ [J]')
+axes[2].set_ylabel('$W^*_{star}$ [J]')
+axes[3].set_ylabel('$W^*_{total}$ [J]')
 
 for axn,ax in enumerate(axes):
     for i in range(len(methods)):
@@ -227,33 +202,33 @@ for axn,ax in enumerate(axes):
             t = time_nstern[i][:-1]
             relevant_data = cumsums[i][axn]
         else:
-        	vals = [cumsums[i][axn_loc] for axn_loc in range(3)]
-        	shortest = min([a for val in vals for a in val.shape ])
-        	new_vals = [cumsums[i][axn_loc][0:shortest] for axn_loc in range(3)]
-        	s = sum(new_vals)
-        	relevant_data = s
-
-        	t = time_nstern[i][:shortest]
+        	vals = [cumsums[i][axn_loc] for axn_loc in range(3)] # list of size 3 - cumssums for the current method for all three thrusters
+        	shortest = min([a for val in vals for a in val.shape ]) # choose the shortest value in order to make lists equally long - bow and stern messages does not necessilty share same dimensions
+        	new_vals = [cumsums[i][axn_loc][0:shortest] for axn_loc in range(3)] # adjust for this possible size difference
+        	relevant_data = sum(new_vals) # take the sum over all of the three thrusters to get the total
+        	t = time_nstern[i][:shortest] # adjust the time list for same reason as above
 
         ax.plot(t,relevant_data, color=colors[i],label=labels[i],alpha=0.9)
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        # ax.yaxis.grid(color='grey', linestyle='--', alpha=0.5)
+
+        # annotate the ending value
+        val = relevant_data[-1] # extract final value
+        x_coord = t[-1] + 1
+        txt = '{:.2f}'.format(val)
+        moveif = {'DNVGL':0, 'QP': 0.05*val, 'RL': -0.05*val}
+        activation = 1.0 if axn <= 1 else 0.0
+        ax.annotate(txt, (x_coord, 0.97*val + (activation * moveif[labels[i]])),color=colors[i], weight='bold')
     
     if not PLOT_SETPOINT_AREAS:
         lab = 'Set point changes' if axn == 0 and i == 0 else '' # TODO get labels to work
         for c in setpointx:
             ax.axvline(c, linestyle='--', color='black', alpha = 0.8, label=lab)
     else:
-        clrs = ['grey','white']
-        clrctr = 0
-        for i in range(len(setpnt_areas) - 1):
-            ax.axvspan(setpnt_areas[i],setpnt_areas[i+1], facecolor=clrs[clrctr], alpha=0.1)
-            clrctr = int(1 - clrctr)
+        plot_gray_areas(ax,setpnt_areas)
 
-axes[0].legend(loc='best', facecolor='#FAD7A0', framealpha=0.3).set_draggable(True)
+axes[0].legend(loc='best').set_draggable(True)
 f.tight_layout()
 
+# END RESULTS
 final_powers = [[[],[],[]], [[],[],[]], [[],[],[]]]
 
 for i,p_method in enumerate(powers):
@@ -266,7 +241,7 @@ for i in range(len(methods)):
     print('Method {}'.format(methods[i]))
     print(sum(final_powers[i]))
 
-f = plt.figure()
+f = plt.figure(figsize=FIGSIZES2)
 
 bars = []
 for i in range(3): # all three thrusters
@@ -284,9 +259,8 @@ elements = plt.bar(bar_positions, bars, color = bar_colors)
 plt.xticks(tick_pos, txts)
 
 ax = plt.gca()
-ax.legend(elements[0:3], ['DNVGL\'s pseudoinverse', 'Quadratic Programming', 'Reinforcement Learning'],loc='best', facecolor='#FAD7A0', framealpha=0.3).set_draggable(True)
-ax.spines['top'].set_visible(False)
-ax.spines['right'].set_visible(False)
-
+ax.legend(elements[0:3], ['DNVGL\'s pseudoinverse', 'Quadratic Programming', 'Reinforcement Learning'],loc='best').set_draggable(True)
+ax.set_ylabel('$W^*$ [J]')
 f.tight_layout()
+
 plt.show()

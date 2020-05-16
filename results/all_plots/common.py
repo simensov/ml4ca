@@ -8,7 +8,7 @@ import sys
 
 methods = ['pseudo','QP','RL']
 labels  = ['DNVGL pseudoinverse', 'Quadratic Programming', 'Reinforcement Learning']
-colors  = [            '#D4AC0D',               '#2980B9',                '#CB4335',  '#000000']
+colors  = [            '#3e9651',               '#3969b1',                '#cc2529',  '#000000']
 
 # print(plt.rcParams.keys())
 

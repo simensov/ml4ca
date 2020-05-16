@@ -7,11 +7,10 @@ def set_params():
     # plt.rcParams['axes.labelweight'] = 'bold'
     params = {
     'font.serif':        'Computer Modern Roman',
-    'axes.labelsize':    16,
+    'axes.labelsize':    13,
     'axes.labelweight':  'normal',
     'axes.spines.right':  False,
     'axes.spines.top':  False,
-
     'legend.fontsize':   10,
     'legend.framealpha': 0.5,
     'legend.facecolor':  '#FAD7A0',

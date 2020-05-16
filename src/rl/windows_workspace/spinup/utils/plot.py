@@ -8,7 +8,7 @@ import numpy as np
 import copy
 
 # Set the plotting parameters to the global ones
-from spinup.utils.plot_commons import set_params
+from spinup.utils.plot_commons import set_params, colors
 set_params()
 
 DIV_LINE_WIDTH = 50
@@ -18,7 +18,8 @@ exp_idx = 0
 units = dict()
 
 # Improve layout of the labels
-label_equivs = {'AverageEpRet': 'Average Episodal Return', 'AverageVVals': 'Average $\hat{V}(s)$', 'TotalEnvInteracts': 'Simulator Time Steps', 'LossV': 'Critic Loss'}
+label_equivs = {'AverageEpRet': 'Average Episodal Return', 'AverageVVals': 'Average $\hat{V}(s)$', 
+                'TotalEnvInteracts': 'Simulator Time Steps', 'LossV': 'Critic Loss', 'MeanLogStd': 'Mean Log of Actor Standard Deviations'}
 
 def plot_data(data, xaxis='Epoch', value="AverageEpRet", condition="Condition1", smooth=1, add=False, **kwargs):
     if smooth > 1:
@@ -75,11 +76,11 @@ def plot_data(data, xaxis='Epoch', value="AverageEpRet", condition="Condition1",
         plt.xlabel(label_equivs[xaxis])
 
     plt.grid(False)
-    plt.grid(axis='y', linestyle='--', color='grey', alpha=0.5)
+    # plt.grid(axis='y', linestyle='--', color='grey', alpha=0.5)
     ax = plt.gca()
-    ax.spines['left'].set_color('black')
-    ax.spines['bottom'].set_color('black')
-    ax.tick_params(bottom=True, left=True)
+    # ax.spines['left'].set_color('black')
+    # ax.spines['bottom'].set_color('black')
+    # ax.tick_params(bottom=True, left=True)
 
     plt.legend(loc='best').set_draggable(True)
 
@@ -183,8 +184,12 @@ def make_plots(all_logdirs, legend=None, xaxis=None, values=None, count=False,
     condition = 'Condition2' if count else 'Condition1'
     estimator = getattr(np, estimator)      # choose what to show on main curve: mean? max? min?
     for value in values:
-        plt.figure(figsize=(7,5))
-        plot_data(data, xaxis=xaxis, value=value, condition=condition, smooth=smooth, estimator=estimator, add = add)
+        plt.figure(figsize=(6*np.sqrt(4),3.5)) # A4 is (1,sqrt(2))
+        if len(data) == 1: # Plotting only the final model
+            colorarg = {'color':colors[2]}
+            plot_data(data, xaxis=xaxis, value=value, condition=condition, smooth=smooth, estimator=estimator, add = add, **colorarg)
+        else:
+            plot_data(data, xaxis=xaxis, value=value, condition=condition, smooth=smooth, estimator=estimator, add = add)
     plt.show()
 
 

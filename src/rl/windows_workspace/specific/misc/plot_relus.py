@@ -6,7 +6,7 @@ set_params()
 vals = [i - 5 for i in range(11)]
 
 def relu(val): return max(0.0, val)
-def leaky_relu(val): return 0.05 * val if val < 0.0 else val
+def leaky_relu(val): return 0.2 * val if val < 0.0 else val
 
 relus = [relu(val) for val in vals]
 leaky_relus = [leaky_relu(val) for val in vals]

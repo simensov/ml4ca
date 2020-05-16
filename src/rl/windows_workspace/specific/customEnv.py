@@ -10,7 +10,7 @@ DEBUGGING = False
 
 class Revolt(gym.Env):
     """ Custom Environment that follows OpenAI's gym API.
-        Max velocities measured with no thrust losses activated. Full means rotating stern azimuths only.
+        Max velocities measured with no thrust losses activated. "Full" means rotating stern azimuths only - bow thruster remains fixed at 90 degrees.
             Full:   surge, sway, yaw = (+2.20, -1.60) m/s, +-0.35 m/s, +-0.60 rad/s
             Simple: surge, sway, yaw = (+1.75, -1.40) m/s, +-0.30 m/s, +-0.51 rad/s
         With thrust losses:
@@ -137,19 +137,12 @@ class Revolt(gym.Env):
         :returns:
             observation (object): the initial observation.
         """
-
         # Decide which initial values shall be set
         if not init:
             N, E, Y, u, v, r = 0, 0, 0, 0, 0, 0
             if not self.testing:
                     N, E, Y = get_pose_on_state_space(self.real_ss_bounds[0:3], fraction = fraction)
                     u, v, r = get_vel_on_state_space(self.real_ss_bounds[3:], fraction = 0.30 * fraction) # velocities are going to be low during DP, so dont sample too much of that
-                    
-                    # TODO testing this thing - sampling a random yaw reference to increase robustness on various ways of obtaining zero heading difference
-                    if False:
-                        # NOTE by allowing 10 percent to be sampled of Y, better results came compared to randomly setting heading! Looks like a good idea actually.
-                        y_ref = Y if np.random.random() > 0.90 else np.random.uniform(-self.real_ss_bounds[2]*fraction,self.real_ss_bounds[2]*fraction)
-                        self.EF.update(ref = [0.0, 0.0, y_ref]) # avoid always having to correct heading towards zero! If not, the agent becomes good at all movement where heading needs to be corrected, but what about cases in which heading is to be held?
             else: 
                 if fixed_point is None:
                     N, E, Y = get_random_pose_on_radius()
@@ -215,7 +208,6 @@ class Revolt(gym.Env):
 
     def is_terminal(self):
         ''' Returns true if the vessel has travelled too far from the set point.'''
-        
         for s, bound in zip(self.state(),self.real_ss_bounds):
             if np.abs(s) > bound:
                 return True
@@ -266,22 +258,9 @@ class Revolt(gym.Env):
             - A float representing the scalar reward of the agent being in the current state
         '''
         ### Limited env
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) # best in Windows, but probably only since the penalty avoids thrusters being on MAX, but doesnt necessary minimize the usage
         # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty([0.05,0.075,0.075], angular = False) # actderros # changed derivatives according to what seems nice in ROS. high used 0.1, 0.1, 0.1
 
         ### Final Env
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.15,0.15,0.15]) + self.action_derivative_penalty(thrust=True, pen_coeff=[0.00,0.05,0.05], angular=True, ang_coeff=[0.00,0.01,0.01]) # finconttotal - good for iterative approach
-
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.15,0.15,0.15]) + self.action_derivative_penalty(thrust=True, pen_coeff=[0.02,0.02,0.02], angular=True, ang_coeff=[0.00,0.04,0.04]) # finactderallangleup / finimprovement
-
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.15,0.15,0.15]) + self.action_derivative_penalty(thrust=True, pen_coeff=[0.05,0.05,0.05], angular=True, ang_coeff=[0.00,0.01,0.01]) # finconttotbowder
-
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.15,0.20,0.20]) + self.action_derivative_penalty(thrust=True, pen_coeff=[0.05,0.05,0.05], angular=True, ang_coeff=[0.00,0.01,0.01]) # finconttotallup
-
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.15,0.30,0.30]) + self.action_derivative_penalty(thrust=True, pen_coeff=[0.05,0.05,0.05], angular=True, ang_coeff=[0.00,0.02,0.02]) # finconttothighall
-
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.20,0.30,0.30]) + self.action_derivative_penalty(thrust=True, pen_coeff=[0.05,0.05,0.05], angular=True, ang_coeff=[0.00,0.01,0.01]) # finconttothighbowder
-
         # This reward function is from now called optione - first version was called finconttothighbowder
         rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.20,0.30,0.30]) + self.action_derivative_penalty(thrust=True, pen_coeff=[0.05,0.05,0.05], angular=True, ang_coeff=[0.00,0.01,0.01]) # optione
 
@@ -294,35 +273,6 @@ class Revolt(gym.Env):
         assert len(coeffs) == 3 and isinstance(coeffs,list), 'Vel coeffs must be a list of length 3'
 
         return -np.sqrt(sum( [e**2 * c for e,c in zip(get_vel_3DOF(self.dTwin), coeffs)] ))
-
-
-    def summed_gaussian_like(self):
-        ''' First reward function that fixed the steady state error in yaw by sharpening the yaw gaussian '''
-        surge, sway, yaw = self.EF.get_pose()
-        rews = gaussian_like([surge,sway]) # mean 0 and var == 1
-        yawrew = gaussian_like([yaw], var=[0.1**2]) # Before, using var = 1, there wasnt any real difference between surge and sway and yaw
-        r = np.sqrt(surge**2 + sway**2) # meters
-        special_measurement = np.sqrt(r**2 + (yaw * 0.25)**2) 
-        anti_sparity = max(-1.0, (1-0.1*special_measurement))
-        return sum(rews) / 2 + 2 * yawrew + anti_sparity
-
-    def summed_gaussian_with_multivariate(self):
-        ''' First reward function that fixed the steady state error in yaw by sharpening the yaw gaussian '''
-        surge, sway, yaw = self.EF.get_pose()
-
-        yaw = yaw * 180 / np.pi # Use degrees since that was the standard when creating the reward function - easier visualized than radians
-        yawrew = gaussian_like([yaw], var=[5.0**2]) # Before, using var = 1, there wasnt any real difference between surge and sway and yaw
-        
-        r = np.sqrt(surge**2 + sway**2) # meters
-        radrew = gaussian_like([r]) # mean 0 and var 1
-
-        special_measurement = np.sqrt(r**2 + (yaw * 0.25)**2) 
-        anti_sparity = max(-1.0, (1-0.1*special_measurement))
-
-        x = np.array([[r, yaw]]).T
-        multi_rew = np.exp(-0.5 * (x.T).dot(self.covar_inv).dot(x))
-        
-        return radrew + yawrew + anti_sparity + multi_rew
 
     def multivariate_gaussian(self,yaw_penalty=True):
         ''' Using a multivariate gaussian distribution without normalizing area to 1, with a diagonal covariance matrix and a linear "sparsity-regularizer" '''
@@ -494,4 +444,11 @@ rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.
 # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.05,0.05,0.05], torque_based=True) + self.action_derivative_penalty(thrust=True, pen_coeff=[0.02,0.02,0.02], angular=True, ang_coeff=[0.02,0.02,0.02]) # finconttotaltorque
 # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.075,0.075,0.075], torque_based=True) + self.action_derivative_penalty(thrust=True, pen_coeff=[0.05,0.075,0.075], angular=True, ang_coeff=[0.02,0.02,0.02]) # finconttorqueactderrosangle
 # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.10,0.10,0.10])                    + self.action_derivative_penalty(thrust=True, pen_coeff=[0.02,0.02,0.02], angular=True, ang_coeff=[0.00,0.02,0.02]) # finactderallangleup
+
+# rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.15,0.15,0.15]) + self.action_derivative_penalty(thrust=True, pen_coeff=[0.00,0.05,0.05], angular=True, ang_coeff=[0.00,0.01,0.01]) # finconttotal - good for iterative approach
+# rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.15,0.15,0.15]) + self.action_derivative_penalty(thrust=True, pen_coeff=[0.02,0.02,0.02], angular=True, ang_coeff=[0.00,0.04,0.04]) # finactderallangleup / finimprovement
+# rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.15,0.15,0.15]) + self.action_derivative_penalty(thrust=True, pen_coeff=[0.05,0.05,0.05], angular=True, ang_coeff=[0.00,0.01,0.01]) # finconttotbowder
+# rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.15,0.20,0.20]) + self.action_derivative_penalty(thrust=True, pen_coeff=[0.05,0.05,0.05], angular=True, ang_coeff=[0.00,0.01,0.01]) # finconttotallup
+# rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.15,0.30,0.30]) + self.action_derivative_penalty(thrust=True, pen_coeff=[0.05,0.05,0.05], angular=True, ang_coeff=[0.00,0.02,0.02]) # finconttothighall
+# rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.20,0.30,0.30]) + self.action_derivative_penalty(thrust=True, pen_coeff=[0.05,0.05,0.05], angular=True, ang_coeff=[0.00,0.01,0.01]) # finconttothighbowder
 '''

@@ -184,11 +184,12 @@ def make_plots(all_logdirs, legend=None, xaxis=None, values=None, count=False,
     condition = 'Condition2' if count else 'Condition1'
     estimator = getattr(np, estimator)      # choose what to show on main curve: mean? max? min?
     for value in values:
-        plt.figure(figsize=(6*np.sqrt(4),3.5)) # A4 is (1,sqrt(2))
         if len(data) == 1: # Plotting only the final model
-            colorarg = {'color':colors[2]}
+            plt.figure(figsize=(4,4*np.sqrt(2))) # A4 is (1,sqrt(2))
+            colorarg = {'color': colors[2]}
             plot_data(data, xaxis=xaxis, value=value, condition=condition, smooth=smooth, estimator=estimator, add = add, **colorarg)
         else:
+            plt.figure(figsize=(6*np.sqrt(4),3.5)) # A4 is (1,sqrt(2))
             plot_data(data, xaxis=xaxis, value=value, condition=condition, smooth=smooth, estimator=estimator, add = add)
     plt.show()
 

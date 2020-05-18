@@ -32,10 +32,10 @@ for i in range(len(methods)):
 
 
 refdata = np.genfromtxt(path_ref,delimiter=',')
-ref_north = refdata[1:,1:2]
-ref_east = refdata[1:,2:3]
-ref_yaw = refdata[1:,3:4]
-ref_time = refdata[1:,-1:]
+ref_north = refdata[1:-10,1:2]
+ref_east = refdata[1:-10,2:3]
+ref_yaw = refdata[1:-10,3:4]
+ref_time = refdata[1:-10,-1:]
 
 if False: # manually moving reffilter as it might not fit time
     ref_time = ref_time - 2 *np.ones_like(ref_time)
@@ -51,7 +51,7 @@ box_n = [n_0[1,0],  n_0[1,0] + 6.0]
 box_e = [e_0[1,0],  e_0[1,0] + 6.0]
 box_p = [p_0[1,0],  p_0[1,0] - 45.0]
 
-setpointx  = [0] + (np.array([10,  10,  90,  90, 170]) + 2.0).tolist()
+setpointx  = [0] + (np.array([0,  0,  90,  90, 170]) + 2.0).tolist()
 gray_areas = [el for i, el in enumerate(setpointx) if i%2 == 0] + [setpointx[-1]]
 
 '''
@@ -60,16 +60,16 @@ gray_areas = [el for i, el in enumerate(setpointx) if i%2 == 0] + [setpointx[-1]
 f = plt.figure(figsize=(9,9))
 ax = plt.gca()
 ax.scatter(box_e,box_n,color = 'black',marker='8',s=50,label='Set points')
-ax.grid(color='grey', linestyle='--', alpha=0.5)
+#ax.grid(color='grey', linestyle='--', alpha=0.5)
+
 
 for i in range(len(methods)):
     e, n = east[i], north[i]
     plt.plot(e,n,color = colors[i], label=labels[i])
-    plt.plot(ref_east, ref_north, '--', color='black',label='Reference')
-    
     # plt.arrow(ref_east[int(len(ref_east) / 4.0), 0], ref_north[int(len(ref_north) / 4.0), 0], 0.25, 0.25)
     # plt.arrow(ref_east[int(len(ref_east) * 3.0 / 4.0), 0], ref_north[int(len(ref_north) * 3.0 / 4.0), 0], 0.25, 0.25)
 
+ax.plot(ref_east, ref_north, '--', color='black',label='Reference')
 ax.set_xlabel('East position relative to NED frame origin [m]')
 ax.set_ylabel('North position relative to NED frame origin [m]')
 ax.legend(loc='best').set_draggable(True)
@@ -92,7 +92,7 @@ for axn,ax in enumerate(axes):
     
     # Print reference line
     ax.plot(ref_time, refdata[axn], '--',color='black', label = 'Reference' if axn == 0 else None)
-    plot_gray_areas(ax, [0] + [11, 61, 111, 141, 191] + [240])
+    plot_gray_areas(ax, gray_areas)
 
    
 axes[0].legend(loc='best').set_draggable(True)
@@ -155,12 +155,12 @@ f0, ax = plt.subplots(1,1,figsize=(12,5),sharex = True)
 IAES = [] # cumulative errors over time
 times = (np.array(ref_data_averages[0][0]) - 1.0).tolist()
 for i in range(len(methods)):
-    integrals, cumsums = IAE(etas[i] / np.array([5.,5.,50.]), refs / np.array([5.,5.,50.]), times)
+    integrals, cumsums = IAE(etas[i] / np.array([6.,6.,45.]), refs / np.array([6.,6.,45.]), times)
     IAES.append(cumsums)
     ax.plot(times, IAES[i], color=colors[i], label=labels[i])
 
 # Gray areas
-plot_gray_areas(ax,areas = [0] + [11, 61, 111, 141, 191] + [240])
+plot_gray_areas(ax,areas = gray_areas)
 
 ax.legend(loc='best').set_draggable(True)
 ax.set_ylabel('IAE [-]')

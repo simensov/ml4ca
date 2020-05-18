@@ -14,10 +14,6 @@ Positional data
 path = 'bagfile__{}_observer_eta_ned.csv' # General path to eta
 path_ref = 'bagfile__pseudo_reference_filter_state_desired.csv'
 
-methods = [methods[0], methods[2]]
-colors = [colors[0], colors[2]]
-labels = [labels[0], labels[2]]
-
 north, east, psi, time = [np.zeros((1,1))]*len(methods), [np.zeros((1,1))]*len(methods), [np.zeros((1,1))]*len(methods), [np.zeros((1,1))]*len(methods)
 ALL_POS_DATA = []
 
@@ -53,7 +49,7 @@ box_n = [n_0[1,0],  n_0[1,0] + 12, n_0[1,0] + 12.0,  n_0[1,0] + 12.0,  n_0[1,0]]
 box_e = [e_0[1,0],  e_0[1,0],     e_0[1,0]  + 12.0,  e_0[1,0] + 12.0,  e_0[1,0]]
 box_p = [p_0[1,0],  p_0[1,0],     p_0[1,0],        p_0[1,0] + 90.0,   p_0[1,0] - 90.0]
 
-setpointx  = [0] + (np.array([10,  10,  60,  60, 120, 120, 160, 160, 240]) + 2.0).tolist()
+setpointx  = [0] + (np.array([10,  10,  60,  60, 120, 120, 160, 160, 250,250,290]) + 2.0).tolist()
 gray_areas = [el for i, el in enumerate(setpointx) if i%2 == 0] + [setpointx[-1]]
 
 # currently unused
@@ -70,13 +66,14 @@ gray_areas = [el for i, el in enumerate(setpointx) if i%2 == 0] + [setpointx[-1]
 f = plt.figure(figsize=(9,9))
 ax = plt.gca()
 ax.scatter(box_e,box_n,color = 'black',marker='8',s=50,label='Set points')
-ax.grid(color='grey', linestyle='--', alpha=0.5)
+#ax.grid(color='grey', linestyle='--', alpha=0.5)
+
 
 for i in range(len(methods)):
     e, n = east[i], north[i]
     plt.plot(e,n,color = colors[i], label=labels[i])
-    plt.plot(ref_east, ref_north, '--', color='black',label='Reference')
 
+ax.plot(ref_east, ref_north, '--', color='black',label='Reference')    
 ax.set_xlabel('East position relative to NED frame origin [m]')
 ax.set_ylabel('North position relative to NED frame origin [m]')
 ax.legend(loc='best').set_draggable(True)
@@ -150,7 +147,7 @@ f0, ax = plt.subplots(1,1,figsize=(12,5),sharex = True)
 IAES = [] # cumulative errors over time
 times = (np.array(ref_data_averages[0][0]) - 1.0).tolist()
 for i in range(len(methods)):
-    integrals, cumsums = IAE(etas[i] / np.array([5.,5.,50.]), refs / np.array([5.,5.,50.]), times)
+    integrals, cumsums = IAE(etas[i] / np.array([12.,12.,45.]), refs / np.array([12.,12.,45.]), times)
     IAES.append(cumsums)
     ax.plot(times, IAES[i], color=colors[i], label=labels[i])
 
@@ -163,7 +160,7 @@ ax.set_xlabel('Time [s]')
 
 for i in range(len(methods)):
     val = IAES[i][-1] # extract IAE at last timestep
-    x_coord = 240 + 0.25
+    x_coord = times[-1] + 0.25
     txt = '{:.2f}'.format(val)
     ax.annotate(txt, (x_coord, val*0.99),color=colors[i],weight='bold')
 

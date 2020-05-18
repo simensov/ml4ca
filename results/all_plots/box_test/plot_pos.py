@@ -70,12 +70,14 @@ box_coords_over_time = np.array([
 f = plt.figure(figsize=(9,9))
 ax = plt.gca()
 ax.scatter(box_e,box_n,color = colors[3],marker='8',s=50,label='Set points')
-ax.grid(color='grey', linestyle='--', alpha=0.5)
+#ax.grid(color='grey', linestyle='--', alpha=0.5)
+
 
 for i in range(len(methods)):
     e, n = east[i], north[i]
     plt.plot(e,n,color = colors[i], label=labels[i])
 
+ax.plot(ref_east, ref_north, '--', color='black',label='Reference')
 ax.set_xlabel('East position relative to NED frame origin [m]')
 ax.set_ylabel('North position relative to NED frame origin [m]')
 ax.legend(loc='best').set_draggable(True)
@@ -162,7 +164,7 @@ f0, ax = plt.subplots(1,1,figsize=(12,5),sharex = True)
 IAES = [] # cumulative errors over time
 times = (np.array(ref_data_averages[0][0]) - 1.0).tolist()
 for i in range(len(methods)):
-    integrals, cumsums = IAE(etas[i] / np.array([5.,5.,50.]), refs / np.array([5.,5.,50.]), times)
+    integrals, cumsums = IAE(etas[i] / np.array([5.,5.,45.]), refs / np.array([5.,5.,45.]), times)
     IAES.append(cumsums)
     ax.plot(times, IAES[i], color=colors[i], label=labels[i])
 

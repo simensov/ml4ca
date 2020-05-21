@@ -18,8 +18,10 @@ exp_idx = 0
 units = dict()
 
 # Improve layout of the labels
-label_equivs = {'AverageEpRet': 'Average Episodal Return', 'AverageVVals': 'Average $\hat{V}(s)$', 
-                'TotalEnvInteracts': 'Simulator Time Steps', 'LossV': 'Critic Loss', 'MeanLogStd': 'Mean Log of Actor Standard Deviations'}
+label_equivs = {'AverageEpRet': 'Average Episodal Return', 'AverageVVals': 'Average $\hat{V}_{W}(s)$', 
+                'TotalEnvInteracts': 'Simulator Time Steps', 'LossV': 'Critic Objective', 
+                'MeanLogStd': 'Mean Log of Actor Standard Deviations', 'DeltaLossPi': '$J(\\pi_{\\theta_{new}}) - J(\\pi_{\\theta_{old}})$',
+                'MaxVVals':'Max $\hat{V}_{W}(s)$'}
 
 def plot_data(data, xaxis='Epoch', value="AverageEpRet", condition="Condition1", smooth=1, add=False, **kwargs):
     if smooth > 1:
@@ -185,12 +187,14 @@ def make_plots(all_logdirs, legend=None, xaxis=None, values=None, count=False,
     estimator = getattr(np, estimator)      # choose what to show on main curve: mean? max? min?
     for value in values:
         if len(data) == 1: # Plotting only the final model
-            plt.figure(figsize=(4,4*np.sqrt(2))) # A4 is (1,sqrt(2))
+            fig = plt.figure(figsize=(6,6))
             colorarg = {'color': colors[2]}
             plot_data(data, xaxis=xaxis, value=value, condition=condition, smooth=smooth, estimator=estimator, add = add, **colorarg)
+            fig.tight_layout()
         else:
-            plt.figure(figsize=(6*np.sqrt(4),3.5)) # A4 is (1,sqrt(2))
+            fig = plt.figure(figsize=(6*np.sqrt(4),3.5)) # A4 is (1,sqrt(2))
             plot_data(data, xaxis=xaxis, value=value, condition=condition, smooth=smooth, estimator=estimator, add = add)
+            fig.tight_layout()
     plt.show()
 
 

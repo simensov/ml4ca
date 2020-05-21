@@ -87,9 +87,9 @@ f0.tight_layout(pad=0.4)
 '''
 f, axes = plt.subplots(3,1,figsize=FIGSIZES1,sharex = True)
 plt.xlabel('Time [s]')
-axes[0].set_ylabel('$T_{bow}$ [%]')
-axes[1].set_ylabel('$T_{port}$ [%]')
-axes[2].set_ylabel('$T_{star}$ [%]')
+axes[0].set_ylabel('$n_{bow}$ [%]')
+axes[1].set_ylabel('$n_{port}$ [%]')
+axes[2].set_ylabel('$n_{star}$ [%]')
 
 for axn,ax in enumerate(axes):
     for i in range(len(methods)):

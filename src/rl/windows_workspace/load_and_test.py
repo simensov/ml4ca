@@ -19,7 +19,7 @@ if __name__ == '__main__':
     parser.add_argument('--env',           type = str,     default = 'final')
     parser.add_argument('--sim',           type = int,     default = 0)
     parser.add_argument('--ext',           type = bool,    default = True)
-    parser.add_argument('--cont_ang',      type = bool,    default = False)
+    parser.add_argument('--cont_ang',      type = bool,    default = True)
     parser.add_argument('--plot',          type = bool,    default = True)
     parser.add_argument('--setpoints',     type = bool,    default = False) # Params for testing set point changes during policy
     parser.add_argument('--deterministic', action='store_true')

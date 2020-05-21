@@ -1,35 +1,29 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-from plot_commons import set_params,colors
+from specific.misc.plot_commons import set_params,colors
 
 set_params()
     
 def plot_policytest_data(args,data,env):
-    fig, (ax1, ax2, ax3) = plt.subplots(3, sharex=True)
+    fig, (ax1, ax2, ax3) = plt.subplots(3, figsize=(6,6), sharex=True)
     plt.xlabel('Time [s]')
     ax1.set_ylabel('$\sqrt{ {\~{x}}^2 + {\~{y}}^2 }$ [m]')
     ax2.set_ylabel('$\~{\psi}$ [deg]')
-    ax3.set_ylabel('Reward, $R_t$')
+    ax3.set_ylabel('Reward, $r_t$')
 
-    fig, ax4 = plt.subplots()
-    ax4.set_xlabel('Error sway')
-    ax4.set_ylabel('Error surge')
-
-    axes = [ax1, ax2, ax3, ax4]
+    axes = [ax1, ax2, ax3]
     
     step_len = env.dt
     ep_no, ep_len = 0, 0
+    first = True
     for episode in data:
         ep_len = len(episode)
         eucl_dists, headings, rewards, steps = [], [], [], [i*step_len for i in range(ep_len)]
-        pos = {'sway': [], 'surge' : []}
 
         for step in episode:
             state, reward = step # state is [errorframe] + [velocities]
             eucl_dists.append( np.sqrt(state[0]**2 + state[1]**2) )
-            pos['surge'].append(state[0])
-            pos['sway'].append(state[1])
             headings.append(state[2] * 180 / np.pi)
             rewards.append(reward)
         
@@ -37,25 +31,15 @@ def plot_policytest_data(args,data,env):
         ax1.plot(steps,         eucl_dists,     label='Run {}'.format(ep_no+1))
         ax2.plot(steps,         headings,       label='Run {}'.format(ep_no+1))
         ax3.plot(steps,         rewards,        label='Run {}'.format(ep_no+1))
-        ax4.plot(pos['sway'],  pos['surge'],    label='Run {}'.format(ep_no+1))
+        if first:
+            rew_plot = ax3.plot(steps, [3.5]*len(steps), '--',color='black', label='Max reward',alpha=0.8,zorder=0)
+            first=False
+            
         ep_no += 1
 
-    for ax in axes:
-        ax.grid(False)
-        ax.yaxis.grid(color='grey', linestyle='--', alpha=0.5)
-        # ax.legend(loc='best').set_draggable(True)
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        # ax.xaxis.set_tick_params(which='both', labelbottom=True)
-
-    circle = plt.Circle((0, 0), radius=5, color='grey', fill=False)
-    ax4.add_artist(circle)
-    ax4.set_xlim((-5, 5))
-    ax4.set_ylim((-5, 5))
-
     axes[0].legend(loc='best').set_draggable(True)
+    ax3.legend(handles=rew_plot, loc='best').set_draggable(True)
     fig.tight_layout()
-
 
 def plot_NED_data(args,data,env):
     '''
@@ -63,18 +47,18 @@ def plot_NED_data(args,data,env):
         - data (list): a list of lists, giving all NED_pos, NED_ref lists of all time steps of all episodes
                         e.g. [ [([1,2,3], [1,1,1]), ([1,1,2], [1,1,1])] , [([1,2,3], [0,0,0]), ([1,0,0], [0,0,0])]]
     '''
-    f1, (ax1, ax2, ax3) = plt.subplots(3, sharex=True)
+    f1, (ax1, ax2, ax3) = plt.subplots(3, figsize=(6,6), sharex=True)
     plt.xlabel('Time [s]')
     ax1.set_ylabel('North pos [m]')
     ax2.set_ylabel('East pos [m]')
     ax3.set_ylabel('Heading [deg]')
 
-    f2, ax4 = plt.subplots()
-    ax4.set_xlabel('NED East')
-    ax4.set_ylabel('NED North')
+    f2, ax4 = plt.subplots(figsize=(6,6))
+    ax4.set_xlabel('East position from setpoint in NED frame [m]')
+    ax4.set_ylabel('North position from setpoint in NED frame [m]')
 
     axes = [ax1, ax2, ax3, ax4]
-    
+
     step_len = env.dt
     ep_no, ep_len = 0, 0
     for episode in data:
@@ -95,35 +79,27 @@ def plot_NED_data(args,data,env):
         ax4.plot(pos['east'],   pos['north'],   label='Run {}'.format(ep_no+1))
         ep_no += 1
 
-    for ax in axes:
-        ax.grid(False)
-        ax.yaxis.grid(color='grey', linestyle='--', alpha=0.5)
-        # ax.legend(loc='best').set_draggable(True)
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        # ax.xaxis.set_tick_params(which='both', labelbottom=True)
-
-    circle = plt.Circle((0,0), radius = 0.2, color='red', fill=True)
+    circle = plt.Circle((0,0), radius = 0.2, color='red', alpha=0.5, fill=True,label='Set point')
     ax4.add_artist(circle)
     ax4.set_xlim(-5,5)
     ax4.set_ylim(-5,5)
 
     axes[0].legend(loc='best').set_draggable(True)
+    ax4.legend(loc='best').set_draggable(True)
     f2.tight_layout()
-
 
 def plot_action_data(args,data,env):
 
-    fig, axes = plt.subplots(nrows=3,ncols=2,sharex=True)
+    fig, axes = plt.subplots(nrows=3,ncols=2,figsize=(6,6),sharex=True)
     axes[2,0].set_xlabel('Time [s]')
     axes[2,1].set_xlabel('Time [s]')
     idx = 0
     for r,row in enumerate(axes):
         for i, ax in enumerate(row):
             if i == 0:
-                ax.set_ylabel('n{}'.format(idx+1))
+                ax.set_ylabel('$n_{}$ [%]'.format(idx+1))
             if i == 1:
-                ax.set_ylabel('Angle {}'.format(idx+1))
+                ax.set_ylabel('$\\alpha_{}$ [deg]'.format(idx+1))
         idx += 1
 
     step_len = env.dt
@@ -140,7 +116,7 @@ def plot_action_data(args,data,env):
                 actions = np.vstack( (actions, action_vec) )
                 
         print('Plotting ep', ep_no, 'in action_data')
-        actions[:,-3:] = actions[:,-3:] * 180/np.pi
+        actions[:,-3:] *= 180 / np.pi # Scale to degrees
         idx = 0
         for row in axes:
             for i, ax in enumerate(row):
@@ -152,17 +128,8 @@ def plot_action_data(args,data,env):
 
         ep_no += 1
 
-    for row in axes:
-        for ax in row:
-            ax.grid(False)
-            ax.yaxis.grid(color='grey', linestyle='--', alpha=0.5)
-            # ax.legend(loc='best').set_draggable(True)
-            ax.spines['top'].set_visible(False)
-            ax.spines['right'].set_visible(False)
-            # ax.xaxis.set_tick_params(which='both', labelbottom=True)
-
-    axes[0,0].legend(loc='best').set_draggable(True)
-    # fig.tight_layout()
+    axes[0,1].legend(loc='best').set_draggable(True)
+    fig.tight_layout()
 
 if __name__ == '__main__':
     pass

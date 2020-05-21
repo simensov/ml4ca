@@ -11,7 +11,7 @@ def set_params():
     'axes.labelweight':     'normal',
     'axes.spines.right':    False,
     'axes.spines.top':      False,
-    'legend.fontsize':      10,
+    'legend.fontsize':      8,
     'legend.framealpha':    0.5,
     'legend.facecolor':     '#FAD7A0',
     'xtick.labelsize':      10,

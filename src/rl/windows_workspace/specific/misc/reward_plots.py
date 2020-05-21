@@ -1,90 +1,77 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib import cm
+from plot_commons import set_params,colors
+set_params()
 
-
-def grid():
-    from scipy.stats import multivariate_normal
-    from mpl_toolkits.mplot3d import Axes3D
-
-    #Parameters to set
-    mu_x, mu_y = 0, 0
-    var_x, var_y = np.square(1), np.square(5)
-
-    #Create grid and multivariate normal
-    x = np.linspace(-10,10,500)
-    y = np.linspace(-30,30,500)
-    X, Y = np.meshgrid(x,y)
-    pos = np.empty(X.shape + (2,))
-    pos[:, :, 0] = X
-    pos[:, :, 1] = Y
-    rv = multivariate_normal([mu_x, mu_y], [[var_x, 0], [0, var_y]])
-
-    #Make a 3D plot
-    fig = plt.figure()
-    ax = fig.gca(projection='3d')
-    Z = 100* rv.pdf(pos)
-    Z = Z - 0.6 # shift by constant
-    test = ax.plot_surface(X, Y, Z, cmap='viridis',linewidth=0)
-    ax.set_xlabel('$\~{x}$',size=12)
-    ax.set_ylabel('$\~{y}$',size=12)
-    ax.set_zlabel('$r_{err}$',size=12)
-    bar = plt.colorbar(test)
-    bar.set_label('Reward ', rotation = 90, size = 12)
-    plt.show()
+FS = (6,6)
 
 def summed_gaussian_vs_2D(pltno = 0):
     from mathematics import gaussian, gaussian_like
     from mpl_toolkits.mplot3d import Axes3D
 
     if pltno == 0:
-        x = np.linspace(-8,8,101)
-        y = np.linspace(-8,8,101)
-        yaw = np.linspace(-20, 20, 101) * np.pi/180
-        X, Y = np.meshgrid(x,y)
-        pos = np.empty(X.shape + (2,))
+        # Plots the summed gaussian on the left, 
+        max_r  = np.sqrt(2 * 8**2)
+        rads   = np.linspace(-max_r, max_r, 251)
+        yaws   = np.linspace(-20, 20, 251)
+        (X, Y) = np.meshgrid(rads,yaws)
+        pos    = np.empty(X.shape + (2,))
         pos[:, :, 0] = X
         pos[:, :, 1] = Y
-        Z1 = np.zeros((x.shape[0], y.shape[0]))
-        Z2 = np.zeros((x.shape[0], y.shape[0]))
+        Z1 = np.zeros((rads.shape[0], yaws.shape[0]))
+        Z2 = np.zeros((rads.shape[0], yaws.shape[0]))
 
-        x_vals = [gaussian_like([i]) for i in x]
-        y_vals = [gaussian_like([i]) for i in y]
-        for i, x_val in enumerate(x_vals):
-            for j, y_val in enumerate(y_vals):
-                    Z1[i,j] = x_val + y_val  
+        r_vals   = [gaussian_like([i], mean=[0], var=[1.0**2]) for i in rads]
+        yaw_vals = [gaussian_like([i], mean=[0], var=[5.0**2]) for i in yaws]
 
+        for i, r_val in enumerate(r_vals):
+            for j, yaw_val in enumerate(yaw_vals):
+                    Z1[i,j] = r_val + yaw_val
+                    Z2[i,j] = unitary_multivar_normal( [rads[i], yaws[j]], mu = [0, 0], var=[1.0**2, 5.0**2])
 
-        if False: # was used initially for finding out how to avoid sparsity
-            for i in range(len(x)):
-                for j in range(len(y)):
-                    r = np.sqrt( x[i]**2 + y[j]**2 )
-                    val1 = gaussian_like( [r], var=[(2)**2]) 
-                    val2 = (1-0.1*r) # + x_vals[i] + y_vals[j]
-                    Z2[i,j] = val1 + val2
+        fig1 = plt.figure(figsize=FS)
+        ax1 = fig1.add_subplot(1,1,1,projection='3d')
+        plt1 = ax1.plot_surface(X, Y, Z1, cmap = cm.get_cmap(), linewidth=0)
+        
+        fig2 = plt.figure(figsize=FS)
+        ax2 = fig2.add_subplot(1,1,1,projection='3d')
+        plt2 = ax2.plot_surface(X, Y, Z2, cmap = cm.get_cmap(), linewidth=0)
 
-        fig = plt.figure()
-        ax1 = fig.add_subplot(2,2,1,projection='3d')
-        ax2 = fig.add_subplot(2,2,2,projection='3d')
-        ax3 = fig.add_subplot(2,2,3)
-        ax4 = fig.add_subplot(2,2,4)
-        plt1 = ax1.plot_surface(X, Y, Z1, cmap='viridis',linewidth=0)
-        plt2 = ax2.plot_surface(X, Y, Z2, cmap='viridis',linewidth=0)
-        plt3 = ax3.contour(X,Y,Z1)
-        plt4 = ax4.contour(X,Y,Z2)
+        fig3 = plt.figure(figsize=FS)
+        ax3 = fig3.add_subplot(1,1,1)
+        plt3 = ax3.contourf(X,Y,Z1, levels=8,cmap = cm.get_cmap())
+        bar = plt.colorbar(plt3)
+        bar.set_label('Reward ', rotation = 90, size = 12)
 
-        for ax, plot in [(ax1,plt1) ,(ax2,plt2)]:
-            ax.set_xlabel('$\~{x}$', size=12)
-            ax.set_ylabel('$\~{y}$', size=12)
-            ax.set_zlabel('$Reward$', size=12)
-            # bar = plt.colorbar(plot, orientation='horizontal',pad=0.2)
-            # bar.set_label('Reward ',  size = 12)    
+        fig4 = plt.figure(figsize=FS)
+        ax4 = fig4.add_subplot(1,1,1)
+        plt4 = ax4.contourf(X,Y,Z2, levels=8, cmap = cm.get_cmap())
+        bar = plt.colorbar(plt4)
+        bar.set_label('Reward ', rotation = 90, size = 12)
+        
+        for axn, (ax, plot) in enumerate([(ax1,plt1) ,(ax2,plt2),(ax3,plt3),(ax4,plt4)]):
+            ax.set_xlabel('$\~{x}\ [m]$')
+            ax.set_ylabel('$\~{\psi}\ [deg]$')
+
+            for el in ['x','y','z']:
+                ax.locator_params(axis=el, nbins=5)
+            if axn in [0,1]:
+                ax.set_zlabel('$Reward$')    
+                ax.view_init(30, -45)
+
+        fig1.tight_layout()
+        fig2.tight_layout()
+        fig3.tight_layout()
+        fig4.tight_layout()
 
     elif pltno == 1:
-        max_r = np.sqrt(2 * 8**2)
-        rads = np.linspace(-max_r, max_r, 101)
-        yaws = np.linspace(-45, 45, 101)
-        X, Y = np.meshgrid(rads,yaws)
-        pos = np.empty(X.shape + (2,))
+        # FINAL REWARD FUNCTION SHAPE
+        max_r  = np.sqrt(2 * 8**2)
+        rads   = np.linspace(-max_r, max_r, 251)
+        yaws   = np.linspace(-45, 45, 251)
+        (X, Y) = np.meshgrid(rads,yaws)
+        pos    = np.empty(X.shape + (2,))
         pos[:, :, 0] = X
         pos[:, :, 1] = Y
         Z1 = np.zeros((rads.shape[0], yaws.shape[0]))
@@ -94,158 +81,100 @@ def summed_gaussian_vs_2D(pltno = 0):
         for i in range(len(rads)):
             for j in range(len(yaws)):
                 measure = np.sqrt((rads[i])**2 + (yaws[j]/4)**2)
-                yaw_pen = 0.5 # -np.abs(yaws[j])/45.0
+                const = 0.5
                 anti_sparity = max(-1.0, ( 1 - 0.1 * measure ))
                 multivar = 2 * unitary_multivar_normal( [rads[i], yaws[j]], mu = [0,0], var=[1.0**2, 5.0**2])
-                Z1[i,j] = multivar + anti_sparity + yaw_pen
+                Z1[i,j] = multivar + anti_sparity + const
                 Z2[i,j] = multivar
                 Z3[i,j] = anti_sparity
-                Z4[i,j] = yaw_pen + 10 * yaws[i] # TODO WTFWTF IS UP WITH THE AXIS?!?! ENSURE LARGER YAW PEN
+                Z4[i,j] = const
 
-        f1 = plt.figure()
-        ax1 = f1.add_subplot(2,2,1,projection='3d')
-        ax2 = f1.add_subplot(2,2,2,projection='3d')
-        ax3 = f1.add_subplot(2,2,3,projection='3d')
-        ax4 = f1.add_subplot(2,2,4,projection='3d')
-        total1 = ax1.plot_surface(X, Y, Z1, cmap='viridis',linewidth=0)
-        total2 = ax2.plot_surface(X, Y, Z2, cmap='viridis',linewidth=0)
+        # FIRST, PLOT ALL COMPONENTS OF THE FINAL REWARD FUNCTION
         
-        if False:
-            plt3 = ax3.contour(X,Y,Z1)
-            plt4 = ax4.contour(X,Y,Z2)
-        else:
-            ax3.plot_surface(X, Y, Z3, cmap='viridis',linewidth=0)
-            ax4.plot_surface(X, Y, Z4, cmap='viridis',linewidth=0)
+        f1   = plt.figure(figsize=FS)
+        ax1  = f1.add_subplot(1,1,1,projection='3d')
+        plt1 = ax1.plot_surface(X, Y, Z1,cmap = cm.get_cmap(), linewidth=0)
+        
+        f2 = plt.figure(figsize=(6,4.5))
+        ax2  = f2.add_subplot(1,1,1,projection='3d')
+        plt2 = ax2.plot_surface(X, Y, Z2,cmap = cm.get_cmap(), linewidth=0)
 
-        ax1.set_xlabel('$\~{r}$',size=12)
-        ax1.set_ylabel('$\~{\psi}$',size=12)
-        # ax1.set_zlabel('$Reward$',size=12)
-        ax2.set_xlabel('$\~{r}$',size=12)
-        ax2.set_ylabel('$\~{\psi}$',size=12)
-        # ax2.set_zlabel('$Reward$',size=12)
-        ax3.set_xlabel('$\~{r}$',size=12)
-        ax3.set_ylabel('$\~{\psi}$',size=12)
-        ax4.set_xlabel('$\~{r}$',size=12)
-        ax4.set_ylabel('$\~{\psi}$',size=12)
+        f3 = plt.figure(figsize=FS)
+        ax3  = f3.add_subplot(1,1,1,projection='3d')
+        plt3 = ax3.plot_surface(X, Y, Z3, cmap = cm.get_cmap(), linewidth=0)
 
+        f4 = plt.figure(figsize=FS)
+        ax4  = f4.add_subplot(1,1,1,projection='3d')
+        plt4 = ax4.plot_surface(X, Y, Z4, cmap = cm.get_cmap(), linewidth=0)
 
-    elif pltno == 2:
-        # x = np.linspace(-8,8,101)
-        # y = np.linspace(-8,8,101)
-        max_r = np.sqrt(2 * 8**2)
-        rads = np.linspace(-max_r, max_r, 101)
-        yaws = np.linspace(-20, 20, 101)
-        X, Y = np.meshgrid(rads,yaws)
-        pos = np.empty(X.shape + (2,))
-        pos[:, :, 0] = X
-        pos[:, :, 1] = Y
-        Z1 = np.zeros((rads.shape[0], yaws.shape[0]))
-        Z2 = np.zeros((rads.shape[0], yaws.shape[0]))
+        for axn, (ax, plot) in enumerate([(ax1,plt1) ,(ax2,plt2),(ax3,plt3),(ax4,plt4)]):
+            ax.set_xlabel('$\~{x}\ [m]$')
+            ax.set_ylabel('$\~{\psi}\ [deg]$')
+            for el in ['x','y','z']:
+                ax.locator_params(axis=el, nbins=5)
+            
+            ax.set_zlabel('$Reward$',linespacing=0.2)
+            ax.view_init(20, -45)
+        
+        f1.tight_layout()
+        f2.tight_layout()
+        f3.tight_layout()
+        f4.tight_layout()
 
-        r_vals = [gaussian_like([i]) for i in rads]
-        yaw_vals = [gaussian_like([i], var=[5.0**2]) for i in yaws]
-        for i, r_val in enumerate(r_vals):
-            for j, yaw_val in enumerate(yaw_vals):
-                    Z1[i,j] = r_val + yaw_val  
-                    special_measurement = np.sqrt(rads[i]**2 + (yaws[j] * 0.25)**2) 
-                    anti_sparity = max(-1.0, (1-0.1*special_measurement))
-                    Z2[i,j] = Z1[i,j] + anti_sparity + unitary_multivar_normal( [rads[i], yaws[j]], mu = [0,0], var=[1.0**2, 5.0**2])
+        # THEN, PLOT THE FINAL REWARD FUNCTION IN 3D AND IN A CONTOUR MAP
+        fig = plt.figure(figsize=(6,6))
+        ax1 = fig.add_subplot(1,1,1,projection='3d')
+        plt1 = ax1.plot_surface(X, Y, Z1, cmap = cm.get_cmap(), linewidth=0)
+        # bar = plt.colorbar(plt1)
+        # bar.set_label('Reward ', rotation = 90, size = 12)
+        for axn, (ax, plot) in enumerate([(ax1,plt1)]):
+            ax.set_xlabel('$\~{x}\ [m]$')
+            ax.set_ylabel('$\~{\psi}\ [deg]$')
+            ax.set_zlabel('$Reward$')
+            ax.view_init(20, -45)
 
-        fig = plt.figure()
-        ax1 = fig.add_subplot(2,2,1,projection='3d')
-        ax2 = fig.add_subplot(2,2,2,projection='3d')
-        ax3 = fig.add_subplot(2,2,3)
-        ax4 = fig.add_subplot(2,2,4)
-        plt1 = ax1.plot_surface(X, Y, Z1, cmap='viridis',linewidth=0)
-        plt2 = ax2.plot_surface(X, Y, Z2, cmap='viridis',linewidth=0)
-        plt3 = ax3.contour(X,Y,Z1)
-        plt4 = ax4.contour(X,Y,Z2)
+            for el in ['x','y','z']:
+                ax.locator_params(axis=el, nbins=5)
 
-        for ax, plot in [(ax1,plt1) ,(ax2,plt2)]:
-            ax.set_xlabel('$\~{x}$', size=12)
-            ax.set_ylabel('$\~{\psi}$', size=12)
-            ax.set_zlabel('$Reward$', size=12)
-            # bar = plt.colorbar(plot, orientation='horizontal',pad=0.2)
-            # bar.set_label('Reward ',  size = 12)    
+        fig.tight_layout()
 
+        fig = plt.figure(figsize=(6,6))
+        ax1 = fig.add_subplot(1,1,1)
+        plt1 = ax1.contourf(X, Y, Z1, levels=8, cmap = cm.get_cmap())
+        bar = plt.colorbar(plt1)
+        bar.set_label('Reward ', rotation = 90, size = 12)
+
+        for axn, (ax, plot) in enumerate([(ax1,plt1)]):
+            ax.set_xlabel('$\~{x}\ [m]$')
+            ax.set_ylabel('$\~{\psi}\ [deg]$')
+            for el in ['x','y','z']:
+                ax.locator_params(axis=el, nbins=5)
+
+        fig.tight_layout()
 
     else:
         print('No valid pltno given')
 
-
-def contour():
-    import matplotlib.pyplot as plt
-    from matplotlib import style
-    style.use('fivethirtyeight')
-    from scipy.stats import multivariate_normal
-
-    #Parameters to set
-    mu_x = 0
-    var_x = 1
-    mu_y = 0
-    var_y = 1
-    x = np.linspace(-10,10,500)
-    y = np.linspace(-10,10,500)
-    X,Y = np.meshgrid(x,y)
-    pos = np.array([X.flatten(),Y.flatten()]).T
-    rv = multivariate_normal([mu_x, mu_y], [[var_x, 0], [0, var_y]])
-    fig = plt.figure(figsize=(10,10))
-    ax0 = fig.add_subplot(111)
-    ax0.contour(rv.pdf(pos).reshape(500,500))
-    plt.show()
-
-
 def unitary_multivar_normal(x,mu,var):
     ''' Take x, my, var lists - output scalar value '''
-
-    size = len(x)
-    x = np.array(x).reshape((len(x),1))
-    mu = np.array(mu).reshape((len(mu),1))
-    var = np.array(var).reshape((len(var),1))
-
+    size  = len(x)
+    x     = np.array(x).reshape((len(x),1))
+    mu    = np.array(mu).reshape((len(mu),1))
+    var   = np.array(var).reshape((len(var),1))
     covar = np.zeros((size,size))
     for i in range(size):
         covar[i,i] = var[i]
     
     covar_inv = np.linalg.inv(covar)
-    
-    diff = x-mu
+    diff      = x-mu
+    return np.exp(-0.5 * (diff.T).dot(covar_inv).dot(diff))
 
-    return np.exp(-0.5 * (diff.T).dot(covar_inv).dot(diff)) # * 30 / np.sqrt( np.sqrt( (2*np.pi)**(size) * np.linalg.det(covar) ))
-
-def plot_unitary():
-    from mpl_toolkits.mplot3d import Axes3D
-
-    x = np.linspace(-8,8,201)
-    y = np.linspace(-20,20,201)
-    X, Y = np.meshgrid(x,y)
-    pos = np.empty(X.shape + (2,))
-    pos[:, :, 0] = X
-    pos[:, :, 1] = Y
-    Z = np.zeros((x.shape[0], y.shape[0]))
-
-    for i in range(len(x)):
-        for j in range(len(y)):
-            measure = np.sqrt( x[i]**2 + (y[j]/4)**2 )
-            Z[i,j] = 2 * unitary_multivar_normal(x = [x[i],y[j]], mu=[0,0], var=[1**2, 5.7**2]) + max(0.0 , (1-0.1*measure)) + 0.5
-
-    f1 = plt.figure()
-    ax = f1.gca(projection='3d')
-    total = ax.plot_surface(X, Y, Z, cmap='viridis',linewidth=0)
-    ax.set_xlabel('$\~{r}$',size=12)
-    ax.set_ylabel('$\~{\psi}$',size=12)
-    ax.set_zlabel('$Reward$',size=12)
-    bar = plt.colorbar(total)
-    bar.set_label('Reward ', rotation = 90, size = 12)
-    # plt.show()
 
 if __name__ == '__main__':
-    # plot_unitary()
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--pltno', '-n', type=int, default=0)
     args = parser.parse_args()
-
 
     summed_gaussian_vs_2D(pltno = args.pltno)
     plt.show()

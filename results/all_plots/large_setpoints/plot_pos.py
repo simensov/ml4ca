@@ -6,9 +6,9 @@ from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 import sys
 import os
 current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = current_dir.rsplit('/',1)[0] # split current dir on last '/', which gives the parent dir
+parent_dir = current_dir.rsplit('/',1)[0] # split current dir on last '/', which gives the parent dir in Ubuntu
+parent_dir = current_dir.rsplit('\\',1)[0] # split current dir on last '/', which gives the parent dir in Windows
 sys.path.append(parent_dir)
-
 from common import methods, labels, colors, set_params, get_secondly_averages, absolute_error, IAE, plot_gray_areas
 
 set_params() # sets global plot parameters

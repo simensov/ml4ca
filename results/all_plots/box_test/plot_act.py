@@ -1,12 +1,20 @@
 import numpy as np 
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+
 import sys
 import os
+import platform
+
 current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = current_dir.rsplit('/',1)[0] # split current dir on last '/', which gives the parent dir in Ubuntu
-parent_dir = current_dir.rsplit('\\',1)[0] # split current dir on last '/', which gives the parent dir in Windows
+
+if platform.system().lower() == 'linux':
+    parent_dir = current_dir.rsplit('/',1)[0] # split current dir on last '/', which gives the parent dir in Ubuntu
+elif platform.system().lower() == 'windows':
+    parent_dir = current_dir.rsplit('\\',1)[0] # split current dir on last '/', which gives the parent dir in Windows
+
 sys.path.append(parent_dir)
+
 from common import methods, labels, colors, set_params, plot_gray_areas
 import math
 

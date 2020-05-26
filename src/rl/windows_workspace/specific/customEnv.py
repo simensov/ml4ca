@@ -23,7 +23,7 @@ class Revolt(gym.Env):
                  digitwin       = None,
                  num_actions    = 6,
                  num_states     = 6,
-                 real_ss_bounds = [8.0, 8.0, np.pi/2, 1.4, 0.30, 0.52],
+                 real_ss_bounds = [8.0, 8.0, np.pi/2, 1.4, 0.30, 0.52], # By mistake, these velocities (three last elements) was not set lower. Of course, the bounds must LIMIT the agent; these are its REAL limits...
                  testing        = False,
                  realtime       = False,
                  max_ep_len     = 800,

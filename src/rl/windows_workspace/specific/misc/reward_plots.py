@@ -1,18 +1,32 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import cm
-from specific.misc.plot_commons import set_params,colors
+
+from mathematics import gaussian, gaussian_like
+
+from plot_commons import set_params,colors
+
 set_params()
 
 FS = (6,6)
 
+def simple_gaussian():
+    vals = np.linspace(-5,5,151)
+    fs = [gaussian_like([i], mean=[0], var=[1**2]) for i in vals]
+    fig = plt.figure(figsize=(6,4))
+    plt.plot(vals,fs)
+    plt.xlabel('$d$ [m]')
+    plt.ylabel('$R(d)$')
+    fig.tight_layout()
+
+
 def summed_gaussian_vs_2D(pltno = 0):
-    from mathematics import gaussian, gaussian_like
+    
     from mpl_toolkits.mplot3d import Axes3D
 
     if pltno == 0:
-        # Plots the summed gaussian on the left, 
-        max_r  = np.sqrt(2 * 8**2)
+        # Plots the summed gaussian on the left, and the multivariate on the right
+        max_r  = np.sqrt(8**2)
         rads   = np.linspace(-max_r, max_r, 251)
         yaws   = np.linspace(-20, 20, 251)
         (X, Y) = np.meshgrid(rads,yaws)
@@ -51,7 +65,7 @@ def summed_gaussian_vs_2D(pltno = 0):
         bar.set_label('Reward ', rotation = 90, size = 12)
         
         for axn, (ax, plot) in enumerate([(ax1,plt1) ,(ax2,plt2),(ax3,plt3),(ax4,plt4)]):
-            ax.set_xlabel('$\~{x}\ [m]$')
+            ax.set_xlabel('$d\ [m]$')
             ax.set_ylabel('$\~{\psi}\ [deg]$')
 
             for el in ['x','y','z']:
@@ -67,9 +81,9 @@ def summed_gaussian_vs_2D(pltno = 0):
 
     elif pltno == 1:
         # FINAL REWARD FUNCTION SHAPE
-        max_r  = np.sqrt(2 * 8**2)
+        max_r  = np.sqrt(8**2)
         rads   = np.linspace(-max_r, max_r, 251)
-        yaws   = np.linspace(-45, 45, 251)
+        yaws   = np.linspace(-20, 20, 251)
         (X, Y) = np.meshgrid(rads,yaws)
         pos    = np.empty(X.shape + (2,))
         pos[:, :, 0] = X
@@ -82,7 +96,7 @@ def summed_gaussian_vs_2D(pltno = 0):
             for j in range(len(yaws)):
                 measure = np.sqrt((rads[i])**2 + (yaws[j]/4)**2)
                 const = 0.5
-                anti_sparity = max(-1.0, ( 1 - 0.1 * measure ))
+                anti_sparity = max(0.0, ( 1 - 0.1 * measure ))
                 multivar = 2 * unitary_multivar_normal( [rads[i], yaws[j]], mu = [0,0], var=[1.0**2, 5.0**2])
                 Z1[i,j] = multivar + anti_sparity + const
                 Z2[i,j] = multivar
@@ -177,5 +191,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     summed_gaussian_vs_2D(pltno = args.pltno)
+    # simple_gaussian()
     plt.show()
     pass

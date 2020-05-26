@@ -20,6 +20,10 @@ from common import methods, labels, colors, set_params, get_secondly_averages, a
 
 set_params() # sets global plot parameters
 
+methods = methods + ['RLintegral']
+labels = labels + ['RLI']
+colors[3] = 'orange'
+
 '''
 Positional data
 '''
@@ -81,7 +85,7 @@ box_coords_over_time = np.array([
 '''
 f = plt.figure(figsize=(9,9))
 ax = plt.gca()
-ax.scatter(box_e,box_n,color = colors[3],marker='8',s=50,label='Set points')
+ax.scatter(box_e,box_n,color = 'black',marker='8',s=50,label='Set points')
 #ax.grid(color='grey', linestyle='--', alpha=0.5)
 
 
@@ -112,7 +116,7 @@ for axn,ax in enumerate(axes):
     
     # Print reference lines
     targets = box_coords_over_time[axn]
-    ax.plot(ref_time, refdata[axn], '--',color=colors[3], label = 'Reference' if axn == 0 else None)
+    ax.plot(ref_time, refdata[axn], '--',color='black', label = 'Reference' if axn == 0 else None)
     plot_gray_areas(ax, [0] + [11, 61, 111, 141, 191] + [240])
 
    
@@ -144,7 +148,7 @@ for i in range(len(methods)):
 if False: # This is used to verify that averages is true to the real data
     f0, axes = plt.subplots(3,1,figsize=(12,9),sharex = True)
     for axn,ax in enumerate(axes):
-        ax.plot(ref_data_averages[axn][0], ref_data_averages[axn][1], '--', color=colors[3])
+        ax.plot(ref_data_averages[axn][0], ref_data_averages[axn][1], '--', color='black')
         for i in range(len(methods)):
             local_time = pos_data_averages[i][axn][0]
             local_data = pos_data_averages[i][axn][1]

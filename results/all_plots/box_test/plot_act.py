@@ -18,8 +18,11 @@ sys.path.append(parent_dir)
 from common import methods, labels, colors, set_params, plot_gray_areas
 import math
 
-save = False
 set_params()
+
+methods = methods + ['RLintegral']
+labels = labels + ['RLI']
+colors[3] = 'orange'
 
 def plot_zeros(ax,data):
     ax.plot(t,[0]*len(data),'-', linewidth=0.5, color='grey', alpha=0.5,label=None)
@@ -144,7 +147,8 @@ def power(n,which):
 	''' n comes as -100% to 100%, and must be divided on 100 for multiplication with rps to give fraction'''
 	return np.sign(n) * KQ_0[which] * 2 * np.pi * rho * diameters[which]**5 * (n /100.0 * rps_max[which])**3
 
-powers = [[[],[],[]], [[],[],[]], [[],[],[]]] # Contains power timeseries on [method0: [bow,port,star], method1: ...] for each method
+powers = [[[],[],[]], [[],[],[]], [[],[],[]], [[],[],[]]] # Contains power timeseries on [method0: [bow,port,star], method1: ...] for each method
+
 for i in range(len(methods)):
     tbow = time_bow[i]
     nb = nbow[i]
@@ -194,7 +198,8 @@ for axn,ax in enumerate(axes):
 axes[0].legend(loc='best').set_draggable(True)
 f.tight_layout()
 
-cumsums = [[[],[],[]], [[],[],[]], [[],[],[]]]
+cumsums = [[[],[],[]], [[],[],[]], [[],[],[]], [[],[],[]]]
+
 for i in range(len(methods)):
     for j in range(3):
         cumsums[i][j] = np.cumsum(powers[i][j])
@@ -227,7 +232,7 @@ for axn,ax in enumerate(axes):
         val = relevant_data[-1] # extract final value
         x_coord = t[-1] + 1
         txt = '{:.2f}'.format(val)
-        moveif = {'DNVGL':0, 'QP': 0.05*val, 'RL': -0.05*val}
+        moveif = {'DNVGL':0, 'QP': 0.05*val, 'RL': -0.05*val, 'RLI':0}
         activation = 1.0 if axn <= 1 else 0.0
         ax.annotate(txt, (x_coord, 0.97*val + (activation * moveif[labels[i]])),color=colors[i], weight='bold')
     
@@ -242,7 +247,7 @@ axes[0].legend(loc='best').set_draggable(True)
 f.tight_layout()
 
 # END RESULTS
-final_powers = [[[],[],[]], [[],[],[]], [[],[],[]]]
+final_powers = [[[],[],[]], [[],[],[]], [[],[],[]], [[],[],[]]]
 
 for i,p_method in enumerate(powers):
     # all p_method comes as power timeseries [p_bow, p_port, p_star]
@@ -264,15 +269,21 @@ for i in range(3): # all three thrusters
 for i in range(len(methods)):
     bars.append(sum(final_powers[i])[0])   
 
-bar_positions = [0,1,2,4,5,6,9,10,11,14,15,16]
+bar_positions = []
+shift = 0
+for j in range(4): # there will always be four column sections
+    for i in range(len(methods)):
+        bar_positions.append(i + shift)
+    shift += len(methods) + 1
+
 tick_pos = [1,5,10,15]
 txts = ['Bow thruster', 'Port thruster', 'Starboard thruster', 'Total']
-bar_colors = [colors[0], colors[1], colors[2]]*4
+bar_colors = colors * 4
 elements = plt.bar(bar_positions, bars, color = bar_colors)
 plt.xticks(tick_pos, txts)
 
 ax = plt.gca()
-ax.legend(elements[0:3], ['DNVGL\'s pseudoinverse', 'Quadratic Programming', 'Reinforcement Learning'],loc='best').set_draggable(True)
+ax.legend(elements[0:3], labels,loc='best').set_draggable(True)
 ax.set_ylabel('$W^*$ [J]')
 f.tight_layout()
 

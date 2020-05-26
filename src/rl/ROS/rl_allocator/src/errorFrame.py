@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import numpy as np
+import time
 
 def rotation_matrix(a):
     ''' a is an angle in radians - rotates FROM body coordinates to NED coordinates by dot product:
@@ -26,15 +27,19 @@ def wrap_angle(angle, deg = False):
 class ErrorFrame(object):
     ''' Stores information about coordinates in a body error frame of a 3 DOF surface vessel '''
 
-    def __init__(self,pos=[0,0,0],ref=[0,0,0]):
+    def __init__(self,pos=[0,0,0],ref=[0,0,0],use_integral_effect = False):
         '''
         :params:
             - pos   list    [north,east,heading] of the vessel
             - ref   list    [north,east,heading] of the reference point (TODO could be set point to avoid dependency on reference model)
         '''
+        self._use_integral_effect = use_integral_effect
+        self._integrator = np.zeros(3)
+        self._time_arrival = 0.0
+    
         self.update(pos,ref)
 
-    def get_pose(self,new_pose=None):
+    def get_pose(self,new_pose = None):
         if new_pose: self.update(new_pose)
         return self._error_coordinate
 
@@ -56,4 +61,21 @@ class ErrorFrame(object):
         ''' Use already set values if no arguments are passed '''
         self._pos = pos if pos else self._pos
         self._ref = ref if ref else self._ref
+
+        if self._use_integral_effect:
+            err = np.array([a - b for a, b in zip(self._pos, self._ref)])
+            if (np.abs(err[0]) > 2.0 or np.abs(err[1]) > 2.0):
+                # don't use integral effect when far away
+                self._integrator = np.zeros(3)
+                self._time_arrival = time.time()
+            else:
+                # use integral effect with windup guard of 0.5 meters and 0.01 rad = 0.5 degrees
+                if time.time() - self._time_arrival > 5.0:
+                    self._integrator = self._integrator + np.array([0.002,0.002,0.0]) * err
+                    self._integrator = np.clip(self._integrator,-np.array([0.5,0.5,0.01]),np.array([0.5,0.5,0.01]))
+                
+            self._pos = self._pos + self._integrator
+
+        print(self._integrator)
+
         self.transform()

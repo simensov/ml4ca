@@ -135,8 +135,9 @@ class RLTA(object):
         self.state               = np.zeros((9,)) # State vector contains [error_surge, error_sway, error_yaw, u, v, r, thr_bow/100, thr_port/100, thr_star/100]
         self.prev_thrust_state   = np.zeros((6,))
         self.integrator          = np.zeros((3,))
-        self.use_integral_effect = False
-        self.EF                  = ErrorFrame()
+        self.use_bodyframe_integrator = True
+        self.time_arrival = time.time()
+        self.EF                  = ErrorFrame(use_integral_effect=False)
         self.time_prev           = rospy.get_time()
         self.error_time_prev     = rospy.get_time()
         self.h                   = 0.0
@@ -149,8 +150,6 @@ class RLTA(object):
 
         # Init Subscribers for reference, states and sysID
         rospy.Subscriber("reference_filter/state_desired", NorthEastHeading, self.state_desired_callback,queue_size=1) # TODO old reference filter
-        # rospy.Subscriber("reference_filter/state_desired_new", NorthEastHeading, self.state_desired_callback,queue_size=1) # TODO new reference filter
-        # rospy.Subscriber("CME/pose_reference", Pose2D, self.pose_reference_callback,queue_size=1)
         rospy.Subscriber("observer/eta/ned", Twist, self.eta_obs_callback)
         rospy.Subscriber('observer/nu/body', Twist, self.nu_obs_callback)
         rospy.Subscriber("CME/diff_throttle_stern", diffThrottleStern, self.diff_throttle_stern_callback)
@@ -173,53 +172,6 @@ class RLTA(object):
             - nu (float): Twist message containing observed velocities. Angles are in rad/s.
         '''
         self.state[3:6] = np.array([nu.linear.x,nu.linear.y,nu.angular.z])
-
-    ###
-    ### TODO testing below
-    ###
-    def pose_reference_callback(self,pose):
-        ''' Performs thrust allocation. Updates self.state and publishes stern_angles, stern_thruster_setpoints, bow_control
-        '''
-
-        # Compute timestep h for finding thruster derivatives
-        self.h = (rospy.get_time() - self.time_prev)
-        self.time_prev = rospy.get_time()
-
-        # Extract eta_desired, update errorFrame with new reference, and update state vector
-        self.EF.update(ref = [pose.x, pose.y, np.deg2rad(pose.theta)])
-        self.state[0:3] = self.get_error_states(step = self.h)
-
-        # Select action
-        u = self.get_action() # [n1,n2,n3,a1,a2,a3] (6,) shaped array in ROS format
-
-        # Publish action
-        pod_angle, stern_thruster_setpoints, bow_control = create_publishable_messages(u)
-        self.pub_stern_angles.publish(pod_angle)
-        self.pub_stern_thruster_setpoints.publish(stern_thruster_setpoints)
-        self.pub_bow_control.publish(bow_control)
-
-        # Update state vector with previous thrust
-        self.prev_thrust_state = np.copy(u) # TODO USE REAL THRUSTER VALUES HERE?
-        self.state[-3:] = np.array([u[2], u[0], u[1]]) / 100.0 # Updating state using neural net input
-
-        if True or DEBUG:
-            msg = NorthEastHeading()
-            msg.pos_north   = float(self.state[0])
-            msg.pos_east    = float(self.state[1])
-            msg.pos_heading = float(np.rad2deg(self.state[2]))
-            msg.vel_north   = float(self.state[3])
-            msg.vel_east    = float(self.state[4])
-            msg.vel_heading = float(np.rad2deg(self.state[5]))
-            msg.acc_north   = float(self.state[6])
-            msg.acc_east    = float(self.state[7])
-            msg.acc_heading = float(self.state[8])
-            self.pub_state.publish(msg)
-
-        self.rate.sleep() # Ensure that the published messages doesn't exceed given rate
-
-    ###
-    ### TODO testing above
-    ###
 
     def state_desired_callback(self, eta_des):
         ''' Performs thrust allocation. Updates self.state and publishes stern_angles, stern_thruster_setpoints, bow_control
@@ -294,15 +246,21 @@ class RLTA(object):
         return arr # [nport,nstar,nbow,aport,astar,abow]
 
     def get_error_states(self, step = 0.1):
-        # TODO store previous eta_ref, and if new, then reset the integral effect!
         current_state = np.array(self.EF.get_pose())
-        if self.use_integral_effect:
-            self.integrator = self.integrator + step * 0.001 * current_state
-            bnds = np.array([8.0, 8.0, np.pi/2]) # This was the max state space bounds during training of the RL agent
-            self.integrator = np.clip(self.integrator, -bnds, bnds)
-            # print('curr_state:', current_state)
-            # print('integrator:', self.integrator)
-            # print('stateretur:', current_state + self.integrator)
+
+        if self.use_bodyframe_integrator:
+            surge, sway, _ = current_state
+            if (np.abs(surge) > 3.0 or np.abs(sway) > 3.0):
+                self.integrator = np.zeros(3)
+                self.time_arrival = time.time()
+            else:
+                if self.time_arrival > 10.0:
+                    unbounded = self.integrator + step * np.multiply(np.array([0.05, 0.05, 0.001]), current_state)
+                    bnds = np.array([0.5, 1, np.pi/4]) # This was the max state space bounds during training of the RL agent
+                    self.integrator = np.clip(unbounded, -bnds, bnds)
+            
+            print(current_state)
+            print(self.integrator)
             return current_state + self.integrator
         else:
             self.integrator = np.zeros((3,)) # reset in case it has been turned on before

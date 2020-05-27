@@ -324,7 +324,7 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
 
         # Save model
         if (epoch % save_freq == 0) or (epoch == epochs-1):
-            logger.save_state({'env': env}, None)
+            logger.save_state({'env': env}, epoch)
 
         # Perform PPO update / train policy and value functions
         update()

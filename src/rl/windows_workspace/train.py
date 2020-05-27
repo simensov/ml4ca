@@ -42,7 +42,7 @@ if __name__ == '__main__':
     parser.add_argument('--steps',      type=int,   default=4000)   # Number of steps during an entire episode for all processes combined. Should be twice the size of ep_len TIMES n_cpu
     parser.add_argument('--epochs',     type=int,   default=2000)   # Number of EPISODES - number of trajectories per args.epochs will be MINIMUM args.steps / args.max_ep_len
     parser.add_argument('--max_ep_len', type=int,   default=800)    # Number of steps per local episode # (1000 is upper bound for 10 Hz steps) only affects how long each episode can be - not how many that are rolled out
-    parser.add_argument('--save_freq',  type=int,   default=10)     # Number of episodes between storage of actor-critic weights
+    parser.add_argument('--save_freq',  type=int,   default=200)     # Number of episodes between storage of actor-critic weights
     parser.add_argument('--exp_name',   type=str,   default='test') # Name of data storage area
     parser.add_argument('--env',        type=str,   default='final')  # Environment type used
     parser.add_argument('--algo',       type=str,   default='ppo')  # Name of the algorithm used

@@ -16,7 +16,7 @@ elif platform.system().lower() == 'windows':
 
 sys.path.append(parent_dir)
 
-from common import methods, labels, colors, set_params, get_secondly_averages, absolute_error, IAE, plot_gray_areas
+from common import methods, labels, colors, set_params, get_secondly_averages, absolute_error, IAE, plot_gray_areas, LARGE_SQUARE, RECTANGLE, SMALL_SQUARE
 
 set_params() # sets global plot parameters
 
@@ -28,7 +28,7 @@ colors[3] = 'orange'
 Positional data
 '''
 path = 'bagfile__{}_observer_eta_ned.csv' # General path to eta
-path_ref = 'bagfile__reference_filter_state_desired.csv'
+path_ref = 'bagfile__RL_reference_filter_state_desired.csv'
 
 north, east, psi, time = [np.zeros((1,1))]*len(methods), [np.zeros((1,1))]*len(methods), [np.zeros((1,1))]*len(methods), [np.zeros((1,1))]*len(methods)
 ALL_POS_DATA = []
@@ -72,37 +72,47 @@ box_n = [n_0[1,0],  n_0[1,0] + 5, n_0[1,0] + 5.0,  n_0[1,0] + 5.0,  n_0[1,0],   
 box_e = [e_0[1,0],  e_0[1,0],     e_0[1,0] - 5.0,  e_0[1,0] - 5.0,  e_0[1,0] - 5.0,     e_0[1,0]]
 box_p = [p_0[1,0],  p_0[1,0],     p_0[1,0],        p_0[1,0] - 45,   p_0[1,0] - 45,      p_0[1,0]]
 
-setpoint_change_times                               = [0,10-2,60-2,120-2,140-2,190-2]
-setpointx                                           = [0,  8,  8,  58,  58, 108, 108, 138, 138, 188, 188, 238]
-box_coords_over_time = np.array([
-    (np.array([box_n[0]]*(len(setpointx))) + np.array([0,  0,  5,   5,   5,   5,   5,   5,   0,   0,   0,   0])).tolist(),
-    (np.array([box_e[0]]*(len(setpointx))) + np.array([0,  0,  0,   0,  -5,  -5,  -5,  -5,  -5,  -5,   0,   0])).tolist(),
-    (np.array([0]*(len(setpointx)))        + np.array([0,  0,  0,   0,   0,   0, -45, -45, -45, -45,   0,   0])).tolist()
-])
+setpoint_times = [0, 10, 60, 110, 140, 190, 250]
 
 '''
 ### NEDPOS
 '''
-f = plt.figure(figsize=(9,9))
+f = plt.figure(figsize=SMALL_SQUARE)
 ax = plt.gca()
 ax.scatter(box_e,box_n,color = 'black',marker='8',s=50,label='Set points')
-#ax.grid(color='grey', linestyle='--', alpha=0.5)
-
+ax.set_ylim(151.2,160)
 
 for i in range(len(methods)):
     e, n = east[i], north[i]
     plt.plot(e,n,color = colors[i], label=labels[i])
 
+
+show_dir = True
+if show_dir:
+    # North
+    x = box_e[0] + 0.6; y = (box_n[0] + box_n[1]) / 2 - 0.5; dx = 0; dy = (box_n[1] - box_n[0]) * 0.2
+    ax.annotate("", xy=(x+dx,y+dy), xytext=(x, y), arrowprops=dict(arrowstyle="->"))
+    # West
+    x = (box_e[1] + box_e[2]) / 2 - (box_e[2] - box_e[1]) * 0.1; y = box_n[1] + 1.2; dx = (box_e[2] - box_e[1]) * 0.2; dy = 0
+    ax.annotate("", xy=(x+dx,y+dy), xytext=(x, y), arrowprops=dict(arrowstyle="->"))
+    # South
+    x = box_e[2] - 0.3; y = (box_n[-3] + box_n[-2]) / 2 + 0.5; dx = 0; dy = -(box_n[-3] - box_n[-2]) * 0.2
+    ax.annotate("", xy=(x+dx,y+dy), xytext=(x, y), arrowprops=dict(arrowstyle="->"))
+    # East
+    x = (box_e[-1] + box_e[-2]) / 2 - (box_e[-1] - box_e[-2]) * 0.05; y = box_n[-1] - 0.3; dx = (box_e[-1] - box_e[-2]) * 0.2; dy = 0
+    ax.annotate("", xy=(x+dx,y+dy), xytext=(x, y), arrowprops=dict(arrowstyle="->"))
+
 ax.plot(ref_east, ref_north, '--', color='black',label='Reference')
 ax.set_xlabel('East position relative to NED frame origin [m]')
 ax.set_ylabel('North position relative to NED frame origin [m]')
 ax.legend(loc='best').set_draggable(True)
+
 f.tight_layout()
 
 '''
 ### North and East plots
 '''
-f0, axes = plt.subplots(3,1,figsize=(12,9),sharex = True)
+f0, axes = plt.subplots(3,1,figsize=RECTANGLE,sharex = True)
 plt.xlabel('Time [s]')
 axes[0].set_ylabel('North [m]')
 axes[1].set_ylabel('East [m]')
@@ -115,11 +125,9 @@ for axn,ax in enumerate(axes):
         ax.plot(t,local_data[axn],color=colors[i],label=labels[i])
     
     # Print reference lines
-    targets = box_coords_over_time[axn]
     ax.plot(ref_time, refdata[axn], '--',color='black', label = 'Reference' if axn == 0 else None)
-    plot_gray_areas(ax, [0] + [11, 61, 111, 141, 191] + [240])
+    plot_gray_areas(ax, setpoint_times)
 
-   
 axes[0].legend(loc='best').set_draggable(True)
 f0.tight_layout()
 
@@ -133,7 +141,7 @@ ref_data_averages = [] # list of tuples: (average times [whole seconds] (dim 1,)
 for data in refdata:
     ref_data_averages.append(get_secondly_averages(ref_time, data))
 
-pos_data_averages = [] # is a list of three lists containing tuples: (average times [whole seconds], average data values) 
+pos_data_averages = [] # is a list of num methods lists containing tuples: (average times [whole seconds], average data values) 
 for i in range(len(methods)):
     current_method_averages = []
     current_method_data = ALL_POS_DATA[i]
@@ -176,7 +184,7 @@ for tup in ref_data_averages:
 
 refs = np.array(local_ned).T
 
-f0, ax = plt.subplots(1,1,figsize=(12,5),sharex = True)
+f0, ax = plt.subplots(1,1,figsize=SMALL_SQUARE,sharex = True)
 IAES = [] # cumulative errors over time
 times = (np.array(ref_data_averages[0][0]) - 1.0).tolist()
 for i in range(len(methods)):
@@ -185,7 +193,7 @@ for i in range(len(methods)):
     ax.plot(times, IAES[i], color=colors[i], label=labels[i])
 
 # Gray areas
-plot_gray_areas(ax,areas = [0] + [11, 61, 111, 141, 191] + [240])
+plot_gray_areas(ax,areas = setpoint_times)
 
 ax.legend(loc='best').set_draggable(True)
 ax.set_ylabel('IAE [-]')
@@ -193,9 +201,11 @@ ax.set_xlabel('Time [s]')
 
 for i in range(len(methods)):
     val = IAES[i][-1] # extract IAE at last timestep
-    x_coord = 240 + 0.25
+    x_coord = t[-1] + 0.25
     txt = '{:.2f}'.format(val)
-    ax.annotate(txt, (x_coord, val*0.99),color=colors[i],weight='bold')
+    moveif = {'IPI':0, 'QP': 0.00*val, 'RL': -0.00*val, 'RLI':0}
+    activation = 1.0 if axn <= 1 else 0.0
+    ax.annotate(txt, (x_coord, 0.99*val + (activation * moveif[labels[i]])),color=colors[i], weight='bold')
 
 f0.tight_layout()
     

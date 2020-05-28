@@ -4,8 +4,12 @@ import matplotlib.gridspec as gridspec
 import sys
 
 methods = ['pseudo','QP', 'RL']
-labels  = ['DNVGL', 'QP', 'RL']
+labels  = ['IPI', 'QP', 'RL']
 colors  = ['#3e9651', '#3969b1', '#cc2529', '#000000']
+LARGE_SQUARE = (9,9)
+SMALL_SQUARE = (6,6)
+RECTANGLE = (12,9)
+NARROW_RECTANGLE =(12,5)
 
 # print(plt.rcParams.keys()) # for all alternatives
 
@@ -67,3 +71,17 @@ def plot_gray_areas(ax,areas = [0] + [11, 61, 111, 141, 191] + [240]):
     for i in range(len(areas) - 1):
         ax.axvspan(areas[i],areas[i+1], facecolor=clrs[clrctr], alpha=0.1)
         clrctr = int(1 - clrctr)
+
+
+def wrap_angle(angle, deg = False):
+    ''' Wrap angle between -180 and 180 deg. deg == True means degrees, == False means radians
+        Handles if angle is a vector or list of angles. In both cases, a (x,) shaped numpy array is returned '''
+    ref = 180.0 if deg else np.pi
+
+    if isinstance(angle,np.ndarray): # handle arrays
+        ref = np.ones_like(angle) * ref
+    elif isinstance(angle,list):
+        angle = np.array(angle)
+        ref = np.ones_like(angle) * ref
+
+    return np.mod(angle + ref, 2*ref) - ref

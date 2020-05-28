@@ -16,15 +16,19 @@ elif platform.system().lower() == 'windows':
 
 sys.path.append(parent_dir)
 
-from common import methods, labels, colors, set_params, get_secondly_averages, absolute_error, IAE, plot_gray_areas
+from common import methods, labels, colors, set_params, get_secondly_averages, absolute_error, IAE, plot_gray_areas, SMALL_SQUARE, RECTANGLE
 
 set_params() # sets global plot parameters
+
+methods = methods + ['RLintegral']
+labels = labels + ['RLI']
+colors[3] = 'orange'
 
 '''
 Positional data
 '''
 path = 'bagfile__{}_observer_eta_ned.csv' # General path to eta
-path_ref = 'bagfile__pseudo_reference_filter_state_desired.csv'
+path_ref = 'bagfile__RL_reference_filter_state_desired.csv'
 
 north, east, psi, time = [np.zeros((1,1))]*len(methods), [np.zeros((1,1))]*len(methods), [np.zeros((1,1))]*len(methods), [np.zeros((1,1))]*len(methods)
 ALL_POS_DATA = []
@@ -59,7 +63,7 @@ n_0, e_0, p_0 = north[0], east[0], psi[0]
 # Points for the different box test square. These are only the coords and not the changes relative to eachother. Very first elements are nan
 box_n = [n_0[1,0],  n_0[1,0] + 12, n_0[1,0] + 12.0,  n_0[1,0] + 12.0,  n_0[1,0]]
 box_e = [e_0[1,0],  e_0[1,0],     e_0[1,0]  + 12.0,  e_0[1,0] + 12.0,  e_0[1,0]]
-box_p = [p_0[1,0],  p_0[1,0],     p_0[1,0],        p_0[1,0] + 90.0,   p_0[1,0] - 90.0]
+box_p = [p_0[1,0],  p_0[1,0],     p_0[1,0],        p_0[1,0] + 90.0,   p_0[1,0] - 45.0]
 
 setpointx  = [0] + (np.array([10,  10,  60,  60, 120, 120, 160, 160, 250,250,290]) + 2.0).tolist()
 gray_areas = [el for i, el in enumerate(setpointx) if i%2 == 0] + [setpointx[-1]]
@@ -75,7 +79,7 @@ gray_areas = [el for i, el in enumerate(setpointx) if i%2 == 0] + [setpointx[-1]
 '''
 ### NEDPOS
 '''
-f = plt.figure(figsize=(9,9))
+f = plt.figure(figsize=SMALL_SQUARE)
 ax = plt.gca()
 ax.scatter(box_e,box_n,color = 'black',marker='8',s=50,label='Set points')
 #ax.grid(color='grey', linestyle='--', alpha=0.5)
@@ -84,6 +88,15 @@ ax.scatter(box_e,box_n,color = 'black',marker='8',s=50,label='Set points')
 for i in range(len(methods)):
     e, n = east[i], north[i]
     plt.plot(e,n,color = colors[i], label=labels[i])
+
+show_dir = True
+if show_dir:
+    x = box_e[0] - 1.1; y = (box_n[0] + box_n[1]) / 2; dx = 0; dy = (box_n[1] - box_n[0]) * 0.2
+    ax.annotate("", xy=(x+dx,y+dy), xytext=(x, y), arrowprops=dict(arrowstyle="->"))
+    x = (box_e[1] + box_e[2]) / 2 - (box_e[2] - box_e[1]) * 0.1; y = box_n[1] + 1; dx = (box_e[2] - box_e[1]) * 0.2; dy = 0
+    ax.annotate("", xy=(x+dx,y+dy), xytext=(x, y), arrowprops=dict(arrowstyle="->"))
+    x = (box_e[-1] + box_e[-2]) / 2 - (box_e[-2] - box_e[-1]) * 0.1 + 3; y = (box_n[-1] + box_n[-2]) / 2 + (box_n[-2] - box_n[-1]) * 0.1 - 1; dx = -(box_e[-2] - box_e[-1]) * 0.14; dy = -(box_n[-2] - box_n[-1]) * 0.14
+    ax.annotate("", xy=(x+dx,y+dy), xytext=(x, y), arrowprops=dict(arrowstyle="->"))
 
 ax.plot(ref_east, ref_north, '--', color='black',label='Reference')    
 ax.set_xlabel('East position relative to NED frame origin [m]')
@@ -94,7 +107,7 @@ f.tight_layout()
 '''
 ### North and East plots
 '''
-f0, axes = plt.subplots(3,1,figsize=(12,9),sharex = True)
+f0, axes = plt.subplots(3,1,figsize=RECTANGLE,sharex = True)
 plt.xlabel('Time [s]')
 axes[0].set_ylabel('North [m]')
 axes[1].set_ylabel('East [m]')
@@ -155,7 +168,7 @@ for tup in ref_data_averages:
 
 refs = np.array(local_ned).T
 
-f0, ax = plt.subplots(1,1,figsize=(12,5),sharex = True)
+f0, ax = plt.subplots(1,1,figsize=SMALL_SQUARE,sharex = True)
 IAES = [] # cumulative errors over time
 times = (np.array(ref_data_averages[0][0]) - 1.0).tolist()
 for i in range(len(methods)):
@@ -174,7 +187,9 @@ for i in range(len(methods)):
     val = IAES[i][-1] # extract IAE at last timestep
     x_coord = times[-1] + 0.25
     txt = '{:.2f}'.format(val)
-    ax.annotate(txt, (x_coord, val*0.99),color=colors[i],weight='bold')
+    moveif = {'IPI': 0.01 * val, 'QP': -0.01 * val, 'RL': 0.01 * val, 'RLI': -0.01 * val}
+    activation = 1.0
+    ax.annotate(txt, (x_coord, 0.99 * val + (activation * moveif[labels[i]])),color=colors[i], weight='bold', size=9)
 
 f0.tight_layout()
     

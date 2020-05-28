@@ -304,7 +304,7 @@ for i in range(len(methods)):
         derivs[i][0].append(nb_deriv * dt)
         derivs[i][1].append(ab_deriv * dt)
 
-    taft = time_nstern[i]
+    taft = time_nstern[i] if len(time_nstern[i]) < len(time_astern[i]) else time_astern[i]
     nprt = nport[i]
     aprt = aport[i]
     nstr = nstar[i]

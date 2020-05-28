@@ -32,12 +32,15 @@ def set_params():
 
     plt.rcParams.update(params)
 
-def get_secondly_averages(time_data, data):
+def get_secondly_averages(time_data, data, absolute=False):
     current_second = 0
     ref, avgs, tavg = [], [], []
     for t, second in enumerate(time_data):
         if int(second) < (current_second + 1):
-            ref.append(data[t])
+            if absolute:
+                ref.append(np.abs(data[t]))
+            else:
+                ref.append(data[t])
         else:
             avgs.append( np.mean(ref) )
             ref = []

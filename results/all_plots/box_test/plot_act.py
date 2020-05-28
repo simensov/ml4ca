@@ -15,7 +15,7 @@ elif platform.system().lower() == 'windows':
 
 sys.path.append(parent_dir)
 
-from common import methods, labels, colors, set_params, plot_gray_areas, SMALL_SQUARE, wrap_angle
+from common import methods, labels, colors, set_params, plot_gray_areas, SMALL_SQUARE, wrap_angle, get_secondly_averages
 import math
 
 set_params()
@@ -59,8 +59,7 @@ for i in range(len(methods)):
     time_astern[i] = s_a_data[1:,3:]
     time_bow[i] = bow_data[1:,4:] # lin_act_bow is in pos 3
 
-setpointx = [10, 60, 110, 140, 190]
-setpnt_areas = [0] + setpointx + [240]
+setpnt_areas = [0, 10, 60, 110, 140, 190, 250]
 
 '''
 ### ANGLES
@@ -83,12 +82,7 @@ for axn,ax in enumerate(axes):
         plot_zeros(ax,relevant_data)
         ax.set_xlim(0,t[-1]+20)
     
-    if not PLOT_SETPOINT_AREAS:
-        lab = 'Set point changes' if axn == 0 and i == 0 else '' # TODO get labels to work
-        for c in setpointx:
-            ax.axvline(c, linestyle='--', color='black', alpha = 0.8, label=lab)
-    else:
-        plot_gray_areas(ax, areas=setpnt_areas)
+    plot_gray_areas(ax, areas=setpnt_areas)
     
 # Print reference lines
 axes[0].legend(loc='best').set_draggable(True)
@@ -121,12 +115,7 @@ for axn,ax in enumerate(axes):
         plot_zeros(ax,relevant_data)
         ax.set_xlim(0,t[-1]+20)
     
-    if not PLOT_SETPOINT_AREAS:
-        lab = 'Set point changes' if axn == 0 and i == 0 else '' # TODO get labels to work
-        for c in setpointx:
-            ax.axvline(c, linestyle='--', color='black', alpha = 0.8, label=lab)
-    else:
-        plot_gray_areas(ax,areas=setpnt_areas)
+    plot_gray_areas(ax,areas=setpnt_areas)
 
 # Print reference lines
 axes[0].legend(loc='best').set_draggable(True)
@@ -138,7 +127,8 @@ f.tight_layout()
     
 rps_max     = {'bow': 33.0, 'stern': 11.0}
 diameters   = {'bow': 0.06, 'stern': 0.15}
-KQ_0        = {'bow': 0.035 * 0.001518 / 0.0027, 'stern': 0.028}
+# KQ_0        = {'bow': 0.035 * 0.001518 / 0.0027, 'stern': 0.028}
+KQ_0        = {'bow': 0.02, 'stern': 0.036}
 rho         = 1025.0
 
 def power(n,which):
@@ -146,6 +136,7 @@ def power(n,which):
 	return np.sign(n) * KQ_0[which] * 2 * np.pi * rho * diameters[which]**5 * (n /100.0 * rps_max[which])**3
 
 powers = [[[],[],[]], [[],[],[]], [[],[],[]], [[],[],[]]] # Contains power timeseries on [method0: [bow,port,star], method1: ...] for each method
+
 
 for i in range(len(methods)):
     tbow = time_bow[i]
@@ -186,12 +177,7 @@ for axn,ax in enumerate(axes):
         ax.plot(t,relevant_data, color=colors[i],label=labels[i],alpha=0.9)
         plot_zeros(ax,relevant_data)
     
-    if not PLOT_SETPOINT_AREAS:
-        lab = 'Set point changes' if axn == 0 and i == 0 else '' # TODO get labels to work
-        for c in setpointx:
-            ax.axvline(c, linestyle='--', color='black', alpha = 0.8, label=lab)
-    else:
-        plot_gray_areas(ax,areas=setpnt_areas)
+    plot_gray_areas(ax,areas=setpnt_areas)
 
 axes[0].legend(loc='best').set_draggable(True)
 f.tight_layout()
@@ -239,12 +225,7 @@ for axn,ax in enumerate(axes):
 
         ax.annotate(txt, (x_coord, 0.97*val + (activation * moveif[labels[i]])),color=colors[i], weight='bold')
     
-    if not PLOT_SETPOINT_AREAS:
-        lab = 'Set point changes' if axn == 0 and i == 0 else '' # TODO get labels to work
-        for c in setpointx:
-            ax.axvline(c, linestyle='--', color='black', alpha = 0.8, label=lab)
-    else:
-        plot_gray_areas(ax,setpnt_areas)
+    plot_gray_areas(ax,setpnt_areas)
 
 axes[0].legend(loc='best').set_draggable(True)
 f.tight_layout()
@@ -297,6 +278,20 @@ if False: # BAR PLOT
 '''
 # TODO USE SECONDLY AVERAGES!
 
+'''
+averages = [[],[],[],[]]
+
+for i in range(len(methods)):
+
+    tavg,nb_avg = get_secondly_averages(time_bow[i][:-1],derivs[i][0])
+    _, ab_avg   = get_secondly_averages(time_bow[i][:-1],derivs[i][1])
+    _, nprt_avg = get_secondly_averages(time_aft[i][:-1],derivs[i][2])
+    _, aprt_avg = get_secondly_averages(time_aft[i][:-1],derivs[i][3])
+    _, nstr_avg = get_secondly_averages(time_aft[i][:-1],derivs[i][4])
+    _, astr_avg = get_secondly_averages(time_aft[i][:-1],derivs[i][5])
+    averages[i].append(nb_avg)
+'''
+
 derivs = [[[],[],[],[],[],[]], [[],[],[],[],[],[]], [[],[],[],[],[],[]], [[],[],[],[],[],[]]]
 average_data = []
 
@@ -307,14 +302,19 @@ for i in range(len(methods)):
     pb = 0
 
     for j in range(len(tbow) - 1): 
-        dt = tbow[j+1] - tbow[j]
+        dt = tbow[j+1] - tbow[j]  
 
         # assume thrust derivs independent of rps_max for now
         nb_deriv = (np.abs( (nb[j+1] - nb[j]) / dt) / 100.0)[0]
         ab_deriv = 0 # There is no action from the angle of the bow thruster (np.abs( wrap_angle(ab[j+1] - ab[j], deg=True) / dt) / 180.0)[0]
 
-        derivs[i][0].append(nb_deriv)
-        derivs[i][1].append(ab_deriv)
+        if dt < 0.1 and j > 0:
+            dt = 0.1
+            nb_deriv = derivs[i][0][-1]
+            ab_deriv = derivs[i][1][-1]
+
+        derivs[i][0].append(nb_deriv * dt)
+        derivs[i][1].append(ab_deriv * dt)
 
     taft = time_nstern[i]
     nprt = nport[i]
@@ -324,17 +324,25 @@ for i in range(len(methods)):
 
     for j in range(len(taft) - 1): 
         dt = taft[j+1] - taft[j]
-        dt = max(0.20, dt)
         
         nprt_deriv = (np.abs( (nprt[j+1] - nprt[j]) / dt) / 100.0)[0]
         aprt_deriv = (np.abs( wrap_angle(aprt[j+1] - aprt[j], deg=True) / dt) / 180.0)[0]
         nstr_deriv = (np.abs( (nstr[j+1] - nstr[j]) / dt) / 100.0)[0]
         astr_deriv = (np.abs( wrap_angle(astr[j+1] - astr[j], deg=True) / dt) / 180.0)[0]
 
-        derivs[i][2].append(nprt_deriv)
-        derivs[i][3].append(aprt_deriv)
-        derivs[i][4].append(nstr_deriv)
-        derivs[i][5].append(astr_deriv)
+        if dt < 0.1 and j > 0:
+            dt = 0.1
+            nprt_deriv = derivs[i][2][-1]
+            aprt_deriv = derivs[i][3][-1] 
+            nstr_deriv = derivs[i][4][-1]
+            astr_deriv = derivs[i][5][-1]
+
+        derivs[i][2].append(nprt_deriv * dt)
+        derivs[i][3].append(aprt_deriv * dt)
+        derivs[i][4].append(nstr_deriv * dt)
+        derivs[i][5].append(astr_deriv * dt)
+
+
 
 
 f0, ax = plt.subplots(1,1,figsize=SMALL_SQUARE,sharex = True)
@@ -357,12 +365,14 @@ for i in range(len(methods)):
 
     IADC_cumsums.append(cumsums[:-1])
 
+
+
 for i in range(len(methods)):
     time_data = time_bow[i][:-1] if len(time_bow[i]) < len(time_nstern[i]) else time_nstern[i][:-1]
     ax.plot(time_data, IADC_cumsums[i], color=colors[i], label=labels[i])
 
 # Gray areas
-plot_gray_areas(ax,areas = [0] + [11, 61, 111, 141, 191] + [240])
+plot_gray_areas(ax,areas = setpnt_areas)
 
 ax.legend(loc='best').set_draggable(True)
 ax.set_ylabel('IADC [-]')
@@ -372,9 +382,9 @@ for i in range(len(methods)):
     val = IADC_cumsums[i][-1] # extract at last timestep
     x_coord = time_data[-1] + 0.25
     txt = '{:.2f}'.format(val)
-    moveif = {'IPI':0, 'QP': 0.00*val, 'RL': -val, 'RLI':val}
+    moveif = {'IPI':0, 'QP': 0.00*val, 'RL': -0.2*val, 'RLI': 0.2*val}
     activation = 1.0
-    ax.annotate(txt, (x_coord, 0.99*val + (activation * moveif[labels[i]])),color=colors[i], weight='bold')
+    ax.annotate(txt, (x_coord, val + (activation * moveif[labels[i]])),color=colors[i], weight='bold')
 
 f0.tight_layout()
     

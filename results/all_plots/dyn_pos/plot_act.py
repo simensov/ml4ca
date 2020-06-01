@@ -22,7 +22,7 @@ methods = methods + ['RLintegral']
 labels = labels + ['RLI']
 colors[3] = 'orange'
 
-headings = [-135,-90,-45,0,45,90,135,180]
+headings = [-158,-135,-113,-90,-68,-45,-23,0,23,45,68,90,113,135,158,180]
 methods = ['RLintegral{}deg'.format(val) for val in headings]
 labels = ['${}^\\circ$'.format(val) for val in headings]
 #colors = [(np.random.random(), np.random.random(), np.random.random()) for _ in headings]
@@ -65,19 +65,85 @@ for i in range(len(methods)):
 setpnt_areas =[0]
 
 '''
-### POWER Equivalents
+### POWER AND THRUST Equivalents
 '''
     
 rps_max     = {'bow': 33.0, 'stern': 11.0}
 diameters   = {'bow': 0.06, 'stern': 0.15}
 KQ_0        = {'bow': 0.02, 'stern': 0.036}
+KT_0        = {'bow': 0.0009, 'stern': 0.00205}
 rho         = 1025.0
 
+'''
+### THRUST
+'''
+
+def abs_thrust(n,which):
+    ''' n comes as -100% to 100%. This calculation is done with the empirical formula T = K* n^2 using n as percentage,
+     NOT T = rho * D^4 * K_T * n^2 using n as RPS'''
+    return KT_0[which] * (n)**2
+
+thrusts = [[[],[],[]], [[],[],[]], [[],[],[]], [[],[],[]],[[],[],[]],[[],[],[]],[[],[],[]],[[],[],[]],[[],[],[]], [[],[],[]], [[],[],[]], [[],[],[]],[[],[],[]],[[],[],[]],[[],[],[]],[[],[],[]]]
+max_thrusts = [abs_thrust(100,'bow'), abs_thrust(100,'stern'), abs_thrust(100,'stern')]
+
+for i in range(len(methods)):
+    tbow = time_bow[i]
+    nb = nbow[i]
+    pb = 0
+
+    for j in range(len(tbow) - 1):
+        thrusts[i][0].append(abs_thrust(nb[j] , 'bow'))
+
+    taft = time_nstern[i]
+    nprt = nport[i]
+    nstr = nstar[i]
+
+    for j in range(len(taft) - 1): # trapezoidal integration
+        thrusts[i][1].append(abs_thrust(nprt[j] , 'stern'))
+        thrusts[i][2].append(abs_thrust(nstr[j] , 'stern'))
+
+'''
+### THRUST CAPABILITY
+'''
+
+capabilities = [] # Will hold a number between 0-100 per method
+
+for i in range(len(methods)):
+    means = []
+    for j in range(3): # three thrusters
+        means.append(np.mean(thrusts[i][j]) / max_thrusts[j] )
+    
+    capabilities.append(np.mean(means))
+
+thetas = wrap_angle( np.deg2rad(np.array(headings + [headings[0]]) + 180), deg=False) # skew 180 degrees because e.g. 0 deg means environment going straight north, but it should show as coming 180 deg on the vessel (from behind)
+r = np.array(capabilities + [capabilities[0]]) * 100
+
+f = plt.figure(figsize=SMALL_SQUARE)
+ax = f.add_subplot(111, projection='polar')
+ax.plot(thetas, r,color = colors[3] )
+ax.set_rmax(max(r)*1.1)
+ax.set_rlabel_position(10)  # get radial labels away from plotted line
+ax.grid(True)
+
+label_position=ax.get_rlabel_position()
+ax.text(np.radians(label_position + 15), ax.get_rmax()/2 ,'% thrust',
+        rotation=70,ha='center',va='center')
+
+ax.set_theta_zero_location("N")  # theta = 0 pos (could be N, S, W, E etc.)
+ax.set_theta_direction(-1)  # theta increasing clockwise
+f = plt.gcf()
+f.tight_layout()
+
+
+'''
+### POWER
+'''
+
 def power(n,which):
-	''' n comes as -100% to 100%, and must be divided on 100 for multiplication with rps to give fraction'''
+	''' n comes as -100% to 100%, and must be divided on 100 for multiplication with rps to give fraction of max'''
 	return np.sign(n) * KQ_0[which] * 2 * np.pi * rho * diameters[which]**5 * (n / 100.0 * rps_max[which])**3
 
-powers = [[[],[],[]], [[],[],[]], [[],[],[]], [[],[],[]],[[],[],[]],[[],[],[]],[[],[],[]],[[],[],[]]]
+powers = [[[],[],[]], [[],[],[]], [[],[],[]], [[],[],[]],[[],[],[]],[[],[],[]],[[],[],[]],[[],[],[]],[[],[],[]], [[],[],[]], [[],[],[]], [[],[],[]],[[],[],[]],[[],[],[]],[[],[],[]],[[],[],[]]]
 max_powers = [power(100,'bow'), power(100,'stern'), power(100,'stern')]
 
 for i in range(len(methods)):
@@ -96,12 +162,12 @@ for i in range(len(methods)):
         powers[i][1].append(power(nprt[j] , 'stern'))
         powers[i][2].append(power(nstr[j] , 'stern'))
 
+# PLOT POWER OVER TIME
 f, axes = plt.subplots(3,1,figsize=SMALL_SQUARE,sharex = True)
 plt.xlabel('Time [s]')
 axes[0].set_ylabel('$P^*_{bow}$ [W]')
 axes[1].set_ylabel('$P^*_{port}$ [W]')
 axes[2].set_ylabel('$P^*_{star}$ [W]')
-
 
 
 for axn,ax in enumerate(axes):
@@ -118,33 +184,33 @@ for axn,ax in enumerate(axes):
     
     plot_gray_areas(ax,areas=setpnt_areas)
 
-axes[0].legend(loc='best').set_draggable(True)
+# axes[0].legend(loc='best').set_draggable(True)
 f.tight_layout()
 
 '''
-### CAPABILITY
+### POWER CAPABILITY
 '''
+if False:
+    capabilities = [] # Will hold a number between 0-100 per method
 
-capabilities = [] # Will hold a number between 0-100 per method
+    for i in range(len(methods)):
+        means = []
+        for j in range(3): # three thrusters
+            means.append(np.mean(powers[i][j]) / max_powers[j] )
+        
+        capabilities.append(np.mean(means))
 
-for i in range(len(methods)):
-    means = []
-    for j in range(3): # three thrusters
-        means.append(np.mean(powers[i][j]) / max_powers[j] )
-    
-    capabilities.append(np.mean(means))
+    thetas = wrap_angle( np.deg2rad(np.array(headings + [headings[0]]) + 180), deg=False) # skew 180 degrees because e.g. 0 deg means environment going straight north, but it should show as coming 180 deg on the vessel (from behind)
+    r = np.array(capabilities + [capabilities[0]]) * 100
 
-thetas = np.deg2rad(np.array(headings + [headings[0]]))
-r = np.array(capabilities + [capabilities[0]]) * 100
+    ax = plt.subplot(111, projection='polar')
+    ax.plot(thetas, r,color = colors[3] )
+    ax.set_rmax(max(r)*1.1)
+    ax.set_rlabel_position(-22.5)  # get radial labels away from plotted line
+    ax.grid(True)
 
-ax = plt.subplot(111, projection='polar')
-ax.plot(thetas, r,color = colors[3] )
-ax.set_rmax(max(r)*1.1)
-ax.set_rlabel_position(-22.5)  # get radial labels away from plotted line
-ax.grid(True)
-
-ax.set_theta_zero_location("N")  # theta = 0 at the top
-ax.set_theta_direction(-1)  # theta increasing clockwise
+    ax.set_theta_zero_location("N")  # theta = 0 at the top
+    ax.set_theta_direction(-1)  # theta increasing clockwise
 
 
 '''
@@ -152,7 +218,7 @@ ax.set_theta_direction(-1)  # theta increasing clockwise
 '''
 
 # THESE ELEMENTS DOES NOT CONTAINT "REAL" POWER: THEY CONTAIN THE ELEMENTS/AREAS THAT ARE TO BE SUMMED UP FOR DISCRETE INTEGRATION IN CUMCUMS
-work_elements = [[[],[],[]], [[],[],[]], [[],[],[]], [[],[],[]],[[],[],[]],[[],[],[]],[[],[],[]],[[],[],[]]]
+work_elements = [[[],[],[]], [[],[],[]], [[],[],[]], [[],[],[]],[[],[],[]],[[],[],[]],[[],[],[]],[[],[],[]],[[],[],[]], [[],[],[]], [[],[],[]], [[],[],[]],[[],[],[]],[[],[],[]],[[],[],[]],[[],[],[]]]
 for i in range(len(methods)):
     tbow = time_bow[i]
     nb = nbow[i]
@@ -177,7 +243,7 @@ for i in range(len(methods)):
 
 
 cumsums = [[[]]*3]*len(methods)
-cumsums = [[[],[],[]], [[],[],[]], [[],[],[]], [[],[],[]],[[],[],[]],[[],[],[]],[[],[],[]],[[],[],[]]]
+cumsums = [[[],[],[]], [[],[],[]], [[],[],[]], [[],[],[]],[[],[],[]],[[],[],[]],[[],[],[]],[[],[],[]],[[],[],[]], [[],[],[]], [[],[],[]], [[],[],[]],[[],[],[]],[[],[],[]],[[],[],[]],[[],[],[]]]
 
 for i in range(len(methods)):
     for j in range(3):
@@ -221,12 +287,11 @@ for axn,ax in enumerate(axes):
     
     plot_gray_areas(ax,setpnt_areas)
 
-axes[0].legend(loc='best').set_draggable(True)
+# axes[0].legend(loc='best').set_draggable(True)
 f.tight_layout()
 
 # END RESULTS
-final_powers = [[[],[],[]], [[],[],[]], [[],[],[]], [[],[],[]],[[],[],[]],[[],[],[]],[[],[],[]],[[],[],[]]]
-
+final_powers = [[[],[],[]], [[],[],[]], [[],[],[]], [[],[],[]],[[],[],[]],[[],[],[]],[[],[],[]],[[],[],[]],[[],[],[]], [[],[],[]], [[],[],[]], [[],[],[]],[[],[],[]],[[],[],[]],[[],[],[]],[[],[],[]]]
 
 for i,p_method in enumerate(work_elements):
     # all p_method comes as power timeseries [p_bow, p_port, p_star]

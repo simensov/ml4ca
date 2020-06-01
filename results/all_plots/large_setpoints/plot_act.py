@@ -129,7 +129,6 @@ f.tight_layout()
     
 rps_max     = {'bow': 33.0, 'stern': 11.0}
 diameters   = {'bow': 0.06, 'stern': 0.15}
-# KQ_0        = {'bow': 0.035 * 0.001518 / 0.0027, 'stern': 0.028}
 KQ_0        = {'bow': 0.02, 'stern': 0.036}
 rho         = 1025.0
 
@@ -137,30 +136,25 @@ def power(n,which):
 	''' n comes as -100% to 100%, and must be divided on 100 for multiplication with rps to give fraction'''
 	return np.sign(n) * KQ_0[which] * 2 * np.pi * rho * diameters[which]**5 * (n /100.0 * rps_max[which])**3
 
-powers = [[[]]*3] * len(methods) # Contains power timeseries on [method0: [bow,port,star], method1: ...] for each method
-powers = [[[],[],[]], [[],[],[]], [[],[],[]], [[],[],[]]]
+powers = [[[],[],[]], [[],[],[]], [[],[],[]], [[],[],[]]] # Contains power timeseries on [method0: [bow,port,star], method1: ...] for each method
 
 for i in range(len(methods)):
     tbow = time_bow[i]
     nb = nbow[i]
     pb = 0
 
-    for j in range(len(tbow) - 1): # trapezoidal integration
-        dt = tbow[j+1] - tbow[j]
-        p_avg = (power(nb[j+1] , 'bow') + power(nb[j] , 'bow')) / 2 # average |n^3| for current time interval
-        powers[i][0].append(p_avg * dt)
+    for j in range(len(tbow) - 1):
+        powers[i][0].append(power(nb[j] , 'bow'))
 
     taft = time_nstern[i]
     nprt = nport[i]
     nstr = nstar[i]
 
     for j in range(len(taft) - 1): # trapezoidal integration
-        dt = taft[j+1] - taft[j]
-        p_avg_port = (power(nprt[j+1] , 'stern') + power(nprt[j] , 'stern')) / 2
-        p_avg_star = (power(nstr[j+1] , 'stern') + power(nstr[j] , 'stern')) / 2
-        powers[i][1].append(p_avg_port * dt)
-        powers[i][2].append(p_avg_star * dt)
+        powers[i][1].append(power(nprt[j] , 'stern'))
+        powers[i][2].append(power(nstr[j] , 'stern'))
 
+# PLOT POWER OVER TIME
 f, axes = plt.subplots(3,1,figsize=SMALL_SQUARE,sharex = True)
 plt.xlabel('Time [s]')
 axes[0].set_ylabel('$P^*_{bow}$ [W]')
@@ -176,7 +170,7 @@ for axn,ax in enumerate(axes):
             t = time_nstern[i][:-1]
             relevant_data = powers[i][axn]
 
-        ax.plot(t,relevant_data, color=colors[i],label=labels[i],alpha=0.9)
+        ax.plot(t,relevant_data, label=labels[i],alpha=0.9, color=colors[i])
         plot_zeros(ax,relevant_data)
     
     plot_gray_areas(ax,areas=setpnt_areas)
@@ -184,12 +178,36 @@ for axn,ax in enumerate(axes):
 axes[0].legend(loc='best').set_draggable(True)
 f.tight_layout()
 
-cumsums = [[[]]*3]*len(methods)
+# CUMULATIVE PLOT OF THE ENRGY USED
+
+# THESE ELEMENTS DOES NOT CONTAINT "REAL" POWER: THEY CONTAIN THE ELEMENTS/AREAS THAT ARE TO BE SUMMED UP FOR DISCRETE INTEGRATION IN CUMCUMS
+work_elements = [[[],[],[]], [[],[],[]], [[],[],[]], [[],[],[]]]
+for i in range(len(methods)):
+    tbow = time_bow[i]
+    nb = nbow[i]
+    pb = 0
+
+    for j in range(len(tbow) - 1): # trapezoidal integration
+        dt = tbow[j+1] - tbow[j]
+        p_avg = (power(nb[j+1] , 'bow') + power(nb[j] , 'bow')) / 2 # average |n^3| for current time interval
+        work_elements[i][0].append(p_avg * dt)
+
+    taft = time_nstern[i]
+    nprt = nport[i]
+    nstr = nstar[i]
+
+    for j in range(len(taft) - 1): # trapezoidal integration
+        dt = taft[j+1] - taft[j]
+        p_avg_port = (power(nprt[j+1] , 'stern') + power(nprt[j] , 'stern')) / 2
+        p_avg_star = (power(nstr[j+1] , 'stern') + power(nstr[j] , 'stern')) / 2
+        work_elements[i][1].append(p_avg_port * dt)
+        work_elements[i][2].append(p_avg_star * dt)
+
 cumsums = [[[],[],[]], [[],[],[]], [[],[],[]], [[],[],[]]]
 
 for i in range(len(methods)):
     for j in range(3):
-        cumsums[i][j] = np.cumsum(powers[i][j])
+        cumsums[i][j] = np.cumsum(work_elements[i][j])
 
 f, axes = plt.subplots(4,1,figsize=SMALL_SQUARE,sharex = True)
 plt.xlabel('Time [s]')
@@ -219,10 +237,24 @@ for axn,ax in enumerate(axes):
         val = relevant_data[-1] # extract final value
         x_coord = t[-1] + 1
         txt = '{:.2f}'.format(val)
-        moveif = {'IPI' : -0.05 * val, 'QP': 0.1 * val, 'RL': -0.1 * val, 'RLI': 0.1 * val}
+        moveif = {'IPI' : -0.25 * val, 'QP': -0.3 * val, 'RL': 0.1 * val, 'RLI': -0.05 * val}
         activation = 1.0
-        if ax == 0:
-            moveif['RLI'] = val
+        if axn == 0:
+            moveif['RL'] = -0.1* val
+            moveif['RLI'] = -0.2 * val
+            moveif['IPI'] = 0.0 * val
+            moveif['QP'] = -0.3 * val
+
+        if axn==1:
+            moveif['RL'] = 0.0 * val
+            moveif['RLI'] = -0.1 * val
+            moveif['IPI'] = -0.2 * val
+            moveif['QP'] = -0.3 * val
+        if axn == 2:
+            moveif['IPI'] = -0.1 * val
+            moveif['QP'] = 0.05 * val
+        if axn == 3:
+            moveif['IPI'] = -0.1 * val
 
         ax.annotate(txt, (x_coord, 0.95 * val + (activation * moveif[labels[i]])),color=colors[i], weight='bold',size=9)
     
@@ -232,48 +264,18 @@ axes[0].legend(loc='best').set_draggable(True)
 f.tight_layout()
 
 # END RESULTS
-final_powers = [[[],[],[]], [[],[],[]], [[],[],[]], [[],[],[]] ]
+final_work = [[[],[],[]], [[],[],[]], [[],[],[]], [[],[],[]] ]
 
 
-for i,p_method in enumerate(powers):
+for i,p_method in enumerate(work_elements):
     # all p_method comes as power timeseries [p_bow, p_port, p_star]
     for j,p_thruster in enumerate(p_method):
         # p_thruster is now power time series for a given thruster, for the given method i
-        final_powers[i][j] = sum(p_thruster)
+        final_work[i][j] = sum(p_thruster)
 
 for i in range(len(methods)):
     print('Method {}'.format(methods[i]))
-    print(sum(final_powers[i]))
-
-
-if False:
-    f = plt.figure(figsize=LARGE_SQUARE)
-
-    bars = []
-    for i in range(3): # all three thrusters
-        for j in range(len(methods)):
-            bars.append(final_powers[j][i][0]) # collects [p_bow_dnvgl, p_bow_qp, p_bow_rl, p_port_dnvgl, ..., p_star_rl]
-
-    for i in range(len(methods)):
-        bars.append(sum(final_powers[i])[0])   
-
-    bar_positions = []
-    shift = 0
-    for j in range(4): # there will always be four column sections
-    	for i in range(len(methods)):
-    		bar_positions.append(i + shift)
-    	shift += len(methods) + 1
-
-    tick_pos = [1,5,10,15]
-    txts = ['Bow thruster', 'Port thruster', 'Starboard thruster', 'Total']
-    bar_colors = colors * 4
-    elements = plt.bar(bar_positions, bars, color = bar_colors)
-    plt.xticks(tick_pos, txts)
-
-    ax = plt.gca()
-    ax.legend(elements[:], labels,loc='best').set_draggable(True)
-    ax.set_ylabel('$W^*$ [J]')
-    f.tight_layout()
+    print(sum(final_work[i]))
 
 
 '''

@@ -172,7 +172,7 @@ f0, ax = plt.subplots(1,1,figsize=SMALL_SQUARE,sharex = True)
 IAES = [] # cumulative errors over time
 times = (np.array(ref_data_averages[0][0]) - 1.0).tolist()
 for i in range(len(methods)):
-    integrals, cumsums = IAE(etas[i] / np.array([12.,12.,45.]), refs / np.array([12.,12.,45.]), times)
+    integrals, cumsums = IAE(etas[i] / np.array([5.,5.,25.]), refs / np.array([5.,5.,25.]), times)
     IAES.append(cumsums)
     ax.plot(times, IAES[i], color=colors[i], label=labels[i])
 
@@ -187,7 +187,7 @@ for i in range(len(methods)):
     val = IAES[i][-1] # extract IAE at last timestep
     x_coord = times[-1] + 0.25
     txt = '{:.2f}'.format(val)
-    moveif = {'IPI': 0.01 * val, 'QP': -0.01 * val, 'RL': 0.01 * val, 'RLI': -0.01 * val}
+    moveif = {'IPI': -0.01 * val, 'QP': 0.01 * val, 'RL': 0.01 * val, 'RLI': -0.01 * val}
     activation = 1.0
     ax.annotate(txt, (x_coord, 0.99 * val + (activation * moveif[labels[i]])),color=colors[i], weight='bold', size=9)
 

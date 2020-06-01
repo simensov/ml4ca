@@ -77,7 +77,7 @@ ax.scatter(box_e[0],box_n[0],color = 'black',marker='8',s = 50,label='Set point'
 
 for i in range(len(methods)):
     e, n = east[i], north[i]
-    plt.plot(e,n,color = colors[i], label=labels[i])
+    plt.plot(e,n,color = '#ac34c7', label='Vessel position')
 
 show_dir = False
 if show_dir:
@@ -114,7 +114,7 @@ for axn,ax in enumerate(axes):
     for i in range(len(methods)):
         local_data = north[i], east[i], psi[i], time[i]
         t = local_data[3]
-        ax.plot(t,local_data[axn],color=colors[i],label=labels[i])
+        ax.plot(t,local_data[axn],color='#ac34c7',label='Vessel position')
     
     # Print reference lines
     ax.plot(ref_time, refdata[axn], '--',color='black', label = 'Reference' if axn == 0 else None)
@@ -144,18 +144,6 @@ for i in range(len(methods)):
         current_method_averages.append(inn)
     
     pos_data_averages.append(current_method_averages)
-
-if False: # This is used to verify that averages is true to the real data
-    f0, axes = plt.subplots(3,1,figsize=(12,9),sharex = True)
-    for axn,ax in enumerate(axes):
-        ax.plot(ref_data_averages[axn][0], ref_data_averages[axn][1], '--', color='black')
-        for i in range(len(methods)):
-            local_time = pos_data_averages[i][axn][0]
-            local_data = pos_data_averages[i][axn][1]
-            ax.plot(local_time,local_data,color = colors[i])
-    f0.tight_layout()
-    plt.show()
-    sys.exit()
 
 # Here, three IAE plots will be shown ontop of eachother
 etas = [] # list of columvectors

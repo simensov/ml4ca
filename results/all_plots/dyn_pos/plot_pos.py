@@ -20,7 +20,7 @@ from common import methods, labels, colors, set_params, get_secondly_averages, a
 
 set_params() # sets global plot parameters
 
-headings = [-135,-90,-45,0,45,90,135,180]
+headings = [-158,-135,-113,-90,-68,-45,-23,0,23,45,68,90,113,135,158,180]
 methods = ['RLintegral{}deg'.format(val) for val in headings]
 labels = ['${}^\\circ$'.format(val) for val in headings]
 
@@ -107,7 +107,7 @@ f.tight_layout()
 '''
 ### North and East plots
 '''
-f0, axes = plt.subplots(3,1,figsize=RECTANGLE,sharex = True)
+f0, axes = plt.subplots(3,1,figsize=SMALL_SQUARE,sharex = True)
 plt.xlabel('Time [s]')
 axes[0].set_ylabel('North [m]')
 axes[1].set_ylabel('East [m]')
@@ -129,7 +129,8 @@ for axn,ax in enumerate(axes):
         ax.plot(ref_time, refdata[axn] + 5.0,'--', color='red')
         ax.plot(ref_time, refdata[axn] - 5.0,'--', color='red')
 
-axes[0].legend(loc='best').set_draggable(True)
+#axes[0].set_ylim(151.2,155)
+#axes[0].legend(loc='center left', bbox_to_anchor=(1, 0.5)).set_draggable(True)
 f0.tight_layout()
 
 '''
@@ -189,16 +190,21 @@ f0, ax = plt.subplots(1,1,figsize=SMALL_SQUARE,sharex = True)
 IAES = [] # cumulative errors over time
 times = (np.array(ref_data_averages[0][0]) - 1.0).tolist()
 for i in range(len(methods)):
-    integrals, cumsums = IAE(etas[i] / np.array([5.,5.,45.]), refs / np.array([5.,5.,45.]), times)
+    integrals, cumsums = IAE(etas[i] / np.array([5.,5.,25.]), refs / np.array([5.,5.,25.]), times)
     IAES.append(cumsums)
     ax.plot(times, IAES[i], label=labels[i]) # , color=colors[i])
 
 # Gray areas
 plot_gray_areas(ax,areas = setpoint_times)
 
-ax.legend(loc='best').set_draggable(True)
+# ax.legend(loc='best').set_draggable(True)
 ax.set_ylabel('IAE [-]')
 ax.set_xlabel('Time [s]')
+
+vals = []
+for i in range(len(methods)):
+    vals.append(IAES[i][-1])
+print('Average IAES:', np.mean(vals))
 
 for i in range(len(methods)):
     val = IAES[i][-1] # extract IAE at last timestep
@@ -209,9 +215,10 @@ for i in range(len(methods)):
     # ax.annotate(txt, (x_coord, 0.99*val + (activation * moveif[labels[i]])),color=colors[i], weight='bold')
     ax.annotate(txt, (x_coord, 0.99*val + (activation * 0)), weight='bold') # color=colors[i], )
 
+ax.annotate('Average IAE: {:.2f}'.format(np.mean(vals)), (t[0] + 1, np.mean(vals)), weight='bold')
+
 f0.tight_layout()
     
-print('IAES')
-for i in range(len(methods)): print(methods[i], ':', IAES[i][-1])
+
 
 plt.show()

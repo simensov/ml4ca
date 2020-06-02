@@ -28,7 +28,7 @@ colors[3] = 'orange'
 Positional data
 '''
 path = 'bagfile__{}_observer_eta_ned.csv' # General path to eta
-path_ref = 'bagfile__NO_reference_filter_state_desired.csv'
+# path_ref = 'bagfile__NO_reference_filter_state_desired.csv'
 
 north, east, psi, time = [np.zeros((1,1))]*len(methods), [np.zeros((1,1))]*len(methods), [np.zeros((1,1))]*len(methods), [np.zeros((1,1))]*len(methods)
 ALL_POS_DATA = []
@@ -43,7 +43,7 @@ for i in range(len(methods)):
     time[i] = posdata[1:,7:]
     ALL_POS_DATA.append([north[i], east[i], psi[i], time[i]] )
 
-
+'''
 refdata = np.genfromtxt(path_ref,delimiter=',')
 ref_north = refdata[1:,1:2]
 ref_east = refdata[1:,2:3]
@@ -57,6 +57,7 @@ if False: # manually moving reffilter as it might not fit time
     ref_time = np.vstack( (ref_time,np.array([240])))
 
 refdata = [ref_north, ref_east, ref_yaw]
+'''
 
 n_0, e_0, p_0 = north[0], east[0], psi[0]
 # Points for the different box test square. These are only the coords and not the changes relative to eachother. Very first elements are nan
@@ -65,23 +66,28 @@ box_e = [e_0[1,0],  e_0[1,0],     e_0[1,0] - 5.0,  e_0[1,0] - 5.0,  e_0[1,0] - 5
 box_p = [p_0[1,0],  p_0[1,0],     p_0[1,0],        p_0[1,0] - 45,   p_0[1,0] - 45,      p_0[1,0]]
 
 setpoint_times = [0]
+ref_north = box_n[0] * np.ones_like(north[0])
+ref_east = box_e[0] * np.ones_like(east[0])
+ref_yaw = box_p[0] * np.ones_like(psi[0])
+ref_time = np.copy(time[0])
+refdata = [ref_north, ref_east, ref_yaw]
+
 
 '''
 ### NEDPOS
 '''
 f = plt.figure(figsize=SMALL_SQUARE)
 ax = plt.gca()
-# ax.scatter(box_e,box_n,color = 'black',marker='8',s=50,label='Set points')
-ax.scatter(box_e[0],box_n[0],color = 'black',marker='8',s = 50,label='Initial position')
+
+ax.scatter(box_e[0], box_n[0],color = 'black',marker='8',s = 50,label='Initial position')
 # ax.set_ylim(151.2,160)
 
 for i in range(len(methods)):
     e, n = east[i], north[i]
     plt.plot(e,n,color = '#ac34c7', label='Vessel position')
 
-
-ax.set_xlabel('East position relative to NED frame origin [m]')
-ax.set_ylabel('North position relative to NED frame origin [m]')
+ax.set_xlabel('East position relative to support vessel [m]')
+ax.set_ylabel('North position relative to support vessel [m]')
 ax.legend(loc='best').set_draggable(True)
 
 f.tight_layout()

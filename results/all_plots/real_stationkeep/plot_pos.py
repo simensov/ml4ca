@@ -71,22 +71,26 @@ box_n = [n_0[1,0],  n_0[1,0] + 5, n_0[1,0] + 5.0,  n_0[1,0] + 5.0,  n_0[1,0],   
 box_e = [e_0[1,0],  e_0[1,0],     e_0[1,0] - 5.0,  e_0[1,0] - 5.0,  e_0[1,0] - 5.0,     e_0[1,0]]
 box_p = [p_0[1,0],  p_0[1,0],     p_0[1,0],        p_0[1,0] - 45,   p_0[1,0] - 45,      p_0[1,0]]
 
-setpoint_times = np.hstack( ([0], np.array([10, 80, 150, 190, 270, 350])+8.5 ) )
+
+setpoint_times = [0] # np.hstack( ([0], np.array([10, 80, 150, 190, 270, 350])+8.5 ) )
+simple_pnt = (box_n[0], box_e[0])
 
 '''
 ### NEDPOS
 '''
 f = plt.figure(figsize=SMALL_SQUARE)
 ax = plt.gca()
-ax.scatter(box_e,box_n,color = 'black',marker='8',s=50,label='Set points')
-ax.set_xlim(1144,1152.5)
-ax.set_ylim(175,183.5)
+# ax.scatter(box_e,box_n,color = 'black',marker='8',s=50,label='Set points')
+ax.scatter(simple_pnt[1],simple_pnt[0],color = 'black',marker='8',s=50,label='Set points')
+#ax.grid(color='grey', linestyle='--', alpha=0.5)
+ax.set_ylim(175.5,177.5)
+ax.set_xlim(1150, 1152)
+ax.xaxis.set_major_locator(plt.MaxNLocator(5))
 
 for i in range(len(methods)):
     e, n = east[i], north[i]
     plt.plot(e,n,color = colors[i], label=labels[i])
 
-ax.plot(ref_east, ref_north, '--', color='black',label='Reference')
 ax.set_xlabel('East position relative to NED frame origin [m]')
 ax.set_ylabel('North position relative to NED frame origin [m]')
 ax.legend(loc='best').set_draggable(True)
@@ -98,8 +102,13 @@ f.tight_layout()
 f0, axes = plt.subplots(3,1,figsize=SMALL_SQUARE,sharex = True)
 plt.xlabel('Time [s]')
 axes[0].set_ylabel('North [m]')
+axes[0].set_ylim(174.5,178.5)
+
 axes[1].set_ylabel('East [m]')
+axes[1].set_ylim(1149, 1153)
+
 axes[2].set_ylabel('Yaw [deg]')
+axes[2].set_ylim(0,50)
 
 for axn,ax in enumerate(axes):
     for i in range(len(methods)):

@@ -103,9 +103,6 @@ axes[0].set_ylabel('$n_{bow}$ [%]')
 axes[1].set_ylabel('$n_{port}$ [%]')
 axes[2].set_ylabel('$n_{star}$ [%]')
 
-for ax in axes:
-    ax.set_xlim(0,setpnt_areas[-1] + 40)
-
 for axn,ax in enumerate(axes):
     for i in range(len(methods)):
 

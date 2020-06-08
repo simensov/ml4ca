@@ -23,6 +23,7 @@ class Revolt(gym.Env):
                  digitwin       = None,
                  num_actions    = 6,
                  num_states     = 6,
+                 #real_ss_bounds = [8.0, 8.0, np.pi/2, 1.4, 0.30, 0.52], # By mistake, these velocities (three last elements) was not set lower. Of course, the bounds must LIMIT the agent; these are its REAL limits...
                  real_ss_bounds = [8.0, 8.0, np.pi/2, 1.4, 0.30, 0.52], # By mistake, these velocities (three last elements) was not set lower. Of course, the bounds must LIMIT the agent; these are its REAL limits...
                  testing        = False,
                  realtime       = False,
@@ -262,7 +263,8 @@ class Revolt(gym.Env):
 
         ### Final Env
         # This reward function is from now called optione - first version was called finconttothighbowder
-        rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.20,0.30,0.30]) + self.action_derivative_penalty(thrust=True, pen_coeff=[0.05,0.05,0.05], angular=True, ang_coeff=[0.00,0.01,0.01]) # optione
+        rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.20,0.30,0.30]) + self.action_derivative_penalty(thrust=True, pen_coeff=[0.05,0.05,0.05], angular=True, ang_coeff=[0.00,0.01,0.01]) # optiend
+        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.10,0.25,0.25]) + self.action_derivative_penalty(thrust=True, pen_coeff=[0.00,0.00,0.00], angular=True, ang_coeff=[0.00,0.00,0.00]) # optialternative
 
         return rew  
 

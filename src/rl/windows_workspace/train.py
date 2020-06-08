@@ -51,7 +51,7 @@ if __name__ == '__main__':
     parser.add_argument('--note',       type=str,   default='')     # Add a comment
     parser.add_argument('--ext',        type=bool,  default=True)   # To use an extended state vector
     parser.add_argument('--reset_acts', type=bool,  default=False)  # To use reset actions in env.reset() to small random values in addition to states
-    parser.add_argument('--cont_ang',   type=bool,  default=False)  # To use continous representation of the angles chosen
+    parser.add_argument('--cont_ang',   type=bool,  default=True)  # To use continous representation of the angles chosen
     args = parser.parse_args()
 
     print('Training {} with {} core(s)'.format(args.algo.upper(), args.cpu))

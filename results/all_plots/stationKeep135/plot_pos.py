@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.cbook import get_sample_data
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+from matplotlib.markers import MarkerStyle
 
 import sys
 import os
@@ -73,13 +74,23 @@ f = plt.figure(figsize=SMALL_SQUARE)
 ax = plt.gca()
 # ax.scatter(box_e,box_n,color = 'black',marker='8',s=50,label='Set points')
 ax.scatter(box_e[0],box_n[0],color = 'black',marker='8',s = 50,label='Initial position')
-# ax.set_ylim(151.2,160)
+
+ax.set_ylim(144,156)
+ax.set_xlim(1124,1140)
 
 for i in range(len(methods)):
     e, n = east[i], north[i]
     plt.plot(e,n,color = '#ac34c7', label='Vessel position')
 
+nth = 400
+for i, (e,n,p) in enumerate(zip(east[0], north[0], psi[0])):
+    if i % nth == 0 or i == len(east[0]) - 1:
+        m = MarkerStyle("^")
+        m._transform.scale(5*0.6, 5*1)
+        m._transform.rotate_deg(-(p - ref_yaw[0,0]))
+        plt.scatter(e, n, s=225, marker = m, color = 'grey', linewidths = 1, edgecolors = 'black', alpha=0.5, zorder=0)
 
+ax.plot([], [], color='grey', marker='^', linestyle='None', markersize=10, markeredgewidth=1,markeredgecolor = 'black', label='Vessel (to scale lengthwise)')
 ax.set_xlabel('East position relative to NED frame origin [m]')
 ax.set_ylabel('North position relative to NED frame origin [m]')
 ax.legend(loc='best').set_draggable(True)
@@ -99,7 +110,7 @@ for axn,ax in enumerate(axes):
     for i in range(len(methods)):
         local_data = north[i], east[i], psi[i], time[i]
         t = local_data[3]
-        ax.plot(t,local_data[axn],color='#ac34c7',label='Vessel position')
+        ax.plot(t,local_data[axn],color='#ac34c7',label='Vessel pose')
     
     # Print reference lines
     ax.plot(ref_time, refdata[axn], '--',color='black', label = 'Initial pose' if axn == 0 else None)

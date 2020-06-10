@@ -109,7 +109,7 @@ def summed_gaussian_vs_2D(pltno = 0):
         ax1  = f1.add_subplot(1,1,1,projection='3d')
         plt1 = ax1.plot_surface(X, Y, Z1,cmap = cm.get_cmap(), linewidth=0)
         
-        f2 = plt.figure(figsize=(6,4.5))
+        f2 = plt.figure(figsize=FS)
         ax2  = f2.add_subplot(1,1,1,projection='3d')
         plt2 = ax2.plot_surface(X, Y, Z2,cmap = cm.get_cmap(), linewidth=0)
 
@@ -122,7 +122,7 @@ def summed_gaussian_vs_2D(pltno = 0):
         plt4 = ax4.plot_surface(X, Y, Z4, cmap = cm.get_cmap(), linewidth=0)
 
         for axn, (ax, plot) in enumerate([(ax1,plt1) ,(ax2,plt2),(ax3,plt3),(ax4,plt4)]):
-            ax.set_xlabel('$\~{x}\ [m]$')
+            ax.set_xlabel('$d\ [m]$')
             ax.set_ylabel('$\~{\psi}\ [deg]$')
             for el in ['x','y','z']:
                 ax.locator_params(axis=el, nbins=5)
@@ -135,36 +135,37 @@ def summed_gaussian_vs_2D(pltno = 0):
         f3.tight_layout()
         f4.tight_layout()
 
-        # THEN, PLOT THE FINAL REWARD FUNCTION IN 3D AND IN A CONTOUR MAP
-        fig = plt.figure(figsize=(6,6))
-        ax1 = fig.add_subplot(1,1,1,projection='3d')
-        plt1 = ax1.plot_surface(X, Y, Z1, cmap = cm.get_cmap(), linewidth=0)
-        # bar = plt.colorbar(plt1)
-        # bar.set_label('Reward ', rotation = 90, size = 12)
-        for axn, (ax, plot) in enumerate([(ax1,plt1)]):
-            ax.set_xlabel('$\~{x}\ [m]$')
-            ax.set_ylabel('$\~{\psi}\ [deg]$')
-            ax.set_zlabel('$Reward$')
-            ax.view_init(20, -45)
+        if True:
+            # THEN, PLOT THE FINAL REWARD FUNCTION IN 3D AND IN A CONTOUR MAP
+            fig = plt.figure(figsize=FS)
+            ax1 = fig.add_subplot(1,1,1,projection='3d')
+            plt1 = ax1.plot_surface(X, Y, Z1, cmap = cm.get_cmap(), linewidth=0)
+            # bar = plt.colorbar(plt1)
+            # bar.set_label('Reward ', rotation = 90, size = 12)
+            for axn, (ax, plot) in enumerate([(ax1,plt1)]):
+                ax.set_xlabel('$d\ [m]$')
+                ax.set_ylabel('$\~{\psi}\ [deg]$')
+                ax.set_zlabel('$Reward$')
+                ax.view_init(20, -45)
 
-            for el in ['x','y','z']:
-                ax.locator_params(axis=el, nbins=5)
+                for el in ['x','y','z']:
+                    ax.locator_params(axis=el, nbins=5)
 
-        fig.tight_layout()
+            fig.tight_layout()
 
-        fig = plt.figure(figsize=(6,6))
-        ax1 = fig.add_subplot(1,1,1)
-        plt1 = ax1.contourf(X, Y, Z1, levels=8, cmap = cm.get_cmap())
-        bar = plt.colorbar(plt1)
-        bar.set_label('Reward ', rotation = 90, size = 12)
+            fig = plt.figure(figsize=(6,6))
+            ax1 = fig.add_subplot(1,1,1)
+            plt1 = ax1.contourf(X, Y, Z1, levels=8, cmap = cm.get_cmap())
+            bar = plt.colorbar(plt1)
+            bar.set_label('Reward ', rotation = 90, size = 12)
 
-        for axn, (ax, plot) in enumerate([(ax1,plt1)]):
-            ax.set_xlabel('$\~{x}\ [m]$')
-            ax.set_ylabel('$\~{\psi}\ [deg]$')
-            for el in ['x','y','z']:
-                ax.locator_params(axis=el, nbins=5)
+            for axn, (ax, plot) in enumerate([(ax1,plt1)]):
+                ax.set_xlabel('$d\ [m]$')
+                ax.set_ylabel('$\~{\psi}\ [deg]$')
+                for el in ['x','y','z']:
+                    ax.locator_params(axis=el, nbins=5)
 
-        fig.tight_layout()
+            fig.tight_layout()
 
     else:
         print('No valid pltno given')

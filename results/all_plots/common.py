@@ -42,9 +42,13 @@ def get_secondly_averages(time_data, data, absolute=False):
             else:
                 ref.append(data[t])
         else:
-            avgs.append( np.mean(ref) )
-            ref = []
+            if ref: # non empty
+                avgs.append( np.mean(ref) )
+            else:
+                avgs.append( avgs[-1])
+                
             tavg.append(int(second) + 0.5)
+            ref = []
             current_second += 1
 
     return tavg, avgs

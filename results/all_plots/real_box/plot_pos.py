@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 from matplotlib.cbook import get_sample_data
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 import matplotlib.patches as patches
+from matplotlib.markers import MarkerStyle
+import matplotlib.lines as mlines
 
 import sys
 import os
@@ -43,16 +45,8 @@ for i in range(len(methods)):
     # 0th elements are nan for some reason
 
     north[i] = posdata[1:,1:2]
-    if False and methods[i] == 'RL':
-        north[i] = posdata[1:,1:2] + 0.1 * np.ones_like(posdata[1:,1:2])
-
     east[i] = posdata[1:,2:3]
-    if False and methods[i] == 'QP':
-        east[i] = posdata[1:,2:3] - 0.8 * np.ones_like(posdata[1:,2:3])
-    elif False and methods[i] == 'RL':
-        east[i] = posdata[1:,2:3] + 0.45 * np.ones_like(posdata[1:,2:3])
-
-    psi[i] = posdata[1:,6:7]
+    psi[i] = posdata[1:,6:7] - 25 # the offset when starting the test in real life (was hard to get a perfect 0 degree heading)
     time[i] = posdata[1:,7:]
     ALL_POS_DATA.append([north[i], east[i], psi[i], time[i]] )
 
@@ -60,18 +54,19 @@ for i in range(len(methods)):
 refdata = np.genfromtxt(path_ref,delimiter=',')
 ref_north = refdata[1:,1:2] 
 ref_east = refdata[1:,2:3] 
-ref_yaw = refdata[1:,3:4]
+ref_yaw = refdata[1:,3:4] - 25 # the offset when starting the test in real life (was hard to get a perfect 0 degree heading)
 ref_time = refdata[1:,-1:]
 refdata = [ref_north, ref_east, ref_yaw]
 
 n_0, e_0, p_0 = ref_north, ref_east, ref_yaw
 
 # Points for the different box test square. These are only the coords and not the changes relative to eachother. Very first elements are nan
-box_n = [n_0[1,0],  n_0[1,0] + 5, n_0[1,0] + 5.0,  n_0[1,0] + 5.0,  n_0[1,0],           n_0[1,0]]
 box_e = [e_0[1,0],  e_0[1,0],     e_0[1,0] - 5.0,  e_0[1,0] - 5.0,  e_0[1,0] - 5.0,     e_0[1,0]]
+box_n = [n_0[1,0],  n_0[1,0] + 5, n_0[1,0] + 5.0,  n_0[1,0] + 5.0,  n_0[1,0],           n_0[1,0]]
 box_p = [p_0[1,0],  p_0[1,0],     p_0[1,0],        p_0[1,0] - 45,   p_0[1,0] - 45,      p_0[1,0]]
 
-setpoint_times = np.hstack( ([0], np.array([10, 80, 150, 190, 270, 350])+8.5 ) )
+# setpoint_times = np.hstack( ([0], np.array([10, 80, 150, 190, 270, 350])+9) ) # from before modifications to csv-files
+setpoint_times = [0, 10, 80, 150, 190, 270, 350]
 
 '''
 ### NEDPOS
@@ -79,23 +74,52 @@ setpoint_times = np.hstack( ([0], np.array([10, 80, 150, 190, 270, 350])+8.5 ) )
 f = plt.figure(figsize=SMALL_SQUARE)
 ax = plt.gca()
 ax.scatter(box_e,box_n,color = 'black',marker='8',s=50,label='Set points')
+
 ax.set_xlim(1144,1152.5)
 ax.set_ylim(175,183.5)
 
 for i in range(len(methods)):
     e, n = east[i], north[i]
-    plt.plot(e,n,color = colors[i], label=labels[i])
+    print(e[0], n[0], ref_east[0], ref_north[0])
+    plt.plot(e,n,color = colors[i], label=labels[i], zorder=10)
+
+if len(methods) == 1:
+    nth = 200
+    corners = {(box_e[0], box_n[0], box_p[0]) : 0, (box_e[1],box_n[1], box_p[1]):0, (box_e[2],box_n[2],box_p[2]):0,(box_e[3],box_n[3],box_p[3]):0, (box_e[4],box_n[4],box_p[4]):0}
+    for i, (e,n,p) in enumerate(zip(east[0], north[0], psi[0])):
+        skip = False
+        if i % nth == 0 or i == 0:
+            for j, tup in enumerate(corners):
+                if np.sqrt((e-tup[0])**2 + (n-tup[1])**2 ) < 0.5 and np.abs(p - tup[2]) < 10.0:
+                    if j == 2 or j == 3:
+                        if corners[tup] < 1:
+                            corners[tup] +=1
+                        else:
+                            skip = True
+                    else:
+                        if corners[tup] < 1:
+                            corners[tup] +=1
+                        else:
+                            skip = True
+
+            if not skip:
+                m = MarkerStyle("^")
+                m._transform.scale(0.6, 1)
+                m._transform.rotate_deg(-(p - ref_yaw[0,0]))
+                plt.scatter(e, n, s=225, marker = m, color = 'grey', linewidths = 1, edgecolors = 'black', alpha=0.8, zorder=20)
 
 ax.plot(ref_east, ref_north, '--', color='black',label='Reference')
+ax.plot([], [], color='grey', marker='^', linestyle='None', markersize=10, markeredgewidth=1,markeredgecolor = 'black', alpha=0.8,label='Vessel (not to scale)')
 ax.set_xlabel('East position relative to NED frame origin [m]')
 ax.set_ylabel('North position relative to NED frame origin [m]')
 ax.legend(loc='best').set_draggable(True)
+
 f.tight_layout()
 
 '''
 ### North and East plots
 '''
-f0, axes = plt.subplots(3,1,figsize=SMALL_SQUARE,sharex = True)
+f0, axes = plt.subplots(3,1,figsize=RECTANGLE,sharex = True)
 plt.xlabel('Time [s]')
 axes[0].set_ylabel('North [m]')
 axes[1].set_ylabel('East [m]')

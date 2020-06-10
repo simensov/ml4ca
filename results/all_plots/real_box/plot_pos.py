@@ -5,6 +5,7 @@ from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 import matplotlib.patches as patches
 from matplotlib.markers import MarkerStyle
 import matplotlib.lines as mlines
+from matplotlib.patches import Polygon
 
 import sys
 import os
@@ -80,36 +81,71 @@ ax.set_ylim(175,183.5)
 
 for i in range(len(methods)):
     e, n = east[i], north[i]
-    print(e[0], n[0], ref_east[0], ref_north[0])
     plt.plot(e,n,color = colors[i], label=labels[i], zorder=10)
 
-if len(methods) == 1:
-    nth = 200
-    corners = {(box_e[0], box_n[0], box_p[0]) : 0, (box_e[1],box_n[1], box_p[1]):0, (box_e[2],box_n[2],box_p[2]):0,(box_e[3],box_n[3],box_p[3]):0, (box_e[4],box_n[4],box_p[4]):0}
-    for i, (e,n,p) in enumerate(zip(east[0], north[0], psi[0])):
-        skip = False
-        if i % nth == 0 or i == 0:
-            for j, tup in enumerate(corners):
-                if np.sqrt((e-tup[0])**2 + (n-tup[1])**2 ) < 0.5 and np.abs(p - tup[2]) < 10.0:
-                    if j == 2 or j == 3:
-                        if corners[tup] < 1:
-                            corners[tup] +=1
+marker = False
+if marker:
+    if len(methods) == 1:
+        nth = 200
+        corners = {(box_e[0], box_n[0], box_p[0]) : 0, (box_e[1],box_n[1], box_p[1]):0, (box_e[2],box_n[2],box_p[2]):0,(box_e[3],box_n[3],box_p[3]):0, (box_e[4],box_n[4],box_p[4]):0}
+        for i, (e,n,p) in enumerate(zip(east[0], north[0], psi[0])):
+            skip = False
+            if i % nth == 0 or i == 0:
+                for j, tup in enumerate(corners):
+                    if np.sqrt((e-tup[0])**2 + (n-tup[1])**2 ) < 0.5 and np.abs(p - tup[2]) < 10.0:
+                        if j == 2 or j == 3:
+                            if corners[tup] < 1:
+                                corners[tup] +=1
+                            else:
+                                skip = True
                         else:
-                            skip = True
-                    else:
-                        if corners[tup] < 1:
-                            corners[tup] +=1
-                        else:
-                            skip = True
+                            if corners[tup] < 1:
+                                corners[tup] +=1
+                            else:
+                                skip = True
 
-            if not skip:
-                m = MarkerStyle("^")
-                m._transform.scale(0.6, 1)
-                m._transform.rotate_deg(-(p - ref_yaw[0,0]))
-                plt.scatter(e, n, s=225, marker = m, color = 'grey', linewidths = 1, edgecolors = 'black', alpha=0.8, zorder=20)
+                if not skip:
+                    m = MarkerStyle("^")
+                    m._transform.scale(0.6, 1)
+                    m._transform.rotate_deg(-(p - ref_yaw[0,0]))
+                    plt.scatter(e, n, s=225, marker = m, color = 'grey', linewidths = 1, edgecolors = 'black', alpha=0.8, zorder=20)
 
+else:
+    if len(methods) == 1:
+        from matplotlib import transforms
+
+        ax.set_xlim(1142.5,1153.5)
+        ax.set_ylim(173.5,184.5)
+        #            [start,    onway northeast,    northeast,  onway northwest,    northwest,  nw with rot,    onway southwest, sw,  onway back]
+        draw_times = [7.5,      23,                 75,         105,                140,        163,            210,             252, 294]
+        time_dict = { i : 0 for i in draw_times}
+        data_time = time[i]
+        e, n, p = east[i], north[i], psi[i]
+
+        for t in range(len(data_time)):
+            for t_ref in draw_times:
+                if data_time[t] > t_ref and time_dict[t_ref] == 0:
+                    time_dict[t_ref] += 1
+                    e_cg, n_cg, psi_cg = float(e[t]), float(n[t]), float(p[t]) # represents position of CG and rotation around it in tthe NED frame
+                    L1 = 3.0; L2 = 2.2; W = 0.7; L_cg = 1.65 # full length, lengt from stern to bow-curvature, width
+                    e_skew = -W / 2; n_skew = -L_cg # scew iof polygon vertices away from cg
+
+                    vertices = np.array([[e_cg + e_skew, n_cg + n_skew],
+                                         [e_cg + e_skew, n_cg + n_skew + L2],
+                                         [e_cg + e_skew + W/2, n_cg + n_skew + L1],
+                                         [e_cg + e_skew + W, n_cg + n_skew + L2],
+                                         [e_cg + e_skew + W, n_cg + n_skew]])
+
+                    # transform polygon to rotate around CG
+                    ts = ax.transData
+                    coords = ts.transform([e_cg, n_cg])
+                    rotation = transforms.Affine2D().rotate_deg_around(coords[0], coords[1], -(psi_cg - ref_yaw[0,0]))
+                    trans = ts + rotation
+                    poly = Polygon(xy=vertices, closed=True, facecolor='grey', edgecolor = 'black',alpha= 0.6,transform = trans)
+                    ax.add_patch(poly)
+                    
 ax.plot(ref_east, ref_north, '--', color='black',label='Reference')
-ax.plot([], [], color='grey', marker='^', linestyle='None', markersize=10, markeredgewidth=1,markeredgecolor = 'black', alpha=0.8,label='Vessel (not to scale)')
+ax.plot([], [], color='grey', marker='^', linestyle='None', markersize=10, markeredgewidth=1,markeredgecolor = 'black', alpha=0.6,label='Vessel')
 ax.set_xlabel('East position relative to NED frame origin [m]')
 ax.set_ylabel('North position relative to NED frame origin [m]')
 ax.legend(loc='best').set_draggable(True)
@@ -131,7 +167,7 @@ for axn,ax in enumerate(axes):
         t = local_data[3]
         ax.plot(t,local_data[axn],color=colors[i],label=labels[i])
     
-    # Print reference lines
+    # Plot reference lines
     ax.plot(ref_time, refdata[axn], '--',color='black', label = 'Reference' if axn == 0 else None)
     plot_gray_areas(ax, setpoint_times)
 

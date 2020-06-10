@@ -1,6 +1,8 @@
 import numpy as np 
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+from matplotlib.markers import MarkerStyle
+import matplotlib.patheffects as PathEffects
 
 import sys
 import os
@@ -121,13 +123,27 @@ r = np.array(capabilities + [capabilities[0]]) * 100
 f = plt.figure(figsize=SMALL_SQUARE)
 ax = f.add_subplot(111, projection='polar')
 ax.plot(thetas, r,color = colors[3] )
-ax.set_rmax(max(r)*1.1)
-ax.set_rlabel_position(10)  # get radial labels away from plotted line
-ax.grid(True)
 
+rlabels = ax.get_ymajorticklabels()
+for label in rlabels:
+    label.set_color('black')
+    label.set_weight('bold')
+    label.set_path_effects([PathEffects.withStroke(linewidth=2, foreground=colors[3])])
+
+# Draw vessel triangle
+m = MarkerStyle("^")
+m._transform.scale(7.5*0.6, 7.5*1)
+plt.scatter(0, 0, s=225, marker = m, color = 'grey', linewidths = 1, edgecolors = 'black', alpha=0.5, zorder=0)
+
+ax.set_rmax(max(r)*1.1)
+ax.set_rlabel_position(60)  # get radial labels away from plotted line
+ax.grid(True)
 label_position=ax.get_rlabel_position()
-ax.text(np.radians(label_position + 15), ax.get_rmax()/2 ,'% thrust',
-        rotation=70,ha='center',va='center')
+ax.text(np.radians(label_position), ax.get_rmax()*1.2 ,'% thrust',
+        rotation=30,ha='center',va='center',color=colors[3],weight='bold')
+
+test =ax.text(np.pi/45, ax.get_rmax()*1.085 ,'External loads\' incoming angles',
+        rotation=0,ha='left',va='center')
 
 ax.set_theta_zero_location("N")  # theta = 0 pos (could be N, S, W, E etc.)
 ax.set_theta_direction(-1)  # theta increasing clockwise

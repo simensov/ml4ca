@@ -23,6 +23,8 @@ import time
 from scipy.optimize import minimize
 
 DEBUGGING = False
+SKEWED_BOW_THRUSTER = False
+SIMULATION = False
 
 class QPTA(object):
     '''
@@ -39,14 +41,12 @@ class QPTA(object):
         self.dt = 0.20
         self.rate = rospy.Rate(5) # time step of 0.2 s^1 = 5 Hz
 
-        self.OLD_THRUSTER_COEFFS = False
-
         # Scaling factor for forces 
-        if self.OLD_THRUSTER_COEFFS:
-            self.max_forces_forward  = np.array([[25.0,25.0,14.0]]).T # In Newton
-            self.max_forces_backward = np.array([[25.0,25.0,6.1]]).T # In Newton - bow thruster is asymmetrical, thus lower force backwards
-            self.forwards_K          = np.array([[0.0027, 0.0027, 0.001518]]).T
-            self.backwards_K         = np.array([[0.0027, 0.0027, 0.0006172]]).T
+        if SKEWED_BOW_THRUSTER:
+            self.max_forces_forward  = np.array([[20.5,20.5,9.0]]).T # In Newton
+            self.max_forces_backward = np.array([[20.5,20.5,3.7]]).T # In Newton - bow thruster is asymmetrical, thus lower force backwards
+            self.forwards_K          = np.array([[0.00205, 0.00205, 0.0009]]).T
+            self.backwards_K         = np.array([[0.00205, 0.00205, 0.00037]]).T
         else:
             # This is how the propeller forces are set currently in the simulator - Alfheim and Muggerudss values are OLD AND GIVES BAD RESULTS
             self.max_forces_forward  = np.array([[20.5,20.5,9.0]]).T # In Newton
@@ -63,7 +63,7 @@ class QPTA(object):
 
         # Init variable for storing the previous state each time, so that it is possible to send the thrusters the right way using shortest path calculations
         self.bow_angle_fixed = np.pi/2
-        self.previous_thruster_state = [0,0,0,0,0,self.bow_angle_fixed] # NB: these states are expressed in [N, N, N, rad, rad, rad]
+        self.previous_thruster_state = [0,0,0,0,0,self.bow_angle_fixed] # Thruster states are expressed in [N, N, N, rad, rad, rad]
 
         # Init variable that contains the positions of the thrusters: [lx1 ly1 lx2 ly2 lx3 ly3]
         self.lx = [-1.12, -1.12, 1.08]
@@ -278,7 +278,7 @@ class QPTA(object):
 
         # Constant K values F = K*n*|n| (see Alheim and Muggerud, 2016, for this empirical formula). 
         # The bow thruster is unsymmetrical, and this has lower coefficient for negative directioned thrust.
-        if self.OLD_THRUSTER_COEFFS:
+        if SKEWED_BOW_THRUSTER:
             K = self.forwards_K if F[2] >= 0 else self.backwards_K
         else:
             K = self.forwards_K # NOTE new simulator values assumes same force profile for bow thruster
@@ -298,9 +298,18 @@ class QPTA(object):
 
         # Fill bow control custom message
         bow_control = bowControl()
-        bow_control.throttle_bow = float(n[2,0]) # TODO Bow throttle doesn't work at low inputs (DC Motor) ca. 3%
-        bow_control.position_bow = np.rad2deg(alpha[2,0])
-        bow_control.lin_act_bow = 2 # 2 == down
+        
+        if SIMULATION:
+            bow_control.throttle_bow = float(n[2,0])
+            bow_control.position_bow = np.rad2deg(alpha[2,0])
+            
+        else:
+            val = np.clip(float(n[2,0]) * 2.5, -100.0, 100.0) # Bow throttle doesn't work at low inputs (DC Motor) ca. ???% Seems like 50%. 2.5 is empirically found OK value. Clipped here to avoid too large values
+            bow_control.throttle_bow = val
+
+            bow_control.position_bow = int(45) # This value was found empirically in real testing, equation to ca. 90 degrees
+
+        bow_control.lin_act_bow = 2 # down == 2
 
         # Publish the stern pod angles and thruster rpms, as well as the bow message
         self.pub_stern_angles.publish(pod_angle)

@@ -1,6 +1,8 @@
 #!/usr/bin/python
 
 '''
+NOTE This is the old code used during the project thesis, and contains the OLD thruster parameters. Go to ROS -> qp_allocator for the newest version, used in the Masters' thesis
+
 ROS Node for using Quadratic Programming for solving the thrust allocation problem on the ReVolt model ship.
 The QP is formulated with nonlinear constraints due to the nature of how the forces and moments are calculated.
 The QP is solved each time step, using the previous thruster states as initial values, finding the STERN azimuth angles and all thruster forces.

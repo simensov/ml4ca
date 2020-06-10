@@ -1,0 +1,48 @@
+{
+    "ac_kwargs":	{
+        "activation":	"leaky_relu",
+        "hidden_sizes":	[
+            80,
+            80,
+            80
+        ]
+    },
+    "actor_critic":	"mlp_actor_critic",
+    "clip_ratio":	0.2,
+    "curriculum":	false,
+    "env_fn":	"env_fn",
+    "epochs":	2000,
+    "exp_name":	"optilong",
+    "ext":	true,
+    "gamma":	0.99,
+    "lam":	0.97,
+    "logger":	{
+        "<spinup.utils.logx.EpochLogger object at 0x0000029948599400>":	{
+            "epoch_dict":	{},
+            "exp_name":	"optilong",
+            "first_row":	true,
+            "log_current_row":	{},
+            "log_headers":	[],
+            "output_dir":	"C:\\Users\\simensov\\Documents\\thesis\\ml4ca\\src\\rl\\windows_workspace\\data\\optilong\\optilong_s0",
+            "output_file":	{
+                "<_io.TextIOWrapper name='C:\\\\Users\\\\simensov\\\\Documents\\\\thesis\\\\ml4ca\\\\src\\\\rl\\\\windows_workspace\\\\data\\\\optilong\\\\optilong_s0\\\\progress.txt' mode='w' encoding='cp1252'>":	{
+                    "mode":	"w"
+                }
+            }
+        }
+    },
+    "logger_kwargs":	{
+        "exp_name":	"optilong",
+        "output_dir":	"C:\\Users\\simensov\\Documents\\thesis\\ml4ca\\src\\rl\\windows_workspace\\data\\optilong\\optilong_s0"
+    },
+    "max_ep_len":	400,
+    "note":	"Perform a long training session with optione reward function, using 1994 as seed",
+    "pi_lr":	0.0003,
+    "save_freq":	10,
+    "seed":	0,
+    "steps_per_epoch":	2000,
+    "target_kl":	0.01,
+    "train_pi_iters":	80,
+    "train_v_iters":	80,
+    "vf_lr":	0.001
+}

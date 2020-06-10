@@ -76,8 +76,8 @@ f = plt.figure(figsize=SMALL_SQUARE)
 ax = plt.gca()
 ax.scatter(box_e,box_n,color = 'black',marker='8',s=50,label='Set points')
 
-ax.set_xlim(1144,1152.5)
-ax.set_ylim(175,183.5)
+ax.set_xlim(1148 - 5.5, 1148 + 5.5)
+ax.set_ylim(179 - 5.5,  179 + 5.5)
 
 for i in range(len(methods)):
     e, n = east[i], north[i]
@@ -114,8 +114,8 @@ else:
     if len(methods) == 1:
         from matplotlib import transforms
 
-        ax.set_xlim(1142.5,1153.5)
-        ax.set_ylim(173.5,184.5)
+        ax.set_xlim(1143,1153)
+        ax.set_ylim(173.75,184.75)
         #            [start,    onway northeast,    northeast,  onway northwest,    northwest,  nw with rot,    onway southwest, sw,  onway back]
         draw_times = [7.5,      23,                 75,         105,                140,        163,            210,             252, 294]
         time_dict = { i : 0 for i in draw_times}

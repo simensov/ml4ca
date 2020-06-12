@@ -1,7 +1,7 @@
 __pycache__/
 tests/
 venv/
-data/
+old_data/
 specific/local_paths.py
 experiments/
 *.pyc 

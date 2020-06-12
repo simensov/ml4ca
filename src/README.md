@@ -1,1 +1,7 @@
 ## This directory contains the different implementations used in the thesis
+
+The qp/ directory simply contains implementations of a ROS node which was used for thrust allocation during comparisons in the masters' thesis. The final version used in the master's thesis is found in qp/ROS, while the other files are previous versions used during the project thesis, and for testing the quadratic programming software.
+
+The sl/ directory contains the supervised learning model used for thrust allocation during the project thesis. The sl/ROS/neural_allocator directory contains the latest version of the ROS node.
+
+The rl/ directory contains the work done with Deep Reinforcement Learning during the masters' thesis, and is divided into two workspaces. One contains the ROS node which was used for running the control system onboard ReVolt during the tests, which is found in rl/ROS/rl_allocator. The other contains all the code written to run on a Windows computer, including the fork of the Spinning Up repository for using the PPO algorithm, an environment for communicating with the Java simulator, and more. The DRL model used during tests are found in rl/windows_workspace/data, with all its weights, biases and other information. 

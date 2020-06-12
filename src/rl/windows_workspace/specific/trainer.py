@@ -1,14 +1,21 @@
 from specific.digitwin import DigiTwin
 from specific.customEnv import Revolt,RevoltSimple, RevoltLimited, RevoltFinal
 from spinup.utils.mpi_tools import proc_id, num_procs
+from specific.local_paths import SIM_CONFIG_PATH, SIM_PATH, PYTHON_PORT_INITIAL # this file is not tracked on git due to that it depends on the computer running the code
 
-from specific.local_paths import SIM_CONFIG_PATH, SIM_PATH, PYTHON_PORT_INITIAL
-# sim path must be a string like 'C:\\Users\\local\\Documents\\GTK\\{}\\bin\\revoltsim64.exe' so that it can be formatted
+'''
+Examples of my variables from local_paths:
+SIM_CONFIG_PATH       = 'C:\\Users\\user\\Documents\\GTK\\configuration'
+SIM_PATH              = 'C:\\Users\\user\\Documents\\GTK\\{}\\bin\\revoltsim64.exe'
+                        - must be a string like 'C:\\Users\\user\\Documents\\GTK\\{}\\bin\\revoltsim64.exe' so that it can be formatted
+PYTHON_PORT_INITIAL   = 25338
+USER_DIR              = 'C:\\Users\\user\\GTK\\userdirs\\'
+'''
 
 ENVIRONMENTS = {'simple': RevoltSimple, 'limited': RevoltLimited, 'full': Revolt, 'final': RevoltFinal}
 class Trainer(object):
     '''
-    Keeps track of all digitwins and its simulators + environments for a training session
+    This class keeps track of all digitwins and its simulators + environments for a training session
     '''
     def __init__(self,
                  n_sims       = 1,
@@ -42,10 +49,8 @@ class Trainer(object):
                          python_port_initial = PYTHON_PORT_INITIAL,
                          sim_cfg_path        = SIM_CONFIG_PATH,
                          load_cfg            = False):
+        
         ''' Start all simulators '''
-
-        # TODO use {}.format() in sim path and rename revoltsim to revoltsim0 for more efficient code
-        # assert self._sim_no in [0,1,2,3], 'The given sim number is not in the prepared number of simulators'
         
         if self._lw:
             appendix = 'lightweight_revoltsim{}'.format(self._sim_no)

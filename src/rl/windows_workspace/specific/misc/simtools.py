@@ -33,10 +33,11 @@ def reset_sim(sim,**init):
 def simulate_episode(sim, **init):
     '''
     NB: adding / removing arguments in thus function might make it hard for the threading 
+    This function gives an example of how to make steps in the simulator.
     '''
     reset_sim(sim,**init)
-    steps = 4000 # TODO upper limit for PPO
-    err = ErrorFrame(pos=get_pose_3DOF(sim)) # TODO passing reference point to this function?
+    steps = 4000 
+    err = ErrorFrame(pos=get_pose_3DOF(sim))
     p_body = err.get_pose()
 
     for step in range(steps):

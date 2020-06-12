@@ -25,20 +25,11 @@ class ErrorFrame(object):
     def transform(self,pos=None):
         if pos: self.update(pos=pos)
 
-        # TODO THIS WAS WRONG!!!!!
-        if False:
-            err = np.array([ [a - b for a, b in zip(self._pos,self._ref)] ]).T # full shape column vector of errors
-            ang = wrap_angle(err[2,0]) # this is the same as smallest signed angle, see MSS Toolbox, ssa.m, by T.I.Fossen
-            pos_bod = rotation_matrix(ang).T.dot(err[0:2,:]) # a 2,1 column vector
-            self._error_coordinate = [pos_bod[0,0], pos_bod[1,0], ang] 
-
-        # TODO this is right!!
-        else:
-            err = np.array([ [a - b for a, b in zip(self._pos,self._ref)] ]).T # full shape column vector of errors
-            rotation_angle = wrap_angle(self._pos[2])
-            pos_bod = rotation_matrix(rotation_angle).T.dot(err[0:2,:]) # a 2,1 column vector of body frame errors
-            ang = wrap_angle(err[2,0]) # this is the same as smallest signed angle, see MSS Toolbox, ssa.m, by T.I.Fossen
-            self._error_coordinate = [pos_bod[0,0], pos_bod[1,0], ang] 
+        err = np.array([ [a - b for a, b in zip(self._pos,self._ref)] ]).T # full shape column vector of errors
+        rotation_angle = wrap_angle(self._pos[2]) # the yaw angle of the vehicle in NED frame, used in the rotation matrix
+        pos_bod = rotation_matrix(rotation_angle).T.dot(err[0:2,:]) # a 2,1 column vector of body frame errors
+        ang = wrap_angle(err[2,0]) # the deviation in yaw between current and desired angle, only wrapped in (-pi,pi)
+        self._error_coordinate = [pos_bod[0,0], pos_bod[1,0], ang] 
 
     def update(self,pos=None,ref=None):
         ''' Use already set values if no arguments are passed '''

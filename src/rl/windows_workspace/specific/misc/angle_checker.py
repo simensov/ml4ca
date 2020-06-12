@@ -2,14 +2,13 @@ import numpy as np
 import matplotlib.pyplot as plt 
 from tabulate import tabulate
 
+''' Create angular table for the output of the arctan2 function '''
+
 angles = np.linspace(-np.pi, np.pi, 11)
 sins = np.linspace(-1.0,1.0,11)
 coss = np.linspace(-1.0,1.0,11)
 
 r2d = 180 / np.pi
-
-# sins = [np.sin(a) for a in angles]
-# coss = [np.cos(a) for a in angles]
 
 table = np.zeros((len(sins)+3,len(coss)+3))
 table[3:,0] = np.array([s for s in sins]) 

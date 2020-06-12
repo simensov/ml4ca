@@ -3,6 +3,7 @@
 Created on Mon May  7 14:11:34 2018
 
 @author: jonom
+Edited by Simen Oevereng
 """
 
 from py4j.java_gateway import JavaGateway, Py4JNetworkError

@@ -4,6 +4,8 @@ from plot_commons import colors, set_params
 
 set_params()
 
+''' Creates the activation function plot used in neural network theory of master's'''
+
 def leaky_relu(z): return (0.0*z if z < 0 else z)
 def tanh(z): return (np.exp(2*z) - 1) / (np.exp(2*z) + 1)
 def sigmoid(z): return 1 / (1 + np.exp(-z))

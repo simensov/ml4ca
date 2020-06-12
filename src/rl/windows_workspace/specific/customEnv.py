@@ -23,14 +23,13 @@ class Revolt(gym.Env):
                  digitwin       = None,
                  num_actions    = 6,
                  num_states     = 6,
-                 #real_ss_bounds = [8.0, 8.0, np.pi/2, 1.4, 0.30, 0.52], # By mistake, these velocities (three last elements) was not set lower. Of course, the bounds must LIMIT the agent; these are its REAL limits...
                  real_ss_bounds = [8.0, 8.0, np.pi/2, 1.4, 0.30, 0.52], # By mistake, these velocities (three last elements) was not set lower. Of course, the bounds must LIMIT the agent; these are its REAL limits...
                  testing        = False,
                  realtime       = False,
                  max_ep_len     = 800,
                  extended_state = False,
                  reset_acts     = False,
-                 cont_ang    = False):
+                 cont_ang       = False):
 
         super(Revolt, self).__init__()
         assert digitwin is not None, 'No digitwin was passed to Revolt environment'
@@ -171,7 +170,6 @@ class Revolt(gym.Env):
             self.dTwin.val('THR'+str(i+1), 'MtcOn', 1) # turn on the motor control for all three thrusters
 
         # Notify simulator of all default thruster states
-        # TODO this more pretty, change between using default and random vals based on self.reset_actions!
         for a in self.actions:
             default = self.default_actions[a['idx']]
             self.dTwin.val(a['module'], a['feature'], default) # set all default thruster states
@@ -186,7 +184,6 @@ class Revolt(gym.Env):
                 if a['idx'] in self.valid_action_indices and a['idx'] in [0,1,2]: # This only affects thrust at the moment
                     idx = self.act_2_act_map[a['idx']]
                     self.dTwin.val(a['module'], a['feature'], action[idx])
-                    # TODO reset angles if adding them to state vector also
 
             self.prev_thrust = action[0:3].copy()
         else:
@@ -216,7 +213,7 @@ class Revolt(gym.Env):
         return False
 
     def scale_and_clip(self,action):
-        ''' Action from actor if close to being -1 and 1. Scale 100%, and clip.
+        ''' Action from actor close to being a vector with vals between ish -1 and 1. Scale 100%, and clip.
         :args:
             - action (numpy array): an action provided by the agent
         :returns:
@@ -258,13 +255,12 @@ class Revolt(gym.Env):
         :returns:
             - A float representing the scalar reward of the agent being in the current state
         '''
-        ### Limited env
+        ### This is the reward function used on the last limited env (not mentioned in the thesis)
         # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty([0.05,0.075,0.075], angular = False) # actderros # changed derivatives according to what seems nice in ROS. high used 0.1, 0.1, 0.1
 
         ### Final Env
-        # This reward function is from now called optione - first version was called finconttothighbowder
-        rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.20,0.30,0.30]) + self.action_derivative_penalty(thrust=True, pen_coeff=[0.05,0.05,0.05], angular=True, ang_coeff=[0.00,0.01,0.01]) # optiend
-        # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.10,0.25,0.25]) + self.action_derivative_penalty(thrust=True, pen_coeff=[0.00,0.00,0.00], angular=True, ang_coeff=[0.00,0.00,0.00]) # optialternative
+        # This reward function is the one used in the master's thesis.
+        rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.20,0.30,0.30]) + self.action_derivative_penalty(thrust=True, pen_coeff=[0.05,0.05,0.05], angular=True, ang_coeff=[0.00,0.01,0.01])
 
         return rew  
 
@@ -287,11 +283,11 @@ class Revolt(gym.Env):
         multivar = 2 * np.exp(-0.5 * (x.T).dot(self.covar_inv).dot(x))
 
         # Avoid sparse reward function
-        low = -1.0 if yaw_penalty else 0.0 # TODO alternative addition: yaw_pen = max(-1,0 - np.abs(yaw)/45.0)
+        low = -1.0 if yaw_penalty else 0.0
         special_measurement = np.sqrt(r**2 + (yaw * 0.25)**2) 
-        anti_sparity = 1 * max(low, (1-0.1*special_measurement)) + 0.5 # this is steeper in the region of yaw, so the more negative the lower bound is, the more yaw_dist is penalized
-        
-        return  multivar + anti_sparity # can be viewed in reward_plots.py
+        anti_sparity = 1 * max(low, (1-0.1*special_measurement)) # this is steeper in the region of yaw, so the more negative the lower bound is, the more yaw_dist is penalized
+        const = 0.5
+        return  multivar + anti_sparity + const # can be viewed in reward_plots.py
         
     def thrust_penalty(self, pen_coeff = [0.1, 0.1, 0.1], torque_based = False):
         # assert np.all(np.array(pen_coeff) >= 0.0) and np.all(np.array(pen_coeff) <= 0.33), 'Action penalty coefficients must be in range 0.0 - 0.33'
@@ -307,16 +303,14 @@ class Revolt(gym.Env):
 
     def action_derivative_penalty(self,pen_coeff=[0.1,0.1,0.1], thrust = True, angular = False, ang_coeff = [0.03, 0.03, 0.03]):
         if not self.extended_state:
+            # Dont use derivative penalties if the previous thrust is not in the state vector representation
             return 0
 
         pen = 0
-
         if thrust:
             derr = ( np.array(self.prev_thrust)-self.state_ext[-3:] * 100.0) / self.dt # prev_thrust stores the current thrust in (-100,100), while the last three elements of the extended state stores the prev thrust in (-1,1)
             for dT,c in zip(derr, pen_coeff):
                 pen -= np.abs(dT / 100.0) * c # 200 is the maximum change from one second to another
-
-            # pen = max(-1.0, pen)
 
         if angular:
             angpen = 0
@@ -340,7 +334,7 @@ class RevoltSimple(Revolt):
 
         self.name = 'revoltsimple'
         # Overwrite environment bounds according to measured max velocity for this specific setup
-        self.real_ss_bounds = [8.0, 8.0, np.pi/2, 1.75, 0.30, 0.51] # TODO vel could be set to much smaller values: (scale 10,10,100 times to get them in the same range as the positional arguments)
+        self.real_ss_bounds = [8.0, 8.0, np.pi/2, 1.75, 0.30, 0.51]
        
         self.real_action_bounds   = [100] * 3
         # Overwrite default actions
@@ -364,7 +358,7 @@ class RevoltLimited(Revolt):
 
         # Not choosing the bow angle means (1) one less action bound, (2) remove one valid index, (3) set bow angle default to pi/2
         self.name = 'revoltlimited'
-        self.real_ss_bounds[2]    = 45 * np.pi / 180 # TODO increased
+        self.real_ss_bounds[2]    = 45 * np.pi / 180
         self.real_action_bounds   = [100] * 3 + [np.pi / 2 ] * 2
         self.valid_action_indices = [0,    1,      2,      4,      5]
         self.act_2_act_map        = {0:0,  1:1,    2:2,    4:3,    5:4} # {index in self.actions : index in action vector outputed by this actor for this env}
@@ -393,7 +387,7 @@ class RevoltFinal(Revolt):
         
         # TODO using continous angles must be compatible with the valid indices etc. The easiest should be to have an extra transformation right after actor output
 
-        self.real_action_bounds   = [100] * 3 + [np.pi] * 2 # TODO only difference from limited - could just inherit from limited? potentially needs shortest assigned angle and wrapping logic
+        self.real_action_bounds   = [100] * 3 + [np.pi] * 2
         self.valid_action_indices = [0,    1,      2,      4,      5]
         self.act_2_act_map        = {0:0,  1:1,    2:2,    4:3,    5:4} # {index in self.actions : index in action vector outputed by this actor for this env}
         self.act_2_act_map_inv    = {0:0,  1:1,    2:2,    3:4,    4:5} # {index in action vector outputed by this actor for this env : index self.actions}
@@ -406,7 +400,7 @@ class RevoltFinal(Revolt):
 
 
 '''
-REWARD FUNCTION STORAGE
+REWARD FUNCTION STORAGE - all of these reward functions was used during reward shaping. Left here for legacy
 
 # act_der_low - suggest 0.075 instead! 0.10 overfits
 rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.1,0.1,0.1]) + self.action_derivative_penalty([0.05,0.05,0.05], angular = False)                 
@@ -446,7 +440,6 @@ rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.
 # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.05,0.05,0.05], torque_based=True) + self.action_derivative_penalty(thrust=True, pen_coeff=[0.02,0.02,0.02], angular=True, ang_coeff=[0.02,0.02,0.02]) # finconttotaltorque
 # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.075,0.075,0.075], torque_based=True) + self.action_derivative_penalty(thrust=True, pen_coeff=[0.05,0.075,0.075], angular=True, ang_coeff=[0.02,0.02,0.02]) # finconttorqueactderrosangle
 # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.10,0.10,0.10])                    + self.action_derivative_penalty(thrust=True, pen_coeff=[0.02,0.02,0.02], angular=True, ang_coeff=[0.00,0.02,0.02]) # finactderallangleup
-
 # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.15,0.15,0.15]) + self.action_derivative_penalty(thrust=True, pen_coeff=[0.00,0.05,0.05], angular=True, ang_coeff=[0.00,0.01,0.01]) # finconttotal - good for iterative approach
 # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.15,0.15,0.15]) + self.action_derivative_penalty(thrust=True, pen_coeff=[0.02,0.02,0.02], angular=True, ang_coeff=[0.00,0.04,0.04]) # finactderallangleup / finimprovement
 # rew = self.vel_reward() + self.multivariate_gaussian() + self.thrust_penalty([0.15,0.15,0.15]) + self.action_derivative_penalty(thrust=True, pen_coeff=[0.05,0.05,0.05], angular=True, ang_coeff=[0.00,0.01,0.01]) # finconttotbowder

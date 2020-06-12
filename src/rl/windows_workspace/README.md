@@ -10,14 +10,16 @@ Launches simulator, loads configuration, and starts training of an RL agent, usi
 
 example:
     - python .\train.py --sim 0 --exp_name experimentname --note 'Allows an explanation of e.g. the reward function so that the information is stored in the config.json file'
-    Launches simulator 0, given a certain name and a certain note.
+
+This launches simulator 0, given a certain name and a certain note.
 
 ### plot_results.py
 Plots the training progress of different experiments. 
 
 example:
     - python .\plot_results.py '.\data\experiment\' --value AverageEpRet LossV AverageVVals Entriopy --smooth 25
-    Plots four time series of the four given logged parameters, and shows the running average of the 25 previous results. The default x axis is the number of steps performed in the simulator (environment interactions), but can be changed with --xaxis Param, where Param could be e.g. Time.
+
+This plots four time series of the four given logged parameters, and shows the running average of the 25 previous results. The default x axis is the number of steps performed in the simulator (environment interactions), but can be changed with --xaxis Param, where Param could be e.g. Time.
 
 
 ### load_and_test.py
@@ -25,7 +27,8 @@ This script loads a policy and tests it in a simulator with the VesselMainView a
 
 example:
     - python .\load_and_test.py '.\data\experiment\experiment_s0'
-    Note that it is important to give the lowest path to the script, as e.g. '.\data\experiment\' will not work (the directory has to contain a tf1_save directory)
+
+Note that it is important to give the lowest path to the script, as e.g. '.\data\experiment\' will not work (the directory has to contain a tf1_save directory)
 
 
 ### Tips and tricks
@@ -43,3 +46,4 @@ example:
 This directory contains the implementations which launches the simulator, interacts with the simulator from the created ReVolt-environment etc.
 
 ### spinup
+This directory contains the PPO implmentation which comes from Spinning Up. The code has also been made compatible with the TRPO algorithm, although it was not used in the thesis.

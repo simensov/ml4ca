@@ -315,11 +315,10 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
                     # only save EpRet / EpLen if trajectory finished
                     logger.store(EpRet=traj_return, EpLen=traj_len)
 
-                # Reset vars to continue gathering 
-
                 # Optional: use curriculum learning
                 fraction = min( 3.0 * epoch / epochs, 0.8) if curriculum else 0.8 # 3*ep/tot_ep becomes 0.8 at 26.7% out during training
 
+                # Reset vars to continue gathering 
                 o, traj_return, traj_len = env.reset(fraction = fraction), 0, 0
 
         # Save model
@@ -348,6 +347,9 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         logger.dump_tabular()
 
 if __name__ == '__main__':
+    '''
+    Run an example of the ppo algorithm
+    '''
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--env', type=str, default='HalfCheetah-v2')

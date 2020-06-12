@@ -6,6 +6,7 @@ import matplotlib.patches as patches
 from matplotlib.markers import MarkerStyle
 import matplotlib.lines as mlines
 from matplotlib.patches import Polygon
+import copy
 
 import sys
 import os
@@ -20,7 +21,7 @@ elif platform.system().lower() == 'windows':
 
 sys.path.append(parent_dir)
 
-from common import methods, labels, colors, set_params, get_secondly_averages, absolute_error, IAE, plot_gray_areas, SMALL_SQUARE, RECTANGLE
+from common import methods, labels, colors, set_params, get_secondly_averages, absolute_error, IAE, plot_gray_areas, SMALL_SQUARE, RECTANGLE, runningMean
 
 methods = methods + ['RLintegral']
 labels = labels + ['RLI']
@@ -52,6 +53,13 @@ for i in range(len(methods)):
     ALL_POS_DATA.append([north[i], east[i], psi[i], time[i]] )
 
 
+
+N = 50 # 300 pnts is ish 15 seconds of observer messages, but gives too early reactings. Neeed to filter some of the noise from the roll motions!
+north[0] = runningMean(north[0],N).reshape(north[0].shape)
+east[0] = runningMean(east[0],N).reshape(east[0].shape)
+psi[0] = runningMean(psi[0],N).reshape(psi[0].shape)
+ALL_POS_DATA[0] = [north[0], east[0], psi[0], time[0]]
+
 refdata = np.genfromtxt(path_ref,delimiter=',')
 ref_north = refdata[1:,1:2] 
 ref_east = refdata[1:,2:3] 
@@ -72,9 +80,9 @@ setpoint_times = [0, 10, 80, 150, 190, 270, 350]
 '''
 ### NEDPOS
 '''
-f = plt.figure(figsize=SMALL_SQUARE)
+f = plt.figure(figsize=SMALL_SQUARE,dpi=100)
 ax = plt.gca()
-ax.scatter(box_e,box_n,color = 'black',marker='8',s=50,label='Set points')
+ax.scatter(box_e,box_n,color = 'black',marker='8',s = 50,label='Set points')
 
 ax.set_xlim(1148 - 5.5, 1148 + 5.5)
 ax.set_ylim(179 - 5.5,  179 + 5.5)
@@ -117,10 +125,12 @@ else:
         ax.set_xlim(1143,1153)
         ax.set_ylim(173.75,184.75)
         #            [start,    onway northeast,    northeast,  onway northwest,    northwest,  nw with rot,    onway southwest, sw,  onway back]
-        draw_times = [7.5,      23,                 75,         105,                140,        163,            210,             252, 294]
+        draw_times = [6,        21,                 73.75,         105,                140,        162,            210,             252, 293] # used with running mean
+        # draw_times = [7.5,      23,                 75,         105,                140,        163,            210,             252, 294] # used with no running mean
         time_dict = { i : 0 for i in draw_times}
         data_time = time[i]
         e, n, p = east[i], north[i], psi[i]
+        ts = ax.transData
 
         for t in range(len(data_time)):
             for t_ref in draw_times:
@@ -137,12 +147,13 @@ else:
                                          [e_cg + e_skew + W, n_cg + n_skew]])
 
                     # transform polygon to rotate around CG
-                    ts = ax.transData
                     coords = ts.transform([e_cg, n_cg])
                     rotation = transforms.Affine2D().rotate_deg_around(coords[0], coords[1], -(psi_cg - ref_yaw[0,0]))
                     trans = ts + rotation
-                    poly = Polygon(xy=vertices, closed=True, facecolor='grey', edgecolor = 'black',alpha= 0.6,transform = trans)
+                    poly = Polygon(xy=vertices, closed=True, facecolor='grey', edgecolor = 'black',alpha= 0.6, transform = trans,zorder=0)
                     ax.add_patch(poly)
+                    plt.draw()
+                    ts = ax.transData
                     
 ax.plot(ref_east, ref_north, '--', color='black',label='Reference')
 ax.plot([], [], color='grey', marker='^', linestyle='None', markersize=10, markeredgewidth=1,markeredgecolor = 'black', alpha=0.6,label='Vessel (to scale)')
@@ -151,6 +162,7 @@ ax.set_ylabel('North position relative to NED frame origin [m]')
 ax.legend(loc='best').set_draggable(True)
 
 f.tight_layout()
+# plt.savefig('realBox_pos_ned.pdf')
 
 '''
 ### North and East plots

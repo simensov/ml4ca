@@ -92,3 +92,13 @@ def wrap_angle(angle, deg = False):
         ref = np.ones_like(angle) * ref
 
     return np.mod(angle + ref, 2*ref) - ref
+
+def runningMean(x, N):
+    ''' Returns a numpy array which contains as many datapoints as there is in x, 
+    only each now representing the mean over the this -> N next datapoints.
+    Could be quite slow for large arrays'''
+    
+    y = np.zeros((len(x),))
+    for ctr in range(len(x)):
+         y[ctr] = np.mean(x[ctr:(ctr+N)])
+    return y

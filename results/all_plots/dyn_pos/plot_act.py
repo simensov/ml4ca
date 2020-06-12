@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.markers import MarkerStyle
 import matplotlib.patheffects as PathEffects
+from matplotlib.patches import Polygon
 
 import sys
 import os
@@ -20,14 +21,14 @@ sys.path.append(parent_dir)
 from common import methods, labels, colors, set_params, plot_gray_areas, LARGE_SQUARE, SMALL_SQUARE, RECTANGLE, NARROW_RECTANGLE, wrap_angle
 import math
 
-methods = methods + ['RLintegral']
-labels = labels + ['RLI']
-colors[3] = 'orange'
-
 headings = [-158,-135,-113,-90,-68,-45,-23,0,23,45,68,90,113,135,158,180]
-methods = ['RLintegral{}deg'.format(val) for val in headings]
 labels = ['${}^\\circ$'.format(val) for val in headings]
-#colors = [(np.random.random(), np.random.random(), np.random.random()) for _ in headings]
+methods = ['pseudo{}deg'.format(val) for val in headings] # + ['RLintegral{}deg'.format(val) for val in headings]
+colors[3] = colors[0]
+# methods = ['RLintegral{}deg'.format(val) for val in headings]
+# colors[3] = 'orange'
+
+
 
 set_params()
 
@@ -122,15 +123,18 @@ r = np.array(capabilities + [capabilities[0]]) * 100
 
 f = plt.figure(figsize=SMALL_SQUARE)
 ax = f.add_subplot(111, projection='polar')
+ax.set_xticks(np.pi / 180. * np.linspace(180,  -180, len(headings)/2, endpoint=False))
+ax.set_thetalim(-np.pi, np.pi)
 ax.plot(thetas, r,color = colors[3] )
 
 rlabels = ax.get_ymajorticklabels()
 for label in rlabels:
     label.set_color('black')
     label.set_weight('bold')
-    label.set_path_effects([PathEffects.withStroke(linewidth=2, foreground=colors[3])])
+    label.set_zorder(30)
+    # label.set_path_effects([PathEffects.withStroke(linewidth=2, foreground=colors[3])])
 
-# Draw vessel triangle
+# Draw vessel
 m = MarkerStyle("^")
 m._transform.scale(7.5*0.6, 7.5*1)
 plt.scatter(0, 0, s=225, marker = m, color = 'grey', linewidths = 1, edgecolors = 'black', alpha=0.5, zorder=0)
@@ -140,10 +144,11 @@ ax.set_rlabel_position(60)  # get radial labels away from plotted line
 ax.grid(True)
 label_position=ax.get_rlabel_position()
 ax.text(np.radians(label_position), ax.get_rmax()*1.2 ,'% thrust',
-        rotation=30,ha='center',va='center',color=colors[3],weight='bold')
+        rotation=30,ha='center',va='center',color='black',weight='bold')
 
 test =ax.text(np.pi/45, ax.get_rmax()*1.085 ,'External loads\' incoming angles',
         rotation=0,ha='left',va='center')
+
 
 ax.set_theta_zero_location("N")  # theta = 0 pos (could be N, S, W, E etc.)
 ax.set_theta_direction(-1)  # theta increasing clockwise
@@ -272,6 +277,8 @@ axes[1].set_ylabel('$W^*_{port}$ [J]')
 axes[2].set_ylabel('$W^*_{star}$ [J]')
 axes[3].set_ylabel('$W^*_{total}$ [J]')
 
+total_energies = []
+
 for axn,ax in enumerate(axes):
     for i in range(len(methods)):
         if axn == 0:
@@ -298,11 +305,14 @@ for axn,ax in enumerate(axes):
         if ax == 0:
             moveif['RLI'] = val
 
-        # ax.annotate(txt, (x_coord, 0.95 * val + (activation * moveif[labels[i]])),color=colors[i], weight='bold',size=9)
-        ax.annotate(txt, (x_coord, 0.95 * val + (activation * 0)),weight='bold',size=9) # ,color=colors[i], 
+        # ax.annotate(txt, (x_coord, 0.95 * val + (activation * 0)),size=9) # ,color=colors[i], 
+
+        if axn == 3:
+        	total_energies.append(val)
     
     plot_gray_areas(ax,setpnt_areas)
 
+axes[3].annotate('Average total energy: {:.2f}'.format(np.mean(total_energies)), (t[0] + 1, np.mean(total_energies)), weight='bold')
 # axes[0].legend(loc='best').set_draggable(True)
 f.tight_layout()
 

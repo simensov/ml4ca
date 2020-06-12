@@ -21,7 +21,11 @@ from common import methods, labels, colors, set_params, get_secondly_averages, a
 set_params() # sets global plot parameters
 
 headings = [-158,-135,-113,-90,-68,-45,-23,0,23,45,68,90,113,135,158,180]
+methods = ['pseudo{}deg'.format(val) for val in headings]
+colors[3] = colors[0]
 methods = ['RLintegral{}deg'.format(val) for val in headings]
+colors[3] = 'orange'
+
 labels = ['${}^\\circ$'.format(val) for val in headings]
 
 colors[3] = 'orange'
@@ -213,7 +217,7 @@ for i in range(len(methods)):
     moveif = {'IPI':0, 'QP': 0.00*val, 'RL': -0.00*val, 'RLI':0, 'NO':0, 'RLintegral-135deg':0}
     activation = 1.0 if axn <= 1 else 0.0
     # ax.annotate(txt, (x_coord, 0.99*val + (activation * moveif[labels[i]])),color=colors[i], weight='bold')
-    ax.annotate(txt, (x_coord, 0.99*val + (activation * 0)), weight='bold') # color=colors[i], )
+    # ax.annotate(txt, (x_coord, 0.99*val + (activation * 0))) # color=colors[i], )
 
 ax.annotate('Average IAE: {:.2f}'.format(np.mean(vals)), (t[0] + 1, np.mean(vals)), weight='bold')
 

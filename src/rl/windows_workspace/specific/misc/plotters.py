@@ -8,8 +8,8 @@ set_params()
 def plot_policytest_data(args,data,env):
     fig, (ax1, ax2, ax3) = plt.subplots(3, figsize=(6,6), sharex=True)
     plt.xlabel('Time [s]')
-    ax1.set_ylabel('$\Delta d$ [m]')
-    ax2.set_ylabel('$\Delta \psi$ [deg]')
+    ax1.set_ylabel('$d$ [m]')
+    ax2.set_ylabel('$\~{\psi}$ [deg]')
     ax3.set_ylabel('Reward, $r_t$')
 
     axes = [ax1, ax2, ax3]
@@ -51,7 +51,7 @@ def plot_NED_data(args,data,env):
     plt.xlabel('Time [s]')
     ax1.set_ylabel('North pos [m]')
     ax2.set_ylabel('East pos [m]')
-    ax3.set_ylabel('Heading [deg]')
+    ax3.set_ylabel('Yaw [deg]')
 
     f2, ax4 = plt.subplots(figsize=(6,6))
     ax4.set_xlabel('East position from setpoint in NED frame [m]')

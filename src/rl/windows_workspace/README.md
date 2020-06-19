@@ -1,7 +1,7 @@
 # windows workspace
 This is the workspace in which all development, training and local testing of the RL algorithms are done, and is meant for running on a windows computer with the Cybersea simulator.
 
-It builds on OpenAI's Spinning Up (https://spinningup.openai.com/en/latest/), but is different in that it is only compatible with tensorflow 1. If pytorch if your backend of choice, this is easily done going from Spinning Up's repository.
+It builds on OpenAI's Spinning Up (https://spinningup.openai.com/en/latest/), but is different in that it is only compatible with tensorflow 1 as I selected to remove Pytorch code for better readability for my own use case. If Pytorch if your backend of choice, this is easily done going from Spinning Up's repository which seems to actually move towards Pytorch.
 
 ## How to use
 

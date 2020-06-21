@@ -220,7 +220,7 @@ for i in range(len(methods)):
 
 ftest, axtest = plt.subplots(1,1,figsize=SMALL_SQUARE,sharex = True)
 plt.xlabel('Time [s]')
-axtest.set_ylabel('$W^*_{total}$ [J]')
+axtest.set_ylabel('$W_{total}$ [J]')
 
 f, axes = plt.subplots(4,1,figsize=SMALL_SQUARE,sharex = True)
 plt.xlabel('Time [s]')

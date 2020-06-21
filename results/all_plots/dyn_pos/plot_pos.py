@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.cbook import get_sample_data
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+from matplotlib.ticker import MaxNLocator
 
 import sys
 import os
@@ -28,14 +29,19 @@ colors[3] = 'orange'
 
 labels = ['${}^\\circ$'.format(val) for val in headings]
 
-colors[3] = 'orange'
-#colors = [(np.random.random(), np.random.random(), np.random.random()) for _ in headings]
-
 '''
 Positional data
 '''
 path = 'bagfile__{}_observer_eta_ned.csv' # General path to eta
 path_ref = 'bagfile__RLintegral-135deg_reference_filter_state_desired.csv'
+
+ref_data = np.genfromtxt(path_ref,delimiter=',')
+ref_north = (ref_data[1:,1:2] - ref_data[1:,1:2][0,0] ) 
+ref_east = (ref_data[1:,2:3] - ref_data[1:,2:3][0,0])
+ref_yaw = ref_data[1:,3:4]
+ref_time = ref_data[1:,-1:]
+refdata = [ref_north, ref_east, ref_yaw]
+n_0, e_0, p_0 = ref_north, ref_east, ref_yaw
 
 north, east, psi, time = [np.zeros((1,1))]*len(methods), [np.zeros((1,1))]*len(methods), [np.zeros((1,1))]*len(methods), [np.zeros((1,1))]*len(methods)
 ALL_POS_DATA = []
@@ -43,29 +49,13 @@ for i in range(len(methods)):
     fpath = path.format(methods[i])
     posdata = np.genfromtxt(fpath,delimiter=',')
     # 0th elements is text
-
-    north[i] = posdata[1:,1:2]
-    east[i] = posdata[1:,2:3]
+    north[i] = ( posdata[1:,1:2] - ref_data[1:,1:2][0,0]) 
+    east[i] = ( posdata[1:,2:3] - ref_data[1:,2:3][0,0]) 
     psi[i] = posdata[1:,6:7]
     time[i] = posdata[1:,7:]
     ALL_POS_DATA.append([north[i], east[i], psi[i], time[i]] )
 
 
-refdata = np.genfromtxt(path_ref,delimiter=',')
-ref_north = refdata[1:,1:2]
-ref_east = refdata[1:,2:3]
-ref_yaw = refdata[1:,3:4]
-ref_time = refdata[1:,-1:]
-
-if False: # manually moving reffilter as it might not fit time
-    ref_time = ref_time - 2 *np.ones_like(ref_time)
-    ref_time[ref_time < 0] = 0.0
-    ref_time = ref_time[1:]
-    ref_time = np.vstack( (ref_time,np.array([240])))
-
-refdata = [ref_north, ref_east, ref_yaw]
-
-n_0, e_0, p_0 = north[0], east[0], psi[0]
 # Points for the different box test square. These are only the coords and not the changes relative to eachother. Very first elements are nan
 box_n = [n_0[1,0],  n_0[1,0] + 5, n_0[1,0] + 5.0,  n_0[1,0] + 5.0,  n_0[1,0],           n_0[1,0]]
 box_e = [e_0[1,0],  e_0[1,0],     e_0[1,0] - 5.0,  e_0[1,0] - 5.0,  e_0[1,0] - 5.0,     e_0[1,0]]
@@ -76,37 +66,37 @@ setpoint_times = [0]
 '''
 ### NEDPOS
 '''
-f = plt.figure(figsize=SMALL_SQUARE)
-ax = plt.gca()
-# ax.scatter(box_e,box_n,color = 'black',marker='8',s=50,label='Set points')
-ax.scatter(box_e[0],box_n[0],color = 'black',marker='8',s = 50,label='Set point')
-# ax.set_ylim(151.2,160)
+if False:
+    f = plt.figure(figsize=SMALL_SQUARE)
+    ax = plt.gca()
+    # ax.scatter(box_e,box_n,color = 'black',marker='8',s=50,label='Set points')
+    ax.scatter(box_e[0],box_n[0],color = 'black',marker='8',s = 50,label='Set point')
 
-for i in range(len(methods)):
-    e, n = east[i], north[i]
-    plt.plot(e,n,label=labels[i])#,color = colors[i])
+    for i in range(len(methods)):
+        e, n = east[i], north[i]
+        plt.plot(e,n,label=labels[i])#,color = colors[i])
 
-show_dir = False
-if show_dir:
-    # North
-    x = box_e[0] + 0.6; y = (box_n[0] + box_n[1]) / 2 - 0.5; dx = 0; dy = (box_n[1] - box_n[0]) * 0.2
-    ax.annotate("", xy=(x+dx,y+dy), xytext=(x, y), arrowprops=dict(arrowstyle="->"))
-    # West
-    x = (box_e[1] + box_e[2]) / 2 - (box_e[2] - box_e[1]) * 0.1; y = box_n[1] + 1.2; dx = (box_e[2] - box_e[1]) * 0.2; dy = 0
-    ax.annotate("", xy=(x+dx,y+dy), xytext=(x, y), arrowprops=dict(arrowstyle="->"))
-    # South
-    x = box_e[2] - 0.3; y = (box_n[-3] + box_n[-2]) / 2 + 0.5; dx = 0; dy = -(box_n[-3] - box_n[-2]) * 0.2
-    ax.annotate("", xy=(x+dx,y+dy), xytext=(x, y), arrowprops=dict(arrowstyle="->"))
-    # East
-    x = (box_e[-1] + box_e[-2]) / 2 - (box_e[-1] - box_e[-2]) * 0.05; y = box_n[-1] - 0.3; dx = (box_e[-1] - box_e[-2]) * 0.2; dy = 0
-    ax.annotate("", xy=(x+dx,y+dy), xytext=(x, y), arrowprops=dict(arrowstyle="->"))
+    show_dir = False
+    if show_dir:
+        # North
+        x = box_e[0] + 0.6; y = (box_n[0] + box_n[1]) / 2 - 0.5; dx = 0; dy = (box_n[1] - box_n[0]) * 0.2
+        ax.annotate("", xy=(x+dx,y+dy), xytext=(x, y), arrowprops=dict(arrowstyle="->"))
+        # West
+        x = (box_e[1] + box_e[2]) / 2 - (box_e[2] - box_e[1]) * 0.1; y = box_n[1] + 1.2; dx = (box_e[2] - box_e[1]) * 0.2; dy = 0
+        ax.annotate("", xy=(x+dx,y+dy), xytext=(x, y), arrowprops=dict(arrowstyle="->"))
+        # South
+        x = box_e[2] - 0.3; y = (box_n[-3] + box_n[-2]) / 2 + 0.5; dx = 0; dy = -(box_n[-3] - box_n[-2]) * 0.2
+        ax.annotate("", xy=(x+dx,y+dy), xytext=(x, y), arrowprops=dict(arrowstyle="->"))
+        # East
+        x = (box_e[-1] + box_e[-2]) / 2 - (box_e[-1] - box_e[-2]) * 0.05; y = box_n[-1] - 0.3; dx = (box_e[-1] - box_e[-2]) * 0.2; dy = 0
+        ax.annotate("", xy=(x+dx,y+dy), xytext=(x, y), arrowprops=dict(arrowstyle="->"))
 
-ax.plot(ref_east, ref_north, '--', color='black',label='Reference')
-ax.set_xlabel('East position relative to NED frame origin [m]')
-ax.set_ylabel('North position relative to NED frame origin [m]')
-ax.legend(loc='best').set_draggable(True)
+    ax.plot(ref_east, ref_north, '--', color='black',label='Reference')
+    ax.set_xlabel('East [m]')
+    ax.set_ylabel('North [m]')
+    ax.legend(loc='best').set_draggable(True)
 
-f.tight_layout()
+    f.tight_layout()
 
 '''
 ### North and East plots
@@ -129,12 +119,12 @@ for axn,ax in enumerate(axes):
     if axn <= 1:
         ax.plot(ref_time, refdata[axn] + 1.0,'--', color='red', label = 'Boundary' if axn == 0 else None)
         ax.plot(ref_time, refdata[axn] - 1.0,'--', color='red')
+        ax.set_ylim(-1.5,1.5)
     else:
         ax.plot(ref_time, refdata[axn] + 5.0,'--', color='red')
         ax.plot(ref_time, refdata[axn] - 5.0,'--', color='red')
+        ax.set_ylim(-18,18)
 
-#axes[0].set_ylim(151.2,155)
-#axes[0].legend(loc='center left', bbox_to_anchor=(1, 0.5)).set_draggable(True)
 f0.tight_layout()
 
 '''

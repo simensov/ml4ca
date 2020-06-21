@@ -31,8 +31,9 @@ methods = ['RL']
 labels = ['RL']
 colors = [colors[2]]
 
-LAMBDA = 1.0 / 20.0 # set to one if using model sized data
+LAMBDA = 1.0 # / 20.0 # set to one if using model sized data
 TIMESCALE = (1 / (LAMBDA**0.5))
+REFERENCE_ERROR = 1.00
 
 set_params() # sets global plot parameters
 
@@ -42,38 +43,36 @@ Positional data
 path = 'bagfile__{}_observer_eta_ned.csv' # General path to eta
 path_ref = 'bagfile__RL_reference_filter_state_desired.csv'
 
+
+ref_data = np.genfromtxt(path_ref,delimiter=',')
+ref_north = (ref_data[1:,1:2] - ref_data[1:,1:2][0,0] )  * (1/LAMBDA)
+ref_east = (ref_data[1:,2:3] - ref_data[1:,2:3][0,0]) * (1/LAMBDA) * REFERENCE_ERROR
+ref_yaw = ref_data[1:,3:4] - 25 # the offset when starting the test in real life (was hard to get a perfect 0 degree heading)
+ref_time = ref_data[1:,-1:] * TIMESCALE
+refdata = [ref_north, ref_east, ref_yaw]
+n_0, e_0, p_0 = ref_north, ref_east, ref_yaw
+
 north, east, psi, time = [np.zeros((1,1))]*len(methods), [np.zeros((1,1))]*len(methods), [np.zeros((1,1))]*len(methods), [np.zeros((1,1))]*len(methods)
 ALL_POS_DATA = []
 for i in range(len(methods)):
     fpath = path.format(methods[i])
     posdata = np.genfromtxt(fpath,delimiter=',')
-    # 0th elements are nan for some reason
-
-    north[i] = posdata[1:,1:2] * (1/LAMBDA)
-    east[i] = posdata[1:,2:3] * (1/LAMBDA)
+    # 0th elements are NaN due to column text
+    north[i] = ( posdata[1:,1:2] - ref_data[1:,1:2][0,0]) * (1/LAMBDA)
+    east[i] = ( posdata[1:,2:3] - ref_data[1:,2:3][0,0]) * (1/LAMBDA)
     psi[i] = posdata[1:,6:7] - 25 # the offset when starting the test in real life (was hard to get a perfect 0 degree heading)
     time[i] = posdata[1:,7:] * TIMESCALE
-    print(time[i].shape)
     ALL_POS_DATA.append([north[i], east[i], psi[i], time[i]] )
 
 N = 50 # 300 pnts is ish 15 seconds of observer messages, but gives too early reactions. Neeed to filter some of the noise from the roll motions!
-north[0] = runningMean(north[0] - (north[0])[0,0],N).reshape(north[0].shape)
-east[0] = runningMean(east[0] - (east[0])[0,0],N).reshape(east[0].shape)
+north[0] = runningMean(north[0],N).reshape(north[0].shape)
+east[0] = runningMean(east[0],N).reshape(east[0].shape)
 psi[0] = runningMean(psi[0],N).reshape(psi[0].shape)
 ALL_POS_DATA[0] = [north[0], east[0], psi[0], time[0]]
 
-refdata = np.genfromtxt(path_ref,delimiter=',')
-ref_north = (refdata[1:,1:2] - refdata[1:,1:2][0,0] )  * (1/LAMBDA)
-ref_east = (refdata[1:,2:3] - refdata[1:,2:3][0,0]) * (1/LAMBDA)
-ref_yaw = refdata[1:,3:4] - 25 # the offset when starting the test in real life (was hard to get a perfect 0 degree heading)
-ref_time = refdata[1:,-1:] * TIMESCALE
-refdata = [ref_north, ref_east, ref_yaw]
-
-n_0, e_0, p_0 = ref_north, ref_east, ref_yaw
-
 incr = 5.0 * (1/LAMBDA)
 # Points for the different box test square. These are only the coords and not the changes relative to eachother. Very first elements are nan
-box_e = [e_0[1,0],  e_0[1,0],           e_0[1,0] - incr,  e_0[1,0] - incr,  e_0[1,0] - incr,     e_0[1,0]]
+box_e = [e_0[1,0],  e_0[1,0],           e_0[1,0] - incr * REFERENCE_ERROR,  e_0[1,0] - incr* REFERENCE_ERROR,  e_0[1,0] - incr*REFERENCE_ERROR,     e_0[1,0]]
 box_n = [n_0[1,0],  n_0[1,0] + incr,    n_0[1,0] + incr,  n_0[1,0] + incr,  n_0[1,0],           n_0[1,0]]
 box_p = [p_0[1,0],  p_0[1,0],           p_0[1,0],        p_0[1,0] - 45,     p_0[1,0] - 45,      p_0[1,0]]
 
@@ -87,8 +86,8 @@ f = plt.figure(figsize=SMALL_SQUARE,dpi=100)
 ax = plt.gca()
 ax.scatter(box_e,box_n,color = 'black',marker='8',s = 50,label='Set points')
 
-ax.set_xlim((1148 - 5.5)*1/LAMBDA, (1148 + 5.5)*1/LAMBDA)
-ax.set_ylim((179 - 5.5)*1/LAMBDA,  (179 + 5.5)*1/LAMBDA)
+ax.set_xlim((east[0][0,0] - 8.5)*1/LAMBDA, (east[0][0,0] + 2.5)*1/LAMBDA)
+ax.set_ylim((north[0][0,0] - 2.5)*1/LAMBDA,  (north[0][0,0] + 8.5)*1/LAMBDA)
 
 for i in range(len(methods)):
     e, n = east[i], north[i]
@@ -125,8 +124,6 @@ else:
     if len(methods) == 1:
         from matplotlib import transforms
 
-        ax.set_xlim(1143*(1/LAMBDA),1153*(1/LAMBDA))
-        ax.set_ylim(173.75*(1/LAMBDA),184.75*(1/LAMBDA))
         #            [start,    onway northeast,    northeast,  onway northwest,    northwest,  nw with rot,    onway southwest, sw,  onway back]
         draw_times = (np.array([6,        21,                 73.75,         105,                140,        162,            210,             252, 293])*TIMESCALE).tolist() # used with running mean
         # draw_times = [7.5,      23,                 75,         105,                140,        163,            210,             252, 294] # used with no running mean
@@ -160,17 +157,18 @@ else:
                     
 ax.plot(ref_east, ref_north, '--', color='black',label='Reference')
 ax.plot([], [], color='grey', marker='^', linestyle='None', markersize=10, markeredgewidth=1,markeredgecolor = 'black', alpha=0.6,label='Vessel (to scale)')
-ax.set_xlabel('East position relative to NED frame origin [m]')
-ax.set_ylabel('North position relative to NED frame origin [m]')
+ax.set_xlabel('East [m]')
+ax.set_ylabel('North [m]')
 ax.legend(loc='best').set_draggable(True)
 
 f.tight_layout()
+
 # plt.savefig('realBox_pos_ned.pdf')
 
 '''
 ### North and East plots
 '''
-f0, axes = plt.subplots(3,1,figsize=SMALL_RECTANGLE,sharex = True)
+f0, axes = plt.subplots(3,1,figsize=RECTANGLE,sharex = True)
 plt.xlabel('Time [s]')
 axes[0].set_ylabel('North [m]')
 axes[1].set_ylabel('East [m]')
@@ -220,8 +218,6 @@ if False: # This is used to verify that averages is true to the real data
             local_data = pos_data_averages[i][axn][1]
             ax.plot(local_time,local_data,color = colors[i])
     f0.tight_layout()
-    plt.show()
-    sys.exit()
 
 # Here, three IAE plots will be shown ontop of eachother
 etas = [] # list of columvectors
@@ -241,8 +237,6 @@ for tup in ref_data_averages:
     local_ned.append(d)
 
 refs = np.array(local_ned).T
-
-plt.show()
 
 f0, ax = plt.subplots(1,1,figsize=SMALL_SQUARE,sharex = True)
 IAES = [] # cumulative errors over time

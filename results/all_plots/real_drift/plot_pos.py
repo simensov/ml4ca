@@ -30,7 +30,6 @@ colors[3] = 'orange'
 Positional data
 '''
 path = 'bagfile__{}_observer_eta_ned.csv' # General path to eta
-# path_ref = 'bagfile__NO_reference_filter_state_desired.csv'
 
 north, east, psi, time = [np.zeros((1,1))]*len(methods), [np.zeros((1,1))]*len(methods), [np.zeros((1,1))]*len(methods), [np.zeros((1,1))]*len(methods)
 ALL_POS_DATA = []
@@ -39,27 +38,11 @@ for i in range(len(methods)):
     posdata = np.genfromtxt(fpath,delimiter=',')
     # 0th elements is text
 
-    north[i] = posdata[1:,1:2]
-    east[i] = posdata[1:,2:3]
+    north[i] = posdata[1:,1:2] - posdata[1:,1:2][0,0]
+    east[i] = posdata[1:,2:3] - posdata[1:,2:3][0,0]
     psi[i] = posdata[1:,6:7]
     time[i] = posdata[1:,7:]
     ALL_POS_DATA.append([north[i], east[i], psi[i], time[i]] )
-
-'''
-refdata = np.genfromtxt(path_ref,delimiter=',')
-ref_north = refdata[1:,1:2]
-ref_east = refdata[1:,2:3]
-ref_yaw = refdata[1:,3:4]
-ref_time = refdata[1:,-1:]
-
-if False: # manually moving reffilter as it might not fit time
-    ref_time = ref_time - 2 *np.ones_like(ref_time)
-    ref_time[ref_time < 0] = 0.0
-    ref_time = ref_time[1:]
-    ref_time = np.vstack( (ref_time,np.array([240])))
-
-refdata = [ref_north, ref_east, ref_yaw]
-'''
 
 n_0, e_0, p_0 = north[0], east[0], psi[0]
 # Points for the different box test square. These are only the coords and not the changes relative to eachother. Very first elements are nan
@@ -82,8 +65,8 @@ f = plt.figure(figsize=SMALL_SQUARE)
 ax = plt.gca()
 
 ax.scatter(box_e[0], box_n[0],color = 'black',marker='8',s = 50,label='Initial position',zorder =20)
-ax.set_ylim(4,21)
-ax.set_xlim(8,24)
+ax.set_ylim(-10,7) # 17 distanc
+ax.set_xlim(-11,6)
 
 for i in range(len(methods)):
     e, n = east[i], north[i]
@@ -98,8 +81,8 @@ for i, (e,n,p) in enumerate(zip(east[0], north[0], psi[0])):
         plt.scatter(e, n, s=225, marker = m, color = 'grey', linewidths = 1, edgecolors = 'black', alpha=0.5, zorder=0)
 
 ax.plot([], [], color='grey', marker='^', linestyle='None', markersize=10, markeredgewidth=1,markeredgecolor = 'black', label='Vessel (to scale lengthwise)')
-ax.set_xlabel('East position relative to support vessel [m]')
-ax.set_ylabel('North position relative to support vessel [m]')
+ax.set_xlabel('East [m]')
+ax.set_ylabel('North [m]')
 ax.legend(loc='best').set_draggable(True)
 
 f.tight_layout()

@@ -31,36 +31,26 @@ Positional data
 path = 'bagfile__{}_observer_eta_ned.csv' # General path to eta
 path_ref = 'bagfile__RL_reference_filter_state_desired.csv'
 
+ref_data = np.genfromtxt(path_ref,delimiter=',')
+ref_north = (ref_data[1:,1:2] - ref_data[1:,1:2][0,0] ) 
+ref_east = (ref_data[1:,2:3] - ref_data[1:,2:3][0,0])
+ref_yaw = ref_data[1:,3:4]
+ref_time = ref_data[1:,-1:]
+refdata = [ref_north, ref_east, ref_yaw]
+n_0, e_0, p_0 = ref_north, ref_east, ref_yaw
+
 north, east, psi, time = [np.zeros((1,1))]*len(methods), [np.zeros((1,1))]*len(methods), [np.zeros((1,1))]*len(methods), [np.zeros((1,1))]*len(methods)
 ALL_POS_DATA = []
 for i in range(len(methods)):
     fpath = path.format(methods[i])
     posdata = np.genfromtxt(fpath,delimiter=',')
-    # 0th elements are nan for some reason
-
-    north[i] = posdata[1:,1:2]
-    if False and methods[i] == 'RL':
-        north[i] = posdata[1:,1:2] + 0.1 * np.ones_like(posdata[1:,1:2])
-
-    east[i] = posdata[1:,2:3]
-    if False and methods[i] == 'QP':
-        east[i] = posdata[1:,2:3] - 0.8 * np.ones_like(posdata[1:,2:3])
-    elif False and methods[i] == 'RL':
-        east[i] = posdata[1:,2:3] + 0.45 * np.ones_like(posdata[1:,2:3])
-
+    # 0th elements are nan due to being text
+    north[i] = ( posdata[1:,1:2] - ref_data[1:,1:2][0,0]) 
+    east[i] = ( posdata[1:,2:3] - ref_data[1:,2:3][0,0]) 
     psi[i] = posdata[1:,6:7]
     time[i] = posdata[1:,7:]
     ALL_POS_DATA.append([north[i], east[i], psi[i], time[i]] )
 
-
-refdata = np.genfromtxt(path_ref,delimiter=',')
-ref_north = refdata[1:,1:2] 
-ref_east = refdata[1:,2:3] 
-ref_yaw = refdata[1:,3:4]
-ref_time = refdata[1:,-1:]
-refdata = [ref_north, ref_east, ref_yaw]
-
-n_0, e_0, p_0 = ref_north, ref_east, ref_yaw
 
 # Points for the different box test square. These are only the coords and not the changes relative to eachother. Very first elements are nan
 box_n = [n_0[1,0],  n_0[1,0] + 5, n_0[1,0] + 5.0,  n_0[1,0] + 5.0,  n_0[1,0],           n_0[1,0]]
@@ -75,14 +65,13 @@ setpoint_times = [0,10, 80, 150, 190, 270, 350]
 f = plt.figure(figsize=SMALL_SQUARE)
 ax = plt.gca()
 ax.scatter(box_e,box_n,color = 'black',marker='8',s=50,label='Set points')
-#ax.grid(color='grey', linestyle='--', alpha=0.5)
 show_current_angle = True
 if show_current_angle:
     ang = np.deg2rad(135)
     r = 1
-    x = box_e[1] - 3; y = box_n[1] + 2.2;
+    x = box_e[1] - 3; y = box_n[1] + 2.2
     dx = r * np.sin(ang); dy = r * np.cos(ang)
-    rect = patches.Rectangle((1124.3, 158.5), 2.6,1.5,linewidth = 1,alpha = 0.5, facecolor='#6b4c9a') # 
+    rect = patches.Rectangle( (x-0.9, y-1.15), 2.6,1.5,linewidth = 1,alpha = 0.5, facecolor='#6b4c9a') # 
     ax.add_patch(rect)
 
     #ax.arrow(x,y,dx,dy)
@@ -111,8 +100,8 @@ for i in range(len(methods)):
     plt.plot(e,n,color = colors[i], label=labels[i])
 
 ax.plot(ref_east, ref_north, '--', color='black',label='Reference')
-ax.set_xlabel('East position relative to NED frame origin [m]')
-ax.set_ylabel('North position relative to NED frame origin [m]')
+ax.set_xlabel('East [m]')
+ax.set_ylabel('North [m]')
 ax.legend(loc='best').set_draggable(True)
 f.tight_layout()
 

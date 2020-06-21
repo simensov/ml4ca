@@ -9,6 +9,7 @@ colors  = ['#3e9651', '#3969b1', '#cc2529', '#000000']
 LARGE_SQUARE = (9,9)
 SMALL_SQUARE = (6,6)
 RECTANGLE = (12,9)
+SMALL_RECTANGLE = (9,6)
 NARROW_RECTANGLE =(12,5)
 
 # print(plt.rcParams.keys()) # for all alternatives

@@ -17,7 +17,7 @@ elif platform.system().lower() == 'windows':
 
 sys.path.append(parent_dir)
 
-from common import methods, labels, colors, set_params, get_secondly_averages, absolute_error, IAE, plot_gray_areas, SMALL_SQUARE, RECTANGLE
+from common import methods, labels, colors, set_params, get_secondly_averages, absolute_error, IAE, plot_gray_areas, SMALL_SQUARE, RECTANGLE, SMALL_RECTANGLE
 
 methods = methods + ['RLintegral']
 labels = labels + ['RLI']
@@ -119,7 +119,7 @@ f.tight_layout()
 '''
 ### North and East plots
 '''
-f0, axes = plt.subplots(3,1,figsize=RECTANGLE,sharex = True)
+f0, axes = plt.subplots(3,1,figsize=SMALL_RECTANGLE,sharex = True)
 plt.xlabel('Time [s]')
 axes[0].set_ylabel('North [m]')
 axes[1].set_ylabel('East [m]')

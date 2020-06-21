@@ -1,6 +1,7 @@
 import numpy as np 
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+import copy
 
 import sys
 import os
@@ -209,6 +210,10 @@ for i in range(len(methods)):
     for j in range(3):
         cumsums[i][j] = np.cumsum(work_elements[i][j])
 
+ftest, axtest = plt.subplots(1,1,figsize=SMALL_SQUARE,sharex = True)
+plt.xlabel('Time [s]')
+axtest.set_ylabel('$W^*_{total}$ [J]')
+
 f, axes = plt.subplots(4,1,figsize=SMALL_SQUARE,sharex = True)
 plt.xlabel('Time [s]')
 axes[0].set_ylabel('$W^*_{bow}$ [J]')
@@ -230,7 +235,7 @@ for axn,ax in enumerate(axes):
         	new_vals = [cumsums[i][axn_loc][0:shortest] for axn_loc in range(3)] # adjust for this possible size difference
         	relevant_data = sum(new_vals) # take the sum over all of the three thrusters to get the total
         	t = time_nstern[i][:shortest] # adjust the time list for same reason as above
-
+            
         ax.plot(t,relevant_data, color=colors[i],label=labels[i],alpha=0.9)
 
         # annotate the ending value
@@ -246,11 +251,16 @@ for axn,ax in enumerate(axes):
             moveif['RL'] = -0.2 * val
 
         ax.annotate(txt, (x_coord, 0.95 * val + (activation * moveif[labels[i]])),color=colors[i], weight='bold',size=9)
+        if axn == 3: axtest.plot(t,relevant_data,color=colors[i],label=labels[i], alpha=0.9); axtest.annotate(txt, (x_coord, val), color=colors[i], weight='bold',size=9)
     
     plot_gray_areas(ax,setpnt_areas)
+    
 
 axes[0].legend(loc='best').set_draggable(True)
+axtest.legend(loc='best').set_draggable(True)
+plot_gray_areas(axtest,setpnt_areas)
 f.tight_layout()
+ftest.tight_layout()
 
 # END RESULTS
 final_work = [[[],[],[]], [[],[],[]], [[],[],[]], [[],[],[]] ]

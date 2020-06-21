@@ -218,6 +218,10 @@ for i in range(len(methods)):
     for j in range(3):
         cumsums[i][j] = np.cumsum(work_elements[i][j])
 
+ftest, axtest = plt.subplots(1,1,figsize=SMALL_SQUARE,sharex = True)
+plt.xlabel('Time [s]')
+axtest.set_ylabel('$W^*_{total}$ [J]')
+
 f, axes = plt.subplots(4,1,figsize=SMALL_SQUARE,sharex = True)
 plt.xlabel('Time [s]')
 axes[0].set_ylabel('$W^*_{bow}$ [J]')
@@ -254,13 +258,15 @@ for axn,ax in enumerate(axes):
             activation = 1
 
         ax.annotate(txt, (x_coord, 0.97*val + (activation * moveif[labels[i]])),color=colors[i], weight='bold')
+        if axn == 3: axtest.plot(t,relevant_data,color=colors[i],label=labels[i], alpha=0.9); axtest.annotate(txt, (x_coord, val), color=colors[i], weight='bold',size=9)
     
     plot_gray_areas(ax,setpnt_areas)
 
 axes[0].legend(loc='best').set_draggable(True)
+axtest.legend(loc='best').set_draggable(True)
+plot_gray_areas(axtest,setpnt_areas)
 f.tight_layout()
-
-
+ftest.tight_layout()
 
 
 # END RESULTS

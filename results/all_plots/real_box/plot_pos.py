@@ -21,7 +21,7 @@ elif platform.system().lower() == 'windows':
 
 sys.path.append(parent_dir)
 
-from common import methods, labels, colors, set_params, get_secondly_averages, absolute_error, IAE, plot_gray_areas, SMALL_SQUARE, RECTANGLE, runningMean
+from common import methods, labels, colors, set_params, get_secondly_averages, absolute_error, IAE, plot_gray_areas, SMALL_SQUARE, RECTANGLE, runningMean, SMALL_RECTANGLE
 
 methods = methods + ['RLintegral']
 labels = labels + ['RLI']
@@ -30,6 +30,9 @@ colors[3] = 'orange'
 methods = ['RL']
 labels = ['RL']
 colors = [colors[2]]
+
+LAMBDA = 1.0 / 20.0 # set to one if using model sized data
+TIMESCALE = (1 / (LAMBDA**0.5))
 
 set_params() # sets global plot parameters
 
@@ -46,36 +49,36 @@ for i in range(len(methods)):
     posdata = np.genfromtxt(fpath,delimiter=',')
     # 0th elements are nan for some reason
 
-    north[i] = posdata[1:,1:2]
-    east[i] = posdata[1:,2:3]
+    north[i] = posdata[1:,1:2] * (1/LAMBDA)
+    east[i] = posdata[1:,2:3] * (1/LAMBDA)
     psi[i] = posdata[1:,6:7] - 25 # the offset when starting the test in real life (was hard to get a perfect 0 degree heading)
-    time[i] = posdata[1:,7:]
+    time[i] = posdata[1:,7:] * TIMESCALE
+    print(time[i].shape)
     ALL_POS_DATA.append([north[i], east[i], psi[i], time[i]] )
 
-
-
-N = 50 # 300 pnts is ish 15 seconds of observer messages, but gives too early reactings. Neeed to filter some of the noise from the roll motions!
-north[0] = runningMean(north[0],N).reshape(north[0].shape)
-east[0] = runningMean(east[0],N).reshape(east[0].shape)
+N = 50 # 300 pnts is ish 15 seconds of observer messages, but gives too early reactions. Neeed to filter some of the noise from the roll motions!
+north[0] = runningMean(north[0] - (north[0])[0,0],N).reshape(north[0].shape)
+east[0] = runningMean(east[0] - (east[0])[0,0],N).reshape(east[0].shape)
 psi[0] = runningMean(psi[0],N).reshape(psi[0].shape)
 ALL_POS_DATA[0] = [north[0], east[0], psi[0], time[0]]
 
 refdata = np.genfromtxt(path_ref,delimiter=',')
-ref_north = refdata[1:,1:2] 
-ref_east = refdata[1:,2:3] 
+ref_north = (refdata[1:,1:2] - refdata[1:,1:2][0,0] )  * (1/LAMBDA)
+ref_east = (refdata[1:,2:3] - refdata[1:,2:3][0,0]) * (1/LAMBDA)
 ref_yaw = refdata[1:,3:4] - 25 # the offset when starting the test in real life (was hard to get a perfect 0 degree heading)
-ref_time = refdata[1:,-1:]
+ref_time = refdata[1:,-1:] * TIMESCALE
 refdata = [ref_north, ref_east, ref_yaw]
 
 n_0, e_0, p_0 = ref_north, ref_east, ref_yaw
 
+incr = 5.0 * (1/LAMBDA)
 # Points for the different box test square. These are only the coords and not the changes relative to eachother. Very first elements are nan
-box_e = [e_0[1,0],  e_0[1,0],     e_0[1,0] - 5.0,  e_0[1,0] - 5.0,  e_0[1,0] - 5.0,     e_0[1,0]]
-box_n = [n_0[1,0],  n_0[1,0] + 5, n_0[1,0] + 5.0,  n_0[1,0] + 5.0,  n_0[1,0],           n_0[1,0]]
-box_p = [p_0[1,0],  p_0[1,0],     p_0[1,0],        p_0[1,0] - 45,   p_0[1,0] - 45,      p_0[1,0]]
+box_e = [e_0[1,0],  e_0[1,0],           e_0[1,0] - incr,  e_0[1,0] - incr,  e_0[1,0] - incr,     e_0[1,0]]
+box_n = [n_0[1,0],  n_0[1,0] + incr,    n_0[1,0] + incr,  n_0[1,0] + incr,  n_0[1,0],           n_0[1,0]]
+box_p = [p_0[1,0],  p_0[1,0],           p_0[1,0],        p_0[1,0] - 45,     p_0[1,0] - 45,      p_0[1,0]]
 
 # setpoint_times = np.hstack( ([0], np.array([10, 80, 150, 190, 270, 350])+9) ) # from before modifications to csv-files
-setpoint_times = [0, 10, 80, 150, 190, 270, 350]
+setpoint_times = (np.array([0, 10, 80, 150, 190, 270, 350]) * TIMESCALE).tolist()
 
 '''
 ### NEDPOS
@@ -84,8 +87,8 @@ f = plt.figure(figsize=SMALL_SQUARE,dpi=100)
 ax = plt.gca()
 ax.scatter(box_e,box_n,color = 'black',marker='8',s = 50,label='Set points')
 
-ax.set_xlim(1148 - 5.5, 1148 + 5.5)
-ax.set_ylim(179 - 5.5,  179 + 5.5)
+ax.set_xlim((1148 - 5.5)*1/LAMBDA, (1148 + 5.5)*1/LAMBDA)
+ax.set_ylim((179 - 5.5)*1/LAMBDA,  (179 + 5.5)*1/LAMBDA)
 
 for i in range(len(methods)):
     e, n = east[i], north[i]
@@ -100,7 +103,7 @@ if marker:
             skip = False
             if i % nth == 0 or i == 0:
                 for j, tup in enumerate(corners):
-                    if np.sqrt((e-tup[0])**2 + (n-tup[1])**2 ) < 0.5 and np.abs(p - tup[2]) < 10.0:
+                    if np.sqrt((e-tup[0])**2 + (n-tup[1])**2 ) < (0.5 * (1/LAMBDA)) and np.abs(p - tup[2]) < 10.0:
                         if j == 2 or j == 3:
                             if corners[tup] < 1:
                                 corners[tup] +=1
@@ -122,10 +125,10 @@ else:
     if len(methods) == 1:
         from matplotlib import transforms
 
-        ax.set_xlim(1143,1153)
-        ax.set_ylim(173.75,184.75)
+        ax.set_xlim(1143*(1/LAMBDA),1153*(1/LAMBDA))
+        ax.set_ylim(173.75*(1/LAMBDA),184.75*(1/LAMBDA))
         #            [start,    onway northeast,    northeast,  onway northwest,    northwest,  nw with rot,    onway southwest, sw,  onway back]
-        draw_times = [6,        21,                 73.75,         105,                140,        162,            210,             252, 293] # used with running mean
+        draw_times = (np.array([6,        21,                 73.75,         105,                140,        162,            210,             252, 293])*TIMESCALE).tolist() # used with running mean
         # draw_times = [7.5,      23,                 75,         105,                140,        163,            210,             252, 294] # used with no running mean
         time_dict = { i : 0 for i in draw_times}
         data_time = time[i]
@@ -137,7 +140,7 @@ else:
                 if data_time[t] > t_ref and time_dict[t_ref] == 0:
                     time_dict[t_ref] += 1
                     e_cg, n_cg, psi_cg = float(e[t]), float(n[t]), float(p[t]) # represents position of CG and rotation around it in tthe NED frame
-                    L1 = 3.0; L2 = 2.2; W = 0.7; L_cg = 1.65 # full length, lengt from stern to bow-curvature, width
+                    L1 = 3.0*(1/LAMBDA); L2 = 2.2*(1/LAMBDA); W = 0.7*(1/LAMBDA); L_cg = 1.65*(1/LAMBDA) # full length, lengt from stern to bow-curvature, width
                     e_skew = -W / 2; n_skew = -L_cg # scew iof polygon vertices away from cg
 
                     vertices = np.array([[e_cg + e_skew, n_cg + n_skew],
@@ -167,7 +170,7 @@ f.tight_layout()
 '''
 ### North and East plots
 '''
-f0, axes = plt.subplots(3,1,figsize=RECTANGLE,sharex = True)
+f0, axes = plt.subplots(3,1,figsize=SMALL_RECTANGLE,sharex = True)
 plt.xlabel('Time [s]')
 axes[0].set_ylabel('North [m]')
 axes[1].set_ylabel('East [m]')
@@ -183,7 +186,6 @@ for axn,ax in enumerate(axes):
     ax.plot(ref_time, refdata[axn], '--',color='black', label = 'Reference' if axn == 0 else None)
     plot_gray_areas(ax, setpoint_times)
 
-   
 axes[0].legend(loc='best').set_draggable(True)
 f0.tight_layout()
 
@@ -240,11 +242,13 @@ for tup in ref_data_averages:
 
 refs = np.array(local_ned).T
 
+plt.show()
+
 f0, ax = plt.subplots(1,1,figsize=SMALL_SQUARE,sharex = True)
 IAES = [] # cumulative errors over time
 times = (np.array(ref_data_averages[0][0]) - 1.0).tolist()
 for i in range(len(methods)):
-    integrals, cumsums = IAE(etas[i] / np.array([5.,5.,25.]), refs / np.array([5.,5.,25.]), times)
+    integrals, cumsums = IAE(etas[i] / (np.array([5.,5.,25.])*1/LAMBDA), refs / (np.array([5.,5.,25.]))*1/LAMBDA, times)
     IAES.append(cumsums)
     ax.plot(times, IAES[i], color=colors[i], label=labels[i])
 

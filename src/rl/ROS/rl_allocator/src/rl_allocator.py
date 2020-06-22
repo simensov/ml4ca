@@ -36,8 +36,10 @@ import time
 from errorFrame import ErrorFrame, wrap_angle
 from utils import load_policy, create_publishable_messages, shutdown_handler
 
-SIMULATION = False
+SIMULATION = True
+INTEGRATOR = False
 NU_INPUTS = False # the model was not trained on anything else than the goals of velocities being zero. Setting this to True gives overshoots - dont use it, but keep code
+
 
 class RLTA(object):
     '''
@@ -137,7 +139,7 @@ class RLTA(object):
         self.prev_thrust_state        = np.zeros((6,))
         self.integrator               = np.zeros((3,))
         self.velocities = np.zeros((3,))
-        self.use_bodyframe_integrator = False
+        self.use_bodyframe_integrator = INTEGRATOR
         self.time_arrival             = time.time()
         self.EF                       = ErrorFrame(use_integral_effect=False)
         self.time_prev                = rospy.get_time()
@@ -205,7 +207,7 @@ class RLTA(object):
         # u = [0,0,0,0,0,0] # Incase DP messages is wanted to track but no control is to be issued - used for tracking the positon over time of the vessel under environmental forces
 
         # Publish action
-        pod_angle, stern_thruster_setpoints, bow_control = create_publishable_messages(u)
+        pod_angle, stern_thruster_setpoints, bow_control = create_publishable_messages(u, SIMULATION)
         self.pub_stern_angles.publish(pod_angle)
         self.pub_stern_thruster_setpoints.publish(stern_thruster_setpoints)
         self.pub_bow_control.publish(bow_control)

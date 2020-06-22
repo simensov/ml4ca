@@ -10,8 +10,6 @@ from custom_msgs.msg import podAngle, SternThrusterSetpoints, bowControl
 import rospy
 import time
 
-SIMULATION = False
-
 '''
 ### tensorflow specific
 '''
@@ -87,7 +85,7 @@ def load_policy(fpath, itr='last', deterministic=False, num_hidden_layers=None):
 '''
 ### Various helpful messages
 '''
-def create_publishable_messages(u):
+def create_publishable_messages(u,simulation=True):
     ''' Take in an array of actions and create publishable ROS messages for all thrusters.
     :params:
         - u (ndarray): a (6,) shaped array containing [n1,n2,n3,a1,a2,a3] in percentages and degrees
@@ -106,7 +104,7 @@ def create_publishable_messages(u):
     
     bow_control = bowControl()
     
-    if SIMULATION:
+    if simulation:
         bow_control.throttle_bow = float(thruster_percentages[2])
     else:
         bow_control.position_bow = int(45) # constant at 45 percent of 270 degrees (empirically found value during testing, 2. june 2020)

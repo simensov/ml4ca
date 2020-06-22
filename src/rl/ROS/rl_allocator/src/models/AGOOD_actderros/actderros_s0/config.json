@@ -1,0 +1,48 @@
+{
+    "ac_kwargs":	{
+        "activation":	"leaky_relu",
+        "hidden_sizes":	[
+            64,
+            64,
+            64
+        ]
+    },
+    "actor_critic":	"mlp_actor_critic",
+    "clip_ratio":	0.2,
+    "curriculum":	false,
+    "env_fn":	"env_fn",
+    "epochs":	1500,
+    "exp_name":	"actderros",
+    "ext":	true,
+    "gamma":	0.99,
+    "lam":	0.97,
+    "logger":	{
+        "<spinup.utils.logx.EpochLogger object at 0x00000234445F82B0>":	{
+            "epoch_dict":	{},
+            "exp_name":	"actderros",
+            "first_row":	true,
+            "log_current_row":	{},
+            "log_headers":	[],
+            "output_dir":	"C:\\Users\\simensov\\Documents\\thesis\\ml4ca\\src\\rl\\windows_workspace\\data\\actderros\\actderros_s0",
+            "output_file":	{
+                "<_io.TextIOWrapper name='C:\\\\Users\\\\simensov\\\\Documents\\\\thesis\\\\ml4ca\\\\src\\\\rl\\\\windows_workspace\\\\data\\\\actderros\\\\actderros_s0\\\\progress.txt' mode='w' encoding='cp1252'>":	{
+                    "mode":	"w"
+                }
+            }
+        }
+    },
+    "logger_kwargs":	{
+        "exp_name":	"actderros",
+        "output_dir":	"C:\\Users\\simensov\\Documents\\thesis\\ml4ca\\src\\rl\\windows_workspace\\data\\actderros\\actderros_s0"
+    },
+    "max_ep_len":	800,
+    "note":	"An attempt on finding the reward function which gives best behavior in ROS: sqrt vel + multivar + linear_thrust_pen(0.1,0.1,0.1) + linear_der_thrust(0.05,0.075,0.075). Also, timestep changed to 5 Hz",
+    "pi_lr":	0.0003,
+    "save_freq":	10,
+    "seed":	0,
+    "steps_per_epoch":	3200,
+    "target_kl":	0.01,
+    "train_pi_iters":	80,
+    "train_v_iters":	80,
+    "vf_lr":	0.001
+}

@@ -30,6 +30,17 @@ colors[3] = 'orange'
 methods = ['RL']
 labels = ['RL']
 colors = [colors[2]]
+path_ref = 'bagfile__RL_reference_filter_state_desired.csv'
+
+#methods = ['RLI']
+#labels = ['RLI']
+#colors = ['orange']
+#path_ref = 'bagfile__RLI_reference_filter_state_desired.csv'
+
+#methods = ['pseudo']
+#labels = ['IPI']
+#colors = [colors[0]]
+#path_ref = 'bagfile__pseudo_reference_filter_state_desired.csv'
 
 LAMBDA = 1.0 # / 20.0 # set to one if using model sized data
 TIMESCALE = (1 / (LAMBDA**0.5))
@@ -41,7 +52,8 @@ set_params() # sets global plot parameters
 Positional data
 '''
 path = 'bagfile__{}_observer_eta_ned.csv' # General path to eta
-path_ref = 'bagfile__RL_reference_filter_state_desired.csv'
+
+
 
 
 ref_data = np.genfromtxt(path_ref,delimiter=',')

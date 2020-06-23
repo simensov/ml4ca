@@ -23,24 +23,22 @@ sys.path.append(parent_dir)
 
 from common import methods, labels, colors, set_params, get_secondly_averages, absolute_error, IAE, plot_gray_areas, SMALL_SQUARE, RECTANGLE, runningMean, SMALL_RECTANGLE
 
-methods = methods + ['RLintegral']
-labels = labels + ['RLI']
-colors[3] = 'orange'
 
-methods = ['RL']
-labels = ['RL']
-colors = [colors[2]]
+# This method was crap - probably due to the integral being way to fast for heading... Should have been set to 0
+# methods = ['RLI']
+# labels = ['RLI']
+# colors = ['orange']
+# path_ref = 'bagfile__RLI_reference_filter_state_desired.csv'
+
+methods = ['pseudo','RL']
+labels = ['IPI','RL']
+colors = [colors[0],colors[2]]
 path_ref = 'bagfile__RL_reference_filter_state_desired.csv'
 
-#methods = ['RLI']
-#labels = ['RLI']
-#colors = ['orange']
-#path_ref = 'bagfile__RLI_reference_filter_state_desired.csv'
-
-#methods = ['pseudo']
-#labels = ['IPI']
-#colors = [colors[0]]
-#path_ref = 'bagfile__pseudo_reference_filter_state_desired.csv'
+# methods = ['pseudo']
+# labels = ['IPI']
+# colors = [colors[0]]
+# path_ref = 'bagfile__pseudo_reference_filter_state_desired.csv'
 
 LAMBDA = 1.0 # / 20.0 # set to one if using model sized data
 TIMESCALE = (1 / (LAMBDA**0.5))
@@ -53,18 +51,16 @@ Positional data
 '''
 path = 'bagfile__{}_observer_eta_ned.csv' # General path to eta
 
-
-
-
 ref_data = np.genfromtxt(path_ref,delimiter=',')
 ref_north = (ref_data[1:,1:2] - ref_data[1:,1:2][0,0] )  * (1/LAMBDA)
 ref_east = (ref_data[1:,2:3] - ref_data[1:,2:3][0,0]) * (1/LAMBDA) * REFERENCE_ERROR
-ref_yaw = ref_data[1:,3:4] - 25 # the offset when starting the test in real life (was hard to get a perfect 0 degree heading)
+ref_yaw = ref_data[1:,3:4] - ref_data[1:,3:4][0,0]
 ref_time = ref_data[1:,-1:] * TIMESCALE
 refdata = [ref_north, ref_east, ref_yaw]
 n_0, e_0, p_0 = ref_north, ref_east, ref_yaw
 
 north, east, psi, time = [np.zeros((1,1))]*len(methods), [np.zeros((1,1))]*len(methods), [np.zeros((1,1))]*len(methods), [np.zeros((1,1))]*len(methods)
+roll = [np.zeros((1,1))]*len(methods)
 ALL_POS_DATA = []
 for i in range(len(methods)):
     fpath = path.format(methods[i])
@@ -72,15 +68,18 @@ for i in range(len(methods)):
     # 0th elements are NaN due to column text
     north[i] = ( posdata[1:,1:2] - ref_data[1:,1:2][0,0]) * (1/LAMBDA)
     east[i] = ( posdata[1:,2:3] - ref_data[1:,2:3][0,0]) * (1/LAMBDA)
-    psi[i] = posdata[1:,6:7] - 25 # the offset when starting the test in real life (was hard to get a perfect 0 degree heading)
+    psi[i] = posdata[1:,6:7] - ref_data[1:,3:4][0,0]
     time[i] = posdata[1:,7:] * TIMESCALE
     ALL_POS_DATA.append([north[i], east[i], psi[i], time[i]] )
 
+    roll[i] = posdata[1:,4:5]
+
 N = 50 # 300 pnts is ish 15 seconds of observer messages, but gives too early reactions. Neeed to filter some of the noise from the roll motions!
-north[0] = runningMean(north[0],N).reshape(north[0].shape)
-east[0] = runningMean(east[0],N).reshape(east[0].shape)
-psi[0] = runningMean(psi[0],N).reshape(psi[0].shape)
-ALL_POS_DATA[0] = [north[0], east[0], psi[0], time[0]]
+for i in range(len(methods)):
+    north[i] = runningMean(north[i],N).reshape(north[i].shape)
+    east[i] = runningMean(east[i],N).reshape(east[i].shape)
+    psi[i] = runningMean(psi[i],N).reshape(psi[i].shape)
+    ALL_POS_DATA[i] = [north[i], east[i], psi[i], time[i]]
 
 incr = 5.0 * (1/LAMBDA)
 # Points for the different box test square. These are only the coords and not the changes relative to eachother. Very first elements are nan
@@ -90,6 +89,14 @@ box_p = [p_0[1,0],  p_0[1,0],           p_0[1,0],        p_0[1,0] - 45,     p_0[
 
 # setpoint_times = np.hstack( ([0], np.array([10, 80, 150, 190, 270, 350])+9) ) # from before modifications to csv-files
 setpoint_times = (np.array([0, 10, 80, 150, 190, 270, 350]) * TIMESCALE).tolist()
+
+if False:
+    f, ax = plt.subplots(1,1,figsize=RECTANGLE,sharex = True)
+    ax.set_xlabel('Time [s]')
+    ax.set_ylabel('Roll [deg]')
+    for i in range(len(methods)):
+        plt.plot(time[i],roll[i], color = colors[i], label=labels[i], zorder=10)
+    f.tight_layout()
 
 '''
 ### NEDPOS
@@ -105,8 +112,9 @@ for i in range(len(methods)):
     e, n = east[i], north[i]
     plt.plot(e,n,color = colors[i], label=labels[i], zorder=10)
 
-marker = False
-if marker:
+marker_style = 2 # 0 if small triangle, 1 is full sized model. Everything else drops plotting the vessel
+
+if marker_style == 0:
     if len(methods) == 1:
         nth = 200
         corners = {(box_e[0], box_n[0], box_p[0]) : 0, (box_e[1],box_n[1], box_p[1]):0, (box_e[2],box_n[2],box_p[2]):0,(box_e[3],box_n[3],box_p[3]):0, (box_e[4],box_n[4],box_p[4]):0}
@@ -132,7 +140,7 @@ if marker:
                     m._transform.rotate_deg(-(p - ref_yaw[0,0]))
                     plt.scatter(e, n, s=225, marker = m, color = 'grey', linewidths = 1, edgecolors = 'black', alpha=0.8, zorder=20)
 
-else:
+elif marker_style == 1:
     if len(methods) == 1:
         from matplotlib import transforms
 
@@ -167,12 +175,13 @@ else:
                     plt.draw()
                     ts = ax.transData
                     
+if marker_style in [0,1]:
+    ax.plot([], [], color='grey', marker='^', linestyle='None', markersize=10, markeredgewidth=1,markeredgecolor = 'black', alpha=0.6,label='Vessel (to scale)')
+
 ax.plot(ref_east, ref_north, '--', color='black',label='Reference')
-ax.plot([], [], color='grey', marker='^', linestyle='None', markersize=10, markeredgewidth=1,markeredgecolor = 'black', alpha=0.6,label='Vessel (to scale)')
 ax.set_xlabel('East [m]')
 ax.set_ylabel('North [m]')
 ax.legend(loc='best').set_draggable(True)
-
 f.tight_layout()
 
 # plt.savefig('realBox_pos_ned.pdf')

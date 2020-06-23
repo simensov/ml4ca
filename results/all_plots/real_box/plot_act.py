@@ -20,17 +20,12 @@ import math
 
 set_params()
 
-methods = methods + ['RLintegral']
-labels = labels + ['RLI']
-colors[3] = 'orange'
-
-methods = ['RL']
-labels = ['RL']
-colors = [colors[2]]
+methods = ['pseudo','RL']
+labels = ['IPI','RL']
+colors = [colors[0],colors[2]]
 
 def plot_zeros(ax,data):
     ax.plot(t,[0]*len(data),'-', linewidth=0.5, color='grey', alpha=0.5,label=None)
-
 
 '''
 Positional data
@@ -62,7 +57,7 @@ for i in range(len(methods)):
     time_astern[i] = s_a_data[1:,3:]
     time_bow[i] = bow_data[1:,4:] # lin_act_bow is in pos 3
 
-setpnt_areas = np.hstack( ([0], np.array([10, 80, 150, 190, 270, 350])+8.5 ) )
+setpnt_areas = np.hstack( ([0], np.array([10, 80, 150, 190, 270, 350]) ) ) # TODO why +8.5 was inside the original plotter
 
 '''
 ### ANGLES
@@ -311,6 +306,8 @@ if False: # BAR PLOT
     ax.set_ylabel('$W^*$ [J]')
     f.tight_layout()
 
+# plt.show()
+# sys.exit()
 
 '''
 ### Integral Absolute Derivative Commanded
@@ -380,9 +377,6 @@ for i in range(len(methods)):
         derivs[i][3].append(aprt_deriv * dt)
         derivs[i][4].append(nstr_deriv * dt)
         derivs[i][5].append(astr_deriv * dt)
-
-
-
 
 f0, ax = plt.subplots(1,1,figsize=SMALL_SQUARE,sharex = True)
 

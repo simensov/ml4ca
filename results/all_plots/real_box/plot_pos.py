@@ -261,11 +261,30 @@ refs = np.array(local_ned).T
 
 f0, ax = plt.subplots(1,1,figsize=SMALL_SQUARE,sharex = True)
 IAES = [] # cumulative errors over time
+IAES_N = [] 
+IAES_E = [] 
+IAES_Y = [] 
 times = (np.array(ref_data_averages[0][0]) - 1.0).tolist()
 for i in range(len(methods)):
-    integrals, cumsums = IAE(etas[i] / (np.array([5.,5.,25.])*1/LAMBDA), refs / (np.array([5.,5.,25.]))*1/LAMBDA, times)
+    integrals, cumsums = IAE(etas[i] / np.array([5.*1/LAMBDA,5.*1/LAMBDA,25.]), refs / np.array([5.*1/LAMBDA,5.*1/LAMBDA,25.]), times)
     IAES.append(cumsums)
+    n_vals = etas[i][:,0]
+    r_vals_n = refs[:,0]
+    e_vals = etas[i][:,1]
+    r_vals_e = refs[:,1]
+    y_vals = etas[i][:,2]
+    r_vals_y = refs[:,2]
+    
+    _, cumsums_N = IAE( n_vals.reshape(n_vals.shape[0],1) / np.array([5.*1/LAMBDA]), r_vals_n.reshape(r_vals_n.shape[0],1) / np.array([5.*1/LAMBDA]), times)
+    IAES_N.append(cumsums_N)
+    _, cumsums_E = IAE( e_vals.reshape(e_vals.shape[0],1) / np.array([5.*1/LAMBDA]), r_vals_e.reshape(r_vals_e.shape[0],1) / np.array([5.*1/LAMBDA]), times)
+    IAES_E.append(cumsums_E)
+    _, cumsums_Y = IAE( y_vals.reshape(y_vals.shape[0],1) / np.array([25]), r_vals_y.reshape(r_vals_y.shape[0],1) / np.array([25]), times)
+    IAES_Y.append(cumsums_Y)
     ax.plot(times, IAES[i], color=colors[i], label=labels[i])
+    ax.plot(times, IAES_N[i],'--', color=colors[i], label=str( labels[i] + ' North contribution' ), alpha=1.0)
+    ax.plot(times, IAES_E[i],':', color=colors[i], label=str( labels[i] + ' East contribution' ), alpha=1.0)
+    ax.plot(times, IAES_Y[i],'-.', color=colors[i], label=str( labels[i] + ' Yaw contribution' ), alpha=1.0)
 
 # Gray areas
 plot_gray_areas(ax,areas = setpoint_times)
@@ -278,7 +297,7 @@ for i in range(len(methods)):
     val = IAES[i][-1] # extract IAE at last timestep
     x_coord = setpoint_times[-1] + 0.5
     txt = '{:.2f}'.format(val)
-    moveif = {'IPI':-0.02*val, 'QP': 0.0* val, 'RL': 0.02 * val, 'RLI': 0.0 * val}
+    moveif = {'IPI':-0.00*val, 'QP': 0.0* val, 'RL': 0.00 * val, 'RLI': 0.0 * val}
     activation = 1.0
     ax.annotate(txt, (x_coord, 0.99 * val + (activation * moveif[labels[i]])),color=colors[i], weight='bold', size=9)
 

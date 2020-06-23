@@ -253,12 +253,25 @@ for axn,ax in enumerate(axes):
             activation = 1
 
         ax.annotate(txt, (x_coord, 0.97*val + (activation * moveif[labels[i]])),color=colors[i], weight='bold')
-        if axn == 3: axtest.plot(t,relevant_data,color=colors[i],label=labels[i], alpha=0.9); axtest.annotate(txt, (x_coord, val), color=colors[i], weight='bold',size=9)
+
+        if axn == 0:
+            axtest.plot(t,relevant_data, '--',color=colors[i],label=str(labels[i] + ' Bow contribution'), alpha=0.75)
+        if axn == 1:
+            axtest.plot(t,relevant_data, ':', color=colors[i],label=str(labels[i] + ' Port contribution'), alpha=0.75)
+        if axn == 2:
+            axtest.plot(t,relevant_data, '-.', color=colors[i],label=str(labels[i] + ' Starboard contribution'),  alpha=0.75)
+        if axn == 3:
+            axtest.plot(t,relevant_data,color=colors[i],label=str(labels[i] + ' Total'), alpha=1.0)
+            axtest.annotate(txt, (x_coord, val), color=colors[i], weight='bold',size=9)
     
     plot_gray_areas(ax,setpnt_areas)
 
 axes[0].legend(loc='best').set_draggable(True)
-axtest.legend(loc='best').set_draggable(True)
+handles_temp, labels_temp = axtest.get_legend_handles_labels()
+labels_temp, handles_temp = zip(*sorted(zip(labels_temp, handles_temp), key=lambda t: t[0]))
+axtest.legend(handles_temp, labels_temp,loc='best').set_draggable(True)
+# axtest.legend(loc='best').set_draggable(True)
+
 plot_gray_areas(axtest,setpnt_areas)
 f.tight_layout()
 ftest.tight_layout()
@@ -381,26 +394,45 @@ for i in range(len(methods)):
 f0, ax = plt.subplots(1,1,figsize=SMALL_SQUARE,sharex = True)
 
 IADC = [[0],[0],[0],[0]]
+IADC_n = [[0],[0],[0],[0]]
+IADC_a = [[0],[0],[0],[0]]
 IADC_cumsums = []
+IADC_n_cumsums = []
+IADC_a_cumsums = []
 
 for i in range(len(methods)):
     cumsums = [0]
+    cumsums_n = [0]
+    cumsums_a = [0]
     time_data = time_bow[i] if len(time_bow[i]) < len(time_nstern[i]) else time_nstern[i]
 
     for j in range(len(time_data)- 1):
 
         val = float(sum( [derivs[i][k][j] for k in range(6)]))
         val = np.clip(val,0,400)
-        
         IADC[i].append(val)
-        # print(val, i, time_data[j]) if val > 100.0 else None 
         cumsums.append(cumsums[j] + val)
 
+        val_n = float(sum([derivs[i][k][j] for k in [0,2,4]]))
+        val_n = np.clip(val_n,0,400)
+        IADC_n[i].append(val_n)
+        cumsums_n.append(cumsums_n[j] + val_n)
+
+        val_a = float(sum([derivs[i][k][j] for k in [1,3,5]]))
+        val_a = np.clip(val_a,0,400)
+        IADC_a[i].append(val_a)
+        cumsums_a.append(cumsums_a[j] + val_a)
+        
     IADC_cumsums.append(cumsums[:-1])
+    IADC_n_cumsums.append(cumsums_n[:-1])
+    IADC_a_cumsums.append(cumsums_a[:-1])
 
 for i in range(len(methods)):
     time_data = time_bow[i][:-1] if len(time_bow[i]) < len(time_nstern[i]) else time_nstern[i][:-1]
     ax.plot(time_data, IADC_cumsums[i], color=colors[i], label=labels[i])
+    ax.plot(time_data, IADC_a_cumsums[i], ':',color = colors[i], label=str(labels[i]+' angle contribution'),alpha=0.75)
+    ax.plot(time_data, IADC_n_cumsums[i], '--',color = colors[i], label=str(labels[i]+' RPS contribution'),alpha=0.75)
+    
 
 # Gray areas
 plot_gray_areas(ax,areas = setpnt_areas)

@@ -189,7 +189,7 @@ f.tight_layout()
 '''
 ### North and East plots
 '''
-f0, axes = plt.subplots(3,1,figsize=RECTANGLE,sharex = True)
+f0, axes = plt.subplots(3,1,figsize=SMALL_RECTANGLE,sharex = True)
 plt.xlabel('Time [s]')
 axes[0].set_ylabel('North [m]')
 axes[1].set_ylabel('East [m]')
@@ -212,6 +212,7 @@ f0.tight_layout()
 ### Integral Absolute Error : int_0^t  sqrt ( error^2 ) dt
     - compare position to reference filter
     - gather data from ref_filter/state_desired and observer/eta/ned, which are very different, so take their averages per second.
+    - TODO a mistake done during the thesis was that the NED-frame coordinates were used, while eta should have been transformed to body-frame errors first tbh
 '''
 
 ref_data_averages = [] # list of tuples: (average times [whole seconds] (dim 1,), average data values (dim 3,xsteps))
@@ -282,9 +283,9 @@ for i in range(len(methods)):
     _, cumsums_Y = IAE( y_vals.reshape(y_vals.shape[0],1) / np.array([25]), r_vals_y.reshape(r_vals_y.shape[0],1) / np.array([25]), times)
     IAES_Y.append(cumsums_Y)
     ax.plot(times, IAES[i], color=colors[i], label=labels[i])
-    ax.plot(times, IAES_N[i],'--', color=colors[i], label=str( labels[i] + ' North contribution' ), alpha=1.0)
-    ax.plot(times, IAES_E[i],':', color=colors[i], label=str( labels[i] + ' East contribution' ), alpha=1.0)
-    ax.plot(times, IAES_Y[i],'-.', color=colors[i], label=str( labels[i] + ' Yaw contribution' ), alpha=1.0)
+    ax.plot(times, IAES_N[i],'--', color=colors[i], label=str( labels[i] + ' surge contribution' ), alpha=1.0) # TODO this is wrong, as eta from NED-frame was actually used. But since ReVolt heads mainly towards North, it is approximately the same
+    ax.plot(times, IAES_E[i],':', color=colors[i], label=str( labels[i] + ' sway contribution' ), alpha=1.0)
+    ax.plot(times, IAES_Y[i],'-.', color=colors[i], label=str( labels[i] + ' yaw contribution' ), alpha=1.0)
 
 # Gray areas
 plot_gray_areas(ax,areas = setpoint_times)

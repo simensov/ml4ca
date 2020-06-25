@@ -26,6 +26,14 @@ TODO by user:
 """
 
 from __future__ import division
+
+SIMULATION = False
+INTEGRATOR = False
+NU_INPUTS = False # the model was not trained on anything else than the goals of velocities being zero. Setting this to True gives overshoots - dont use it, but keep code
+
+'''
+rosbag record /observer/eta/ned /bow_control /thrusterAllocation/pod_angle_input /thrusterAllocation/stern_thruster_setpoints /reference_filter/state_desired --duration=400 -O test.bag
+'''
 import rospy
 from std_msgs.msg import Float64
 from custom_msgs.msg import podAngle, SternThrusterSetpoints, bowControl, NorthEastHeading, diffThrottleStern
@@ -35,11 +43,6 @@ import sys # for sys.exit()
 import time
 from errorFrame import ErrorFrame, wrap_angle
 from utils import load_policy, create_publishable_messages, shutdown_handler
-
-SIMULATION = True
-INTEGRATOR = False
-NU_INPUTS = False # the model was not trained on anything else than the goals of velocities being zero. Setting this to True gives overshoots - dont use it, but keep code
-
 
 class RLTA(object):
     '''
@@ -204,10 +207,8 @@ class RLTA(object):
         # Select action
         u = self.get_action() # [n1,n2,n3,a1,a2,a3] (6,) shaped array according to ROS format
 
-        # u = [0,0,0,0,0,0] # Incase DP messages is wanted to track but no control is to be issued - used for tracking the positon over time of the vessel under environmental forces
-
         # Publish action
-        pod_angle, stern_thruster_setpoints, bow_control = create_publishable_messages(u, SIMULATION)
+        pod_angle, stern_thruster_setpoints, bow_control = create_publishable_messages(u, simulation=SIMULATION)
         self.pub_stern_angles.publish(pod_angle)
         self.pub_stern_thruster_setpoints.publish(stern_thruster_setpoints)
         self.pub_bow_control.publish(bow_control)
@@ -221,10 +222,6 @@ class RLTA(object):
     def scale_and_clip(self,action):
         bnds = np.array(self.params[self.env]['act_bnd'])
         action = np.multiply(action,bnds) # scale
-
-        if not SIMULATION:
-            action[0] *= 2.5 # Empirically found value for increasing sensitivity of bow thruster thrust due to no response at low inputs 
-        
         action = np.clip(action,-bnds,bnds) # clip
         return action
 
@@ -254,7 +251,7 @@ class RLTA(object):
 
     def get_error_states(self, step = 0.1):
         current_state = np.array(self.EF.get_pose())
-        print(['{:.3f}'.format(val) for val in current_state])
+        print(['{:.3f}'.format(val) if i <= 1 else '{:.3f}'.format(np.rad2deg(val)) for i,val in enumerate(current_state) ])
 
         if self.use_bodyframe_integrator:
             surge, sway, yaw = current_state
@@ -266,10 +263,10 @@ class RLTA(object):
             else:
                 if (time.time() - self.time_arrival) > 5.0: # If the vessel has been within the setpoint over x seconds: initiate integral effect
                     unbounded = self.integrator + step * np.multiply(np.array([0.05, 0.05, 0.05]), current_state)
-                    bnds = np.array([0.5, 1, np.pi/8])
+                    bnds = np.array([0.5, 1, np.pi/32])
                     self.integrator = np.clip(unbounded, -bnds, bnds)
             
-            print(['{:.3f}'.format(val) for val in self.integrator])
+            print(['{:.3f}'.format(val) if i <= 1 else '{:.3f}'.format(np.rad2deg(val)) for i,val in enumerate(self.integrator) ])
             return current_state + self.integrator
         else:
             self.integrator = np.zeros((3,)) # reset in case it has been turned on before

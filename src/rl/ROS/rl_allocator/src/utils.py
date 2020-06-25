@@ -85,7 +85,7 @@ def load_policy(fpath, itr='last', deterministic=False, num_hidden_layers=None):
 '''
 ### Various helpful messages
 '''
-def create_publishable_messages(u,simulation=True):
+def create_publishable_messages(u, simulation = True):
     ''' Take in an array of actions and create publishable ROS messages for all thrusters.
     :params:
         - u (ndarray): a (6,) shaped array containing [n1,n2,n3,a1,a2,a3] in percentages and degrees
@@ -103,13 +103,14 @@ def create_publishable_messages(u,simulation=True):
     stern_thruster_setpoints.star_effort = float(thruster_percentages[1])
     
     bow_control = bowControl()
+    bow_control.lin_act_bow = 2
     
     if simulation:
+        bow_control.position_bow = int(np.rad2deg(thruster_angles[2]))
         bow_control.throttle_bow = float(thruster_percentages[2])
     else:
         bow_control.position_bow = int(45) # constant at 45 percent of 270 degrees (empirically found value during testing, 2. june 2020)
-
-    bow_control.lin_act_bow = 2
+        bow_control.throttle_bow = np.clip( float(thruster_percentages[2]) * 2.5, -100.0, 100.0) # Empirically found value for increasing sensitivity of bow thruster thrust due to no response at low inputs. Clipped here to avoid too large values
 
     return pod_angle, stern_thruster_setpoints, bow_control
 

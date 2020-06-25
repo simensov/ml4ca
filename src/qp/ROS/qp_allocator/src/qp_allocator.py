@@ -22,9 +22,9 @@ import sys # for sys.exit()
 import time
 from scipy.optimize import minimize
 
+SIMULATION = False
 DEBUGGING = False
 SKEWED_BOW_THRUSTER = False
-SIMULATION = True
 
 class QPTA(object):
     '''
@@ -304,8 +304,7 @@ class QPTA(object):
             bow_control.position_bow = np.rad2deg(alpha[2,0])
             
         else:
-            val = np.clip(float(n[2,0]) * 2.5, -100.0, 100.0) # Bow throttle doesn't work at low inputs (DC Motor) ca. ???% Seems like 50%. 2.5 is empirically found OK value. Clipped here to avoid too large values
-            bow_control.throttle_bow = val
+            bow_control.throttle_bow = np.clip(float(n[2,0]) * 2.5, -100.0, 100.0) # Bow throttle doesn't work at low inputs (DC Motor) ca. ???% Seems like 50%. 2.5 is empirically found OK value. Clipped here to avoid too large values
             bow_control.position_bow = int(45) # This value was found empirically in real testing, putting the thruster at ca. 90 degrees
 
         bow_control.lin_act_bow = 2 # down == 2
